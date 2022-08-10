@@ -1,0 +1,167 @@
+
+import os
+import cv2
+import copy
+import numpy as np
+import pypose as pp
+import open3d as o3d
+from tsdf_map import TSDF_Map
+import open3d.visualization.rendering as rendering
+
+class TrajViz:
+    def __init__(self, root_path, map_name):
+        self.tsdf_map = TSDF_Map()
+        self.SetMap(root_path, map_name)
+        self.is_map = False
+        return None
+
+    def SetMap(self, root_path, map_name):
+        intrinsic_path = os.path.join(*[root_path, "depth_intrinsic.txt"])
+        self.tsdf_map.ReadTSDFMap(root_path, map_name)
+        self.SetCamera(intrinsic_path)
+        self.is_map = True
+        return
+
+    def TransformPoints(self, odom, points):
+        batch_size, num_p, _ = points.shape
+        world_ps = pp.identity_SE3(batch_size, num_p, device=points.device, requires_grad=points.requires_grad)
+        world_ps.tensor()[:, :, 0:3] = points
+        world_ps = pp.SE3(odom[:, None, :]) @ pp.SE3(world_ps)
+        return world_ps
+
+    def SetCamera(self, intrinsic_path, img_width=640, img_height=360):
+        with open(intrinsic_path) as f:
+            lines = f.readlines()
+            elems = np.fromstring(lines[0][1:-2], dtype=float, sep=', ')
+        K = np.array(elems).reshape(3, 4)
+        self.camera = o3d.camera.PinholeCameraIntrinsic(img_width, img_height, K[0,0], K[1,1], K[0,2], K[1,2])
+        return
+
+    def VizTrajectory(self, preds, waypoints, odom, goal, cost_map=True, visual_height=0.5, mesh_size=0.5):
+        # transform to map frame
+        batch_size, _, _ = waypoints.shape
+        preds_ws = self.TransformPoints(odom, preds)
+        wp_ws = self.TransformPoints(odom, waypoints)
+        goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
+        # convert to positions
+        preds_ws = preds_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
+        wp_ws = wp_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
+        goal_ws  = goal_ws.tensor()[:, 0:3].cpu().detach().numpy()
+        visual_list = []
+        if cost_map:
+            visual_list.append(self.tsdf_map.pcd_tsdf)
+        else:
+            visual_list.append(self.tsdf_map.pcd_viz)
+            visual_height = visual_height / 5.0
+        # predictions
+        preds_ws[:, :, 2] = preds_ws[:, :, 2] + visual_height
+        # visualize and trajs
+        traj_pcd = o3d.geometry.PointCloud()
+        wp_ws = wp_ws.reshape(-1, 3)
+        wp_ws[:, 2] = wp_ws[:, 2] + visual_height          
+        traj_pcd.points = o3d.utility.Vector3dVector(wp_ws)
+        traj_pcd.paint_uniform_color([0.99, 0.1, 0.1])
+        visual_list.append(traj_pcd)
+        # start and goal marks
+        mesh_sphere  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/1.5) # start points
+        small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/3.5) # start points
+        mesh_box     = o3d.geometry.TriangleMesh.create_box(mesh_size, mesh_size, mesh_size) # end points
+        # set mesh colors
+        mesh_box.paint_uniform_color([1.0, 0.64, 0.0])
+        small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+        
+        lines = []
+        points = []
+        for i in range(batch_size):
+            lines.append([2*i, 2*i+1])
+            gp = goal_ws[i, :]
+            op = odom.cpu().detach().numpy()[i, :]
+            op[2] = op[2] + visual_height
+            gp[2] = gp[2] + visual_height
+            points.append(gp[:3].tolist())
+            points.append(op[:3].tolist())
+            # add visualization
+            visual_list.append(copy.deepcopy(mesh_sphere).translate((op[0], op[1], op[2])))
+            visual_list.append(copy.deepcopy(mesh_box).translate((gp[0]-mesh_size/2.0, gp[1]-mesh_size/2.0, gp[2]-mesh_size/2.0)))
+            for j in range(preds_ws[i, :, :].shape[0]):
+                kp = preds_ws[i, j, :]
+                visual_list.append(copy.deepcopy(small_sphere).translate((kp[0], kp[1], kp[2])))
+        
+        # set line from odom to goal
+        colors = [[0.99, 0.99, 0.1] for i in range(len(lines))]
+        line_set = o3d.geometry.LineSet(o3d.utility.Vector3dVector(points), o3d.utility.Vector2iVector(lines))
+        line_set.colors = o3d.utility.Vector3dVector(colors)
+        visual_list.append(line_set)
+        o3d.visualization.draw_geometries(visual_list)
+        return
+
+    def VizImages(self, preds, waypoints, odom, goal, images, visual_height=0.4, mesh_size=0.5):
+        batch_size, _, _ = waypoints.shape
+        preds_ws = self.TransformPoints(odom, preds)
+        wp_ws = self.TransformPoints(odom, waypoints)
+        goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
+        # convert to positions
+        preds_ws = preds_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
+        wp_ws = wp_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
+        goal_ws  = goal_ws.tensor()[:, 0:3].cpu().detach().numpy()
+        # adjust height
+        preds_ws[:, :, 2] = preds_ws[:, :, 2] - visual_height
+        wp_ws[:, :, 2] = wp_ws[:, :, 2] - visual_height
+        goal_ws[:, 2] = goal_ws[:, 2] - visual_height
+
+        # set materia shader
+        mtl = o3d.visualization.rendering.MaterialRecord()
+        mtl.base_color = [1.0, 1.0, 1.0, 0.3]
+        mtl.shader = "defaultUnlit"
+        # set meshes
+        small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/20.0) # start points
+        mesh_sphere  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/5.0) # start points
+        mesh_box     = o3d.geometry.TriangleMesh.create_box(mesh_size, mesh_size, mesh_size) # end points
+        # set colors
+        small_sphere.paint_uniform_color([0.99, 0.1, 0.1])
+        mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+        mesh_box.paint_uniform_color([1.0, 0.64, 0.1])
+
+        wp_start_idx = int(waypoints.shape[1] / preds.shape[1])
+        for i in range(batch_size):
+            # add geometries
+            render = rendering.OffscreenRenderer(self.camera.width, self.camera.height)
+            render.scene.set_background([0.0, 0.0, 0.0, 1.0])  # RGBA
+            gp = goal_ws[i, :]
+            # add goal marker
+            goal_mesh = copy.deepcopy(mesh_box).translate((gp[0]-mesh_size/2.0, gp[1]-mesh_size/2.0, gp[2]-mesh_size/2.0))
+            render.scene.add_geometry("goal_mesh", goal_mesh, mtl)
+            # add predictions
+            for j in range(preds_ws[i, :, :].shape[0]):
+                kp = preds_ws[i, j, :]
+                kp_mesh = copy.deepcopy(mesh_sphere).translate((kp[0], kp[1], kp[2]))
+                render.scene.add_geometry("keypose"+str(j), kp_mesh, mtl)
+            # add trajectory
+            for k in range(wp_start_idx, wp_ws[i, :, :].shape[0]):
+                wp = wp_ws[i, k, :]
+                wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2]))
+                render.scene.add_geometry("waypoint"+str(k), wp_mesh, mtl)
+            # set cameras
+            self.CameraLookAtPose(odom[i, :], render=render)
+            # project to image
+            c_img = images[i, :, :].expand(3, -1, -1)
+            c_img = c_img.cpu().detach().numpy().transpose(1, 2, 0)
+            c_img = (c_img * 255 / np.max(c_img)).astype('uint8')
+            img_o3d = np.asarray(render.render_to_image())
+            mask = (img_o3d < 10).all(axis=2)
+            img_o3d[mask, :] = c_img[mask, :]
+            img_cv2 = cv2.cvtColor(img_o3d, cv2.COLOR_RGBA2BGRA)
+            cv2.imshow("Preview window", img_cv2)
+            cv2.waitKey()
+        return
+
+    def CameraLookAtPose(self, odom, render):
+        unit_vec = pp.identity_SE3(device=odom.device)
+        unit_vec.tensor()[0] = 1.0
+        target_pose = pp.SE3(odom) @ unit_vec
+        camera_up = [0, 0, 1]  # camera orientation
+        eye = odom[0:3].cpu().detach().numpy()
+        target = target_pose.tensor()[0:3].cpu().numpy()
+        render.scene.camera.look_at(target, eye, camera_up)
+        return
+    

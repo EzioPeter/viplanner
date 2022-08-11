@@ -7,6 +7,7 @@ import torch
 import rospy
 import rospkg
 import tf
+import numpy as np
 from sensor_msgs.msg import Joy
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
@@ -86,8 +87,12 @@ class InterestNode:
         # rospy.loginfo("Received image %s: %d"%(msg.header.frame_id, msg.header.seq))
         self.image_time = msg.header.stamp
         try:
-            frame = self.bridge.imgmsg_to_cv2(msg)
+            frame = np.array(self.bridge.imgmsg_to_cv2(msg))
+            frame[~np.isfinite(frame)] = -1.0
             frame = PIL.Image.fromarray(frame)
+            # DEBUG - Visual Image
+            # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
+            # img.show()
             frame = self.transform(frame)[None, ...]
         except CvBridgeError:
             rospy.logerr(CvBridgeError)

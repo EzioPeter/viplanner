@@ -11,7 +11,6 @@ project(dvf_planner_node)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  rospkg
   rospy
   std_msgs
   image_transport

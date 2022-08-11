@@ -1,6 +1,9 @@
+# newwork model
+model_save:             /models/plannernet.pt
+crop_size:              [360, 640]
 # images and gaol waypoint topics
 depth_topic:            /rgbd_camera/depth/image
 goal_topic:             /way_point
 path_topic:             /path
-
+# frame ids
 robot_id:               vehicle

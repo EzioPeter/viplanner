@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from ast import arg
 import os
 import PIL
 import sys
@@ -15,21 +14,19 @@ import torchvision.transforms as transforms
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 
-# rospack = rospkg.RosPack()
-# pack_path = rospack.get_path('dvf_planner_node')
-# DEBUG
-pack_path = os.getcwd()
+rospack = rospkg.RosPack()
+pack_path = rospack.get_path('dvf_planner_node')
 planner_path = os.path.join(pack_path,'dvf_planner')
 sys.path.append(pack_path)
 sys.path.append(planner_path)
 
-from rosutil import ROSArgparse
+from dvf_planner.rosutil import ROSArgparse
 from dvf_planner import trajectory
 
 class InterestNode:
-    def __init__(self, args, node_name, transform):
+    def __init__(self, args, transform):
         super(InterestNode, self).__init__()
-        self.config(args, node_name)
+        self.config(args)
         self.transform, self.bridge = transform, CvBridge()
 
         net, _ = torch.load(self.model_save)
@@ -53,19 +50,12 @@ class InterestNode:
         return
         
 
-    def config(self, args, node_name):
-        self.model_save = args.model_save
-        # get params from ROS
-        # prefix = "/" + node_name + "/"
-        # self.image_topic = rospy.get_param(prefix + "depth_topic")
-        # self.goal_topic  = rospy.get_param(prefix + "goal_topic")
-        # self.path_topic  = rospy.get_param(prefix + "path_topic")
-        # self.frame_id    = rospy.get_param(prefix + "robot_id")
-        # DEBUG 
-        self.image_topic = '/rgbd_camera/depth/image'
-        self.goal_topic  = '/way_point'
-        self.path_topic  = '/path'
-        self.frame_id    = 'vehicle'
+    def config(self, args):
+        self.model_save  = args.model_save
+        self.image_topic = args.depth_topic
+        self.goal_topic  = args.goal_topic
+        self.path_topic  = args.path_topic
+        self.frame_id    = args.robot_id
         return 
 
     def spin(self):
@@ -126,14 +116,20 @@ if __name__ == '__main__':
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
-    parser.add_argument('model-save', type=str, default=planner_path+'/models/plannernet.pt', help="read model")
-    parser.add_argument('crop-size', default=[360,640], help='image crop size')
+    parser.add_argument('model_save',   type=str, default='/models/plannernet.pt', help="read model")
+    parser.add_argument('crop_size',    default=[360,640], help='image crop size')
+    parser.add_argument('depth_topic', type=str, default='/rgbd_camera/depth/image', help='depth image ros topic')
+    parser.add_argument('goal_topic',   type=str, default='/way_point', help='goal waypoint ros topic')
+    parser.add_argument('path_topic',   type=str, default='/view_path', help='DVF Path topic')
+    parser.add_argument('robot_id',     type=str, default='vehicle', help='DVF Path topic')
+    
     args = parser.parse_args()
+    args.model_save = planner_path + args.model_save
 
     depth_transform = transforms.Compose([
         transforms.Resize(tuple(args.crop_size)),
         transforms.ToTensor()])
 
-    node = InterestNode(args, node_name, depth_transform)
+    node = InterestNode(args, depth_transform)
 
     node.spin()

@@ -88,7 +88,7 @@ class InterestNode:
         self.image_time = msg.header.stamp
         try:
             frame = np.array(self.bridge.imgmsg_to_cv2(msg))
-            frame[~np.isfinite(frame)] = -1.0
+            frame[~np.isfinite(frame)] = 0.0
             frame = PIL.Image.fromarray(frame)
             # DEBUG - Visual Image
             # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))

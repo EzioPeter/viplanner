@@ -1,5 +1,6 @@
 # images and gaol waypoint topics
 depth_topic:            /rgbd_camera/depth/image
-goal_topic:             /mp_waypoint
+goal_topic:             /way_point
+path_topic:             /path
 
 robot_id:               vehicle

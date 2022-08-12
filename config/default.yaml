@@ -1,3 +1,6 @@
+# frequency
+render_freq:            15
+
 # newwork model
 model_save:             /models/plannernet.pt
 crop_size:              [360, 640]

@@ -17,9 +17,10 @@ class TrajViz:
 
     def SetMap(self, root_path, map_name):
         intrinsic_path = os.path.join(*[root_path, "depth_intrinsic.txt"])
-        self.tsdf_map.ReadTSDFMap(root_path, map_name)
+        if not map_name == "robot":
+            self.tsdf_map.ReadTSDFMap(root_path, map_name)
+            self.is_map = True
         self.SetCamera(intrinsic_path)
-        self.is_map = True
         return
 
     def TransformPoints(self, odom, points):
@@ -39,6 +40,9 @@ class TrajViz:
 
     def VizTrajectory(self, preds, waypoints, odom, goal, cost_map=True, visual_height=0.5, mesh_size=0.5):
         # transform to map frame
+        if not self.is_map:
+            print("Cost map is missing.")
+            return
         batch_size, _, _ = waypoints.shape
         preds_ws = self.TransformPoints(odom, preds)
         wp_ws = self.TransformPoints(odom, waypoints)
@@ -95,23 +99,27 @@ class TrajViz:
         o3d.visualization.draw_geometries(visual_list)
         return
 
-    def VizImages(self, preds, waypoints, odom, goal, images, visual_height=0.4, mesh_size=0.5):
+    def VizImages(self, preds, waypoints, odom, goal, images, visual_offset=0.35, mesh_size=0.3, is_shown=True):
         batch_size, _, _ = waypoints.shape
         preds_ws = self.TransformPoints(odom, preds)
         wp_ws = self.TransformPoints(odom, waypoints)
+        if goal.shape[-1] != 7:
+            pp_goal = pp.identity_SE3(batch_size, device=goal.device, requires_grad=goal.requires_grad)
+            pp_goal.tensor()[..., 0:3] = goal
+            goal = pp_goal
         goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
         # convert to positions
         preds_ws = preds_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
         wp_ws = wp_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
         goal_ws  = goal_ws.tensor()[:, 0:3].cpu().detach().numpy()
         # adjust height
-        preds_ws[:, :, 2] = preds_ws[:, :, 2] - visual_height
-        wp_ws[:, :, 2] = wp_ws[:, :, 2] - visual_height
-        goal_ws[:, 2] = goal_ws[:, 2] - visual_height
+        preds_ws[:, :, 2] = preds_ws[:, :, 2] - visual_offset
+        wp_ws[:, :, 2] = wp_ws[:, :, 2] - visual_offset
+        goal_ws[:, 2] = goal_ws[:, 2] - visual_offset
 
         # set materia shader
         mtl = o3d.visualization.rendering.MaterialRecord()
-        mtl.base_color = [1.0, 1.0, 1.0, 0.3]
+        mtl.base_color = [1.0, 1.0, 1.0, 0.5]
         mtl.shader = "defaultUnlit"
         # set meshes
         small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/20.0) # start points
@@ -122,7 +130,10 @@ class TrajViz:
         mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])
         mesh_box.paint_uniform_color([1.0, 0.64, 0.1])
 
-        wp_start_idx = int(waypoints.shape[1] / preds.shape[1])
+        # wp_start_idx = int(waypoints.shape[1] / preds.shape[1])
+        wp_start_idx = 1
+        cv_img_list = []
+
         for i in range(batch_size):
             # add geometries
             render = rendering.OffscreenRenderer(self.camera.width, self.camera.height)
@@ -137,7 +148,7 @@ class TrajViz:
                 kp_mesh = copy.deepcopy(mesh_sphere).translate((kp[0], kp[1], kp[2]))
                 render.scene.add_geometry("keypose"+str(j), kp_mesh, mtl)
             # add trajectory
-            for k in range(wp_start_idx, wp_ws[i, :, :].shape[0]):
+            for k in range(1, wp_ws[i, :, :].shape[0]):
                 wp = wp_ws[i, k, :]
                 wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2]))
                 render.scene.add_geometry("waypoint"+str(k), wp_mesh, mtl)
@@ -149,11 +160,18 @@ class TrajViz:
             c_img = (c_img * 255 / np.max(c_img)).astype('uint8')
             img_o3d = np.asarray(render.render_to_image())
             mask = (img_o3d < 10).all(axis=2)
+            # DEBUG
+            # if (mask.all()):
+            #     print("DEBUG Error: all pixel number less than 10, max number:")
+            #     print(odom)
             img_o3d[mask, :] = c_img[mask, :]
             img_cv2 = cv2.cvtColor(img_o3d, cv2.COLOR_RGBA2BGRA)
-            cv2.imshow("Preview window", img_cv2)
-            cv2.waitKey()
-        return
+            cv_img_list.append(img_cv2)
+            # visualize image
+            if is_shown: 
+                cv2.imshow("Preview window", img_cv2)
+                cv2.waitKey()
+        return cv_img_list
 
     def CameraLookAtPose(self, odom, render):
         unit_vec = pp.identity_SE3(device=odom.device)

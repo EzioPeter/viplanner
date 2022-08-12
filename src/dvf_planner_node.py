@@ -23,6 +23,7 @@ sys.path.append(planner_path)
 
 from dvf_planner.rosutil import ROSArgparse
 from dvf_planner import trajectory
+from dvf_planner import visualizer
 
 class InterestNode:
     def __init__(self, args, transform):
@@ -33,9 +34,14 @@ class InterestNode:
         net, _ = torch.load(self.model_save)
         self.net = net.cuda() if torch.cuda.is_available() else net
 
-        self.image_time = rospy.get_rostime()
         self.traj_generate = trajectory.TrajOpt()
+        self.visualizer = visualizer.TrajViz(os.path.join(*[planner_path, 'data', "robot"]), "robot")
+
+        self.image_time = rospy.get_rostime()
         self.is_goal_init = False
+        self.ready_for_visual = False
+        
+        self.traj_generate = trajectory.TrajOpt()
         
         rospy.Subscriber(self.image_topic, Image, self.imageCallback)
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
@@ -52,6 +58,7 @@ class InterestNode:
         
 
     def config(self, args):
+        self.render_freq = args.render_freq
         self.model_save  = args.model_save
         self.image_topic = args.depth_topic
         self.goal_topic  = args.goal_topic
@@ -60,12 +67,17 @@ class InterestNode:
         return 
 
     def spin(self):
+        r = rospy.Rate(self.render_freq)
+        while not rospy.is_shutdown():
+            if self.ready_for_visual:
+                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.frame)
+            r.sleep()
         rospy.spin()
 
-    def pubPath(self, waypoint):
+    def pubPath(self, waypoints):
         path = Path()
-        waypoint = waypoint.squeeze(0)
-        for p in waypoint:
+        waypoints = waypoints.squeeze(0)
+        for p in waypoints:
             pose = PoseStamped()
             pose.pose.position.x = p[0]
             pose.pose.position.y = p[1]
@@ -75,6 +87,12 @@ class InterestNode:
         path.header.frame_id = self.frame_id
         path.header.stamp = self.image_time
         self.path_pub.publish(path)
+        return
+
+    def pubRenderImage(self, preds, waypoints, odom, goal, image):
+        cv_image = self.visualizer.VizImages(preds, waypoints, odom, goal, image, is_shown=False)[0]
+        cv_ros = self.bridge.cv2_to_imgmsg(cv_image, encoding="passthrough")
+        self.frame_pub.publish(cv_ros)
         return
 
     def goalCallback(self, msg):
@@ -102,18 +120,24 @@ class InterestNode:
                 p_in_vehicle.header.stamp = rospy.Time(0)
                 try:
                     p_in_vehicle = self.tf_listener.transformPoint(self.frame_id, p_in_vehicle)
+                    (odom, ori) = self.tf_listener.lookupTransform('map', self.frame_id, rospy.Time(0))
+                    odom.extend(ori)
                 except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     rospy.logerr("Fail to transfer the goal into vehicle frame.")
                     return
-                p_in_vehicle = torch.tensor([p_in_vehicle.point.x, p_in_vehicle.point.y, p_in_vehicle.point.z], dtype=torch.float32)
+                p_in_vehicle = torch.tensor([p_in_vehicle.point.x, p_in_vehicle.point.y, p_in_vehicle.point.z], dtype=torch.float32)[None, ...]
             else:
                 return
-            frame = frame.cuda() if torch.cuda.is_available() else frame
-            goal  = p_in_vehicle.cuda() if torch.cuda.is_available() else p_in_vehicle
+            odom = torch.tensor(odom, dtype=torch.float32)[None, :]
+            self.odom  = odom.cuda() if torch.cuda.is_available() else odom
+            self.frame = frame.cuda() if torch.cuda.is_available() else frame
+            self.goal  = p_in_vehicle.cuda() if torch.cuda.is_available() else p_in_vehicle
             with torch.no_grad():
-                preds = self.net(frame, goal[None, ...])
-                waypoint = self.traj_generate.TrajGeneratorFromPFreeRot(preds)
-            self.pubPath(waypoint)
+                self.preds = self.net(self.frame, self.goal)
+                self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds)
+            self.pubPath(self.waypoints)
+            self.ready_for_visual = True
+        return
 
 if __name__ == '__main__':
 
@@ -121,9 +145,10 @@ if __name__ == '__main__':
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
+    parser.add_argument('render_freq',   type=int, default=5, help="frequence for path image rendering")
     parser.add_argument('model_save',   type=str, default='/models/plannernet.pt', help="read model")
     parser.add_argument('crop_size',    default=[360,640], help='image crop size')
-    parser.add_argument('depth_topic', type=str, default='/rgbd_camera/depth/image', help='depth image ros topic')
+    parser.add_argument('depth_topic',  type=str, default='/rgbd_camera/depth/image', help='depth image ros topic')
     parser.add_argument('goal_topic',   type=str, default='/way_point', help='goal waypoint ros topic')
     parser.add_argument('path_topic',   type=str, default='/view_path', help='DVF Path topic')
     parser.add_argument('robot_id',     type=str, default='vehicle', help='DVF Path topic')

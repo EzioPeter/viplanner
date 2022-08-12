@@ -1,4 +1,5 @@
-# frequency
+# visualization
+is_visual:              True
 render_freq:            15
 
 # newwork model

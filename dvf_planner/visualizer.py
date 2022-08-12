@@ -104,9 +104,9 @@ class TrajViz:
         preds_ws = self.TransformPoints(odom, preds)
         wp_ws = self.TransformPoints(odom, waypoints)
         if goal.shape[-1] != 7:
-            pp_goal = pp.identity_SE3(batch_size, device=goal.device, requires_grad=goal.requires_grad)
-            pp_goal.tensor()[..., 0:3] = goal
-            goal = pp_goal
+            pp_goal = pp.identity_SE3(batch_size, device=goal.device)
+            pp_goal.tensor()[:, 0:3] = goal
+            goal = pp_goal.tensor()
         goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
         # convert to positions
         preds_ws = preds_ws.tensor()[:, :, 0:3].cpu().detach().numpy()
@@ -119,7 +119,7 @@ class TrajViz:
 
         # set materia shader
         mtl = o3d.visualization.rendering.MaterialRecord()
-        mtl.base_color = [1.0, 1.0, 1.0, 0.5]
+        mtl.base_color = [1.0, 1.0, 1.0, 0.3]
         mtl.shader = "defaultUnlit"
         # set meshes
         small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/20.0) # start points
@@ -163,7 +163,6 @@ class TrajViz:
             # DEBUG
             # if (mask.all()):
             #     print("DEBUG Error: all pixel number less than 10, max number:")
-            #     print(odom)
             img_o3d[mask, :] = c_img[mask, :]
             img_cv2 = cv2.cvtColor(img_o3d, cv2.COLOR_RGBA2BGRA)
             cv_img_list.append(img_cv2)
@@ -171,6 +170,7 @@ class TrajViz:
             if is_shown: 
                 cv2.imshow("Preview window", img_cv2)
                 cv2.waitKey()
+            del render
         return cv_img_list
 
     def CameraLookAtPose(self, odom, render):

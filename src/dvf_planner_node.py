@@ -58,6 +58,7 @@ class InterestNode:
         
 
     def config(self, args):
+        self.is_visual   = args.is_visual
         self.render_freq = args.render_freq
         self.model_save  = args.model_save
         self.image_topic = args.depth_topic
@@ -69,7 +70,7 @@ class InterestNode:
     def spin(self):
         r = rospy.Rate(self.render_freq)
         while not rospy.is_shutdown():
-            if self.ready_for_visual:
+            if self.is_visual and self.ready_for_visual:
                 self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.frame)
             r.sleep()
         rospy.spin()
@@ -128,10 +129,14 @@ class InterestNode:
                 p_in_vehicle = torch.tensor([p_in_vehicle.point.x, p_in_vehicle.point.y, p_in_vehicle.point.z], dtype=torch.float32)[None, ...]
             else:
                 return
-            odom = torch.tensor(odom, dtype=torch.float32)[None, :]
-            self.odom  = odom.cuda() if torch.cuda.is_available() else odom
-            self.frame = frame.cuda() if torch.cuda.is_available() else frame
-            self.goal  = p_in_vehicle.cuda() if torch.cuda.is_available() else p_in_vehicle
+            odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
+            if torch.cuda.is_available():
+                self.odom  = odom.cuda()
+                self.frame = frame.cuda()
+                self.goal  = p_in_vehicle.cuda()
+            else:
+                self.odom  = odom, self.frame = frame, self.goal  = p_in_vehicle
+            
             with torch.no_grad():
                 self.preds = self.net(self.frame, self.goal)
                 self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds)
@@ -145,13 +150,14 @@ if __name__ == '__main__':
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
-    parser.add_argument('render_freq',   type=int, default=5, help="frequence for path image rendering")
-    parser.add_argument('model_save',   type=str, default='/models/plannernet.pt', help="read model")
-    parser.add_argument('crop_size',    default=[360,640], help='image crop size')
-    parser.add_argument('depth_topic',  type=str, default='/rgbd_camera/depth/image', help='depth image ros topic')
-    parser.add_argument('goal_topic',   type=str, default='/way_point', help='goal waypoint ros topic')
-    parser.add_argument('path_topic',   type=str, default='/view_path', help='DVF Path topic')
-    parser.add_argument('robot_id',     type=str, default='vehicle', help='DVF Path topic')
+    parser.add_argument('is_visual',    type=bool,  default=True,                          help="frequence for path image rendering")
+    parser.add_argument('render_freq',  type=int,   default=5,                          help="frequence for path image rendering")
+    parser.add_argument('model_save',   type=str,   default='/models/plannernet.pt',    help="read model")
+    parser.add_argument('crop_size',    type=tuple, default=[360,640],                  help='image crop size')
+    parser.add_argument('depth_topic',  type=str,   default='/rgbd_camera/depth/image', help='depth image ros topic')
+    parser.add_argument('goal_topic',   type=str,   default='/way_point',               help='goal waypoint ros topic')
+    parser.add_argument('path_topic',   type=str,   default='/path',                    help='DVF Path topic')
+    parser.add_argument('robot_id',     type=str,   default='vehicle',                  help='DVF Path topic')
     
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save

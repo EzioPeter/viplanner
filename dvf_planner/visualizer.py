@@ -130,14 +130,16 @@ class TrajViz:
         mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])
         mesh_box.paint_uniform_color([1.0, 0.64, 0.1])
 
+        # init open3D render
+        render = rendering.OffscreenRenderer(self.camera.width, self.camera.height)
+        render.scene.set_background([0.0, 0.0, 0.0, 1.0])  # RGBA
+
         # wp_start_idx = int(waypoints.shape[1] / preds.shape[1])
         wp_start_idx = 1
         cv_img_list = []
 
         for i in range(batch_size):
             # add geometries
-            render = rendering.OffscreenRenderer(self.camera.width, self.camera.height)
-            render.scene.set_background([0.0, 0.0, 0.0, 1.0])  # RGBA
             gp = goal_ws[i, :]
             # add goal marker
             goal_mesh = copy.deepcopy(mesh_box).translate((gp[0]-mesh_size/2.0, gp[1]-mesh_size/2.0, gp[2]-mesh_size/2.0))
@@ -148,21 +150,19 @@ class TrajViz:
                 kp_mesh = copy.deepcopy(mesh_sphere).translate((kp[0], kp[1], kp[2]))
                 render.scene.add_geometry("keypose"+str(j), kp_mesh, mtl)
             # add trajectory
-            for k in range(1, wp_ws[i, :, :].shape[0]):
+            for k in range(wp_start_idx, wp_ws[i, :, :].shape[0]):
                 wp = wp_ws[i, k, :]
                 wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2]))
                 render.scene.add_geometry("waypoint"+str(k), wp_mesh, mtl)
             # set cameras
-            self.CameraLookAtPose(odom[i, :], render=render)
+            self.CameraLookAtPose(odom[i, :], render)
             # project to image
+            img_o3d = np.asarray(render.render_to_image())
+            mask = (img_o3d < 10).all(axis=2)
+            # Attach image
             c_img = images[i, :, :].expand(3, -1, -1)
             c_img = c_img.cpu().detach().numpy().transpose(1, 2, 0)
             c_img = (c_img * 255 / np.max(c_img)).astype('uint8')
-            img_o3d = np.asarray(render.render_to_image())
-            mask = (img_o3d < 10).all(axis=2)
-            # DEBUG
-            # if (mask.all()):
-            #     print("DEBUG Error: all pixel number less than 10, max number:")
             img_o3d[mask, :] = c_img[mask, :]
             img_cv2 = cv2.cvtColor(img_o3d, cv2.COLOR_RGBA2BGRA)
             cv_img_list.append(img_cv2)
@@ -170,7 +170,9 @@ class TrajViz:
             if is_shown: 
                 cv2.imshow("Preview window", img_cv2)
                 cv2.waitKey()
-            del render
+
+            # clear render geometry
+            render.scene.clear_geometry()        
         return cv_img_list
 
     def CameraLookAtPose(self, odom, render):
@@ -179,7 +181,7 @@ class TrajViz:
         target_pose = pp.SE3(odom) @ unit_vec
         camera_up = [0, 0, 1]  # camera orientation
         eye = odom[0:3].cpu().detach().numpy()
-        target = target_pose.tensor()[0:3].cpu().numpy()
+        target = target_pose.tensor()[0:3].cpu().detach().numpy()
         render.scene.camera.look_at(target, eye, camera_up)
         return
     

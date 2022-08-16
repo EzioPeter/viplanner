@@ -11,3 +11,5 @@ goal_topic:             /way_point
 path_topic:             /path
 # frame ids
 robot_id:               vehicle
+# camera settings
+camera_tilt:            0.3

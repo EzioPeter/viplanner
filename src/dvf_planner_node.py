@@ -35,7 +35,7 @@ class InterestNode:
         self.net = net.cuda() if torch.cuda.is_available() else net
 
         self.traj_generate = trajectory.TrajOpt()
-        self.visualizer = visualizer.TrajViz(os.path.join(*[planner_path, 'data', "robot"]), "robot")
+        self.visualizer = visualizer.TrajViz(os.path.join(*[planner_path, 'data', "robot"]), "robot", cameraTilt=self.camera_tilt)
 
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
@@ -65,6 +65,7 @@ class InterestNode:
         self.goal_topic  = args.goal_topic
         self.path_topic  = args.path_topic
         self.frame_id    = args.robot_id
+        self.camera_tilt = args.camera_tilt
         return 
 
     def spin(self):
@@ -150,15 +151,16 @@ if __name__ == '__main__':
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
-    parser.add_argument('is_visual',    type=bool,  default=True,                          help="frequence for path image rendering")
+    parser.add_argument('is_visual',    type=bool,  default=True,                       help="image render visualization flag")
     parser.add_argument('render_freq',  type=int,   default=5,                          help="frequence for path image rendering")
     parser.add_argument('model_save',   type=str,   default='/models/plannernet.pt',    help="read model")
     parser.add_argument('crop_size',    type=tuple, default=[360,640],                  help='image crop size')
     parser.add_argument('depth_topic',  type=str,   default='/rgbd_camera/depth/image', help='depth image ros topic')
     parser.add_argument('goal_topic',   type=str,   default='/way_point',               help='goal waypoint ros topic')
     parser.add_argument('path_topic',   type=str,   default='/path',                    help='DVF Path topic')
-    parser.add_argument('robot_id',     type=str,   default='vehicle',                  help='DVF Path topic')
-    
+    parser.add_argument('robot_id',     type=str,   default='vehicle',                  help='robot TF frame id')
+    parser.add_argument('camera_tilt',  type=float, default=0.0,                        help='camera tilt angle')
+
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save
 

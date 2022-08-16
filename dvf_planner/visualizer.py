@@ -1,7 +1,9 @@
 
 import os
+import tf
 import cv2
 import copy
+import torch
 import numpy as np
 import pypose as pp
 import open3d as o3d
@@ -9,14 +11,15 @@ from tsdf_map import TSDF_Map
 import open3d.visualization.rendering as rendering
 
 class TrajViz:
-    def __init__(self, root_path, map_name):
+    def __init__(self, root_path, map_name, cameraTilt=0.3):
         self.tsdf_map = TSDF_Map()
         self.SetMap(root_path, map_name)
-        self.is_map = False
+        self.camera_tilt = cameraTilt
         return None
 
     def SetMap(self, root_path, map_name):
         intrinsic_path = os.path.join(*[root_path, "depth_intrinsic.txt"])
+        self.is_map = False
         if not map_name == "robot":
             self.tsdf_map.ReadTSDFMap(root_path, map_name)
             self.is_map = True
@@ -155,7 +158,7 @@ class TrajViz:
                 wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2]))
                 render.scene.add_geometry("waypoint"+str(k), wp_mesh, mtl)
             # set cameras
-            self.CameraLookAtPose(odom[i, :], render)
+            self.CameraLookAtPose(odom[i, :], render, self.camera_tilt)
             # project to image
             img_o3d = np.asarray(render.render_to_image())
             mask = (img_o3d < 10).all(axis=2)
@@ -175,10 +178,13 @@ class TrajViz:
             render.scene.clear_geometry()        
         return cv_img_list
 
-    def CameraLookAtPose(self, odom, render):
+    def CameraLookAtPose(self, odom, render, tilt):
         unit_vec = pp.identity_SE3(device=odom.device)
         unit_vec.tensor()[0] = 1.0
-        target_pose = pp.SE3(odom) @ unit_vec
+        tilt_vec = [0, 0, 0]
+        tilt_vec.extend(list(tf.transformations.quaternion_from_euler(0.0, tilt, 0.0)))
+        tilt_vec = torch.tensor(tilt_vec, device=odom.device, dtype=odom.dtype)
+        target_pose = pp.SE3(odom) @ pp.SE3(tilt_vec) @ unit_vec
         camera_up = [0, 0, 1]  # camera orientation
         eye = odom[0:3].cpu().detach().numpy()
         target = target_pose.tensor()[0:3].cpu().detach().numpy()

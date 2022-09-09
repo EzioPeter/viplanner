@@ -17,7 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   message_generation
-  cv_bridge
 )
 
 
@@ -63,11 +62,10 @@ catkin_package(
  roscpp 
  rospy 
  std_msgs 
- geometry_msgs 
- cv_bridge
+ geometry_msgs
 #  DEPENDS system_lib
 )
 
-catkin_install_python(PROGRAMS src/dvf_planner_node.py
+catkin_install_python(PROGRAMS src/dvf_planner_node.py src/dvf_planner_viz.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

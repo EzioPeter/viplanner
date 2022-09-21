@@ -1,6 +1,7 @@
 
 import os
 import tf
+import cv2
 import copy
 import torch
 import numpy as np
@@ -35,7 +36,7 @@ class TrajViz:
         self.camera = o3d.camera.PinholeCameraIntrinsic(img_width, img_height, K[0,0], K[1,1], K[0,2], K[1,2])
         return
 
-    def VizImages(self, preds, waypoints, odom, goal, images, visual_offset=0.35, mesh_size=0.3):
+    def VizImages(self, preds, waypoints, odom, goal, fear, images, visual_offset=0.35, mesh_size=0.3):
         batch_size, _, _ = waypoints.shape
         preds_ws = self.TransformPoints(odom, preds)
         wp_ws = self.TransformPoints(odom, waypoints)
@@ -58,12 +59,14 @@ class TrajViz:
         mtl.base_color = [1.0, 1.0, 1.0, 0.3]
         mtl.shader = "defaultUnlit"
         # set meshes
-        small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/20.0) # start points
-        mesh_sphere  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/5.0) # start points
+        small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/20.0) # trajectory points
+        mesh_sphere       = o3d.geometry.TriangleMesh.create_sphere(mesh_size/5.0) # successful predict points
+        mesh_sphere_fear  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/5.0) # unsuccessful predict points
         mesh_box     = o3d.geometry.TriangleMesh.create_box(mesh_size, mesh_size, mesh_size) # end points
         # set colors
-        small_sphere.paint_uniform_color([0.99, 0.1, 0.1])
+        small_sphere.paint_uniform_color([0.99, 0.2, 0.1]) # green
         mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+        mesh_sphere_fear.paint_uniform_color([1.0, 0.64, 0.0])
         mesh_box.paint_uniform_color([1.0, 0.64, 0.1])
 
         # init open3D render
@@ -83,7 +86,10 @@ class TrajViz:
             # add predictions
             for j in range(preds_ws[i, :, :].shape[0]):
                 kp = preds_ws[i, j, :]
-                kp_mesh = copy.deepcopy(mesh_sphere).translate((kp[0], kp[1], kp[2]))
+                if fear[i, :] > 0.5:
+                    kp_mesh = copy.deepcopy(mesh_sphere_fear).translate((kp[0], kp[1], kp[2]))
+                else:
+                    kp_mesh = copy.deepcopy(mesh_sphere).translate((kp[0], kp[1], kp[2]))
                 render.scene.add_geometry("keypose"+str(j), kp_mesh, mtl)
             # add trajectory
             for k in range(wp_start_idx, wp_ws[i, :, :].shape[0]):

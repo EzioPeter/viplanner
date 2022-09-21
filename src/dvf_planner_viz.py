@@ -69,7 +69,7 @@ class InterestNode:
             if self.ready_for_planning:
                 # main planning starts
                 with torch.no_grad():
-                    self.preds = self.net(self.img, self.goal)
+                    self.preds, self.fear = self.net(self.img, self.goal)
                     self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds)
                 # check goal less than converage range
                 goal_np = self.goal[0, :].cpu().detach().numpy()
@@ -79,7 +79,9 @@ class InterestNode:
                     rospy.loginfo("Goal Arrived")
                 self.pubPath(self.waypoints, self.is_goal_init)
                 # visualize image
-                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.img)
+                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.fear, self.img)
+                if self.fear[0,0] > 0.5: # DEBUG
+                    rospy.logerr("current path is invaild.")
             r.sleep()
         rospy.spin()
 
@@ -105,8 +107,8 @@ class InterestNode:
         self.is_goal_init = True
         return
 
-    def pubRenderImage(self, preds, waypoints, odom, goal, image):
-        image = self.traj_viz.VizImages(preds, waypoints, odom, goal, image)[0]
+    def pubRenderImage(self, preds, waypoints, odom, goal, fear, image):
+        image = self.traj_viz.VizImages(preds, waypoints, odom, goal, fear, image)[0]
         ros_img = ros_numpy.msgify(Image, image, encoding='rgb8')
         self.img_pub.publish(ros_img)
         return None

@@ -136,7 +136,6 @@ class InterestNode:
             p_in_vehicle = torch.tensor([p_in_vehicle.point.x, p_in_vehicle.point.y, p_in_vehicle.point.z], dtype=torch.float32)[None, ...]
         else:
             return
-        self.is_goal_processed = True
         odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
         if torch.cuda.is_available():
             self.odom  = odom.cuda()
@@ -145,6 +144,7 @@ class InterestNode:
         else:
             self.odom  = odom, self.im = img, self.goal = p_in_vehicle
         self.ready_for_planning = True
+        self.is_goal_processed = True
         return
 
 if __name__ == '__main__':

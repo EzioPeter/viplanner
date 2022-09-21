@@ -1,10 +1,5 @@
 <launch>
     <arg name="config"/>
-    <arg name="odomTopic" default="/state_estimator/pose_in_odom"/>
-    <arg name="commandTopic" default="/local_guidance_path_follower/twist"/>
-    <arg name="trackingDis" default="0.5"/>
-    <arg name="sensorOffsetX" default="0"/>
-    <arg name="sensorOffsetY" default="0"/>
 
    <include file="$(find path_follower)/launch/path_follower.launch" />
 

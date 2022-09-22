@@ -6,6 +6,7 @@ import torch
 import rospy
 import rospkg
 import tf
+import copy
 import numpy as np
 from sensor_msgs.msg import Image
 import torchvision.transforms as transforms
@@ -38,12 +39,16 @@ class InterestNode:
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
         self.ready_for_planning = False
+
+        self.fear_buffter = 0
+        self.is_fear_reaction = False
         
         rospy.Subscriber(self.depth_topic, Image, self.imageCallback)
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
 
         self.img_pub = rospy.Publisher(self.image_topic, Image, queue_size=10)
         self.path_pub  = rospy.Publisher(self.path_topic, Path, queue_size=10)
+        self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", Path, queue_size=10)
 
         self.tf_listener = tf.TransformListener()
         rospy.loginfo("DVF Planner Ready.")
@@ -61,6 +66,9 @@ class InterestNode:
         self.uint_type   = args.uint_type
         self.image_flip  = args.image_flip
         self.conv_dist   = args.conv_dist  
+        # fear reaction
+        self.buffer_size = args.buffer_size
+        self.sensor_view = args.sensor_view
         return 
 
     def spin(self):
@@ -77,16 +85,18 @@ class InterestNode:
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     rospy.loginfo("Goal Arrived")
+                self.fearPathDetection(goal_np, self.fear)
                 self.pubPath(self.waypoints, self.is_goal_init)
                 # visualize image
                 self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.fear, self.img)
-                if self.fear[0,0] > 0.5: # DEBUG
-                    rospy.logerr("current path is invaild.")
+                if self.fear > 0.5: # DEBUG
+                    rospy.logwarn("current path is invaild.")
             r.sleep()
         rospy.spin()
 
     def pubPath(self, waypoints, is_goal_init=True):
         path = Path()
+        fear_path = Path()
         if is_goal_init:
             waypoints = waypoints.squeeze(0)
             for p in waypoints:
@@ -96,15 +106,38 @@ class InterestNode:
                 pose.pose.position.z = p[2]
                 path.poses.append(pose)
         # add header
-        path.header.frame_id = self.frame_id
-        path.header.stamp = self.image_time
+        path.header.frame_id = fear_path.header.frame_id = self.frame_id
+        path.header.stamp = fear_path.header.stamp = self.image_time
+        # publish fear path
+        if self.is_fear_reaction:
+            fear_path.poses = copy.deepcopy(path.poses)
+            path.poses = path.poses[:1]
+        # publish path
+        self.fear_path_pub.publish(fear_path)
         self.path_pub.publish(path)
         return
+
+    def fearPathDetection(self, goal, fear):
+        if fear > 0.5 and abs(goal[1]/goal[0]) < self.sensor_view:
+            if not self.is_fear_reaction:
+                self.fear_buffter = self.fear_buffter + 1
+        else:
+            if self.is_fear_reaction:
+                self.fear_buffter = self.fear_buffter - 1
+        if self.fear_buffter > self.buffer_size:
+            self.is_fear_reaction = True
+        elif self.fear_buffter <= 0:
+            self.is_fear_reaction = False
+        return None
+        
 
     def goalCallback(self, msg):
         rospy.loginfo("Recevied a new goal")
         self.goal_pose = msg
         self.is_goal_init = True
+        # reset fear reaction
+        self.fear_buffter = 0
+        self.is_fear_reaction = False
         return
 
     def pubRenderImage(self, preds, waypoints, odom, goal, fear, image):
@@ -169,6 +202,8 @@ if __name__ == '__main__':
     parser.add_argument('is_sim',        type=bool,  default=False,                      help='is in simulation setting')
     parser.add_argument('image_flip',    type=bool,  default=True,                       help='is the image fliped')
     parser.add_argument('conv_dist',     type=float, default=0.5,                        help='converge range to the goal')
+    parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
+    parser.add_argument('sensor_view',   type=float, default=1.0,                        help='tangent value of half view range')
 
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save

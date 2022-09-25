@@ -37,12 +37,12 @@ class TrajOpt:
         self.cs_interp = CubicSplineTorch()
         return None
 
-    def TrajGeneratorFromPFreeRot(self, preds, steps=0.1): 
+    def TrajGeneratorFromPFreeRot(self, preds, step): 
         # Points is in se3
         batch_size, num_p, dims = preds.shape
         points_preds = torch.cat((torch.zeros(batch_size, 1, dims, device=preds.device, requires_grad=preds.requires_grad), preds), axis=1)
         num_p = num_p + 1
-        xs = torch.arange(0, num_p-1+steps, steps, device=preds.device)
+        xs = torch.arange(0, num_p-1+step, step, device=preds.device)
         xs = xs.repeat(batch_size, 1)
         x  = torch.arange(num_p, device=preds.device, dtype=preds.dtype)
         x  = x.repeat(batch_size, 1)

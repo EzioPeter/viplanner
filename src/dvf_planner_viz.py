@@ -78,7 +78,7 @@ class InterestNode:
                 # main planning starts
                 with torch.no_grad():
                     self.preds, self.fear = self.net(self.img, self.goal)
-                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds)
+                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds, step=0.05)
                 # check goal less than converage range
                 goal_np = self.goal[0, :].cpu().detach().numpy()
                 if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist):
@@ -118,7 +118,7 @@ class InterestNode:
         return
 
     def fearPathDetection(self, goal, fear):
-        if fear > 0.5 and abs(goal[1]/goal[0]) < self.sensor_view:
+        if fear > 0.5 and goal[0] > 0.0 and abs(goal[1]/goal[0]) < self.sensor_view:
             if not self.is_fear_reaction:
                 self.fear_buffter = self.fear_buffter + 1
         else:

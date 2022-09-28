@@ -40,6 +40,7 @@ class InterestNode:
         self.is_goal_init = False
         self.ready_for_planning = False
 
+        # fear reaction
         self.fear_buffter = 0
         self.is_fear_reaction = False
         
@@ -78,7 +79,7 @@ class InterestNode:
                 # main planning starts
                 with torch.no_grad():
                     self.preds, self.fear = self.net(self.img, self.goal)
-                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds, step=0.05)
+                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds, step=0.1)
                 # check goal less than converage range
                 goal_np = self.goal[0, :].cpu().detach().numpy()
                 if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist):

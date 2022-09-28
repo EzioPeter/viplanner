@@ -6,6 +6,7 @@ import torch
 import rospy
 import rospkg
 import tf
+import copy
 import time
 from std_msgs.msg import Float32
 import numpy as np
@@ -38,6 +39,12 @@ class InterestNode:
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
         self.ready_for_planning = False
+
+        # fear reaction
+        self.fear_buffter = 0
+        self.is_fear_reaction = False
+
+        # process time
         self.is_goal_processed = False
         self.timer_data = Float32()
         
@@ -47,6 +54,8 @@ class InterestNode:
         timer_topic = '/dvf_timer'
         self.timer_pub = rospy.Publisher(timer_topic, Float32, queue_size=10)
         self.path_pub  = rospy.Publisher(self.path_topic, Path, queue_size=10)
+        self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", Path, queue_size=10)
+
         self.tf_listener = tf.TransformListener()
         rospy.loginfo("DVF Planner Ready.")
         
@@ -61,7 +70,10 @@ class InterestNode:
         self.world_id    = args.world_id
         self.uint_type   = args.uint_type
         self.image_flip  = args.image_flip
-        self.conv_dist   = args.conv_dist  
+        self.conv_dist   = args.conv_dist
+        # fear reaction
+        self.buffer_size = args.buffer_size
+        self.sensor_view = args.sensor_view
         return 
 
     def spin(self):
@@ -71,8 +83,8 @@ class InterestNode:
                 # main planning starts
                 start = time.time()
                 with torch.no_grad():
-                    self.preds = self.net(self.img, self.goal)
-                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds)
+                    self.preds, self.fear = self.net(self.img, self.goal)
+                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds, step=0.1)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
@@ -82,12 +94,16 @@ class InterestNode:
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     rospy.loginfo("Goal Arrived")
+                self.fearPathDetection(goal_np, self.fear)
                 self.pubPath(self.waypoints, self.is_goal_init)
+                if self.fear > 0.5: # DEBUG
+                    rospy.logwarn("current path is invaild.")
             r.sleep()
         rospy.spin()
 
     def pubPath(self, waypoints, is_goal_init=True):
         path = Path()
+        fear_path = Path()
         if is_goal_init:
             waypoints = waypoints.squeeze(0)
             for p in waypoints:
@@ -97,16 +113,38 @@ class InterestNode:
                 pose.pose.position.z = p[2]
                 path.poses.append(pose)
         # add header
-        path.header.frame_id = self.frame_id
-        path.header.stamp = self.image_time
+        path.header.frame_id = fear_path.header.frame_id = self.frame_id
+        path.header.stamp = fear_path.header.stamp = self.image_time
+        # publish fear path
+        if self.is_fear_reaction:
+            fear_path.poses = copy.deepcopy(path.poses)
+            path.poses = path.poses[:1]
+        # publish path
+        self.fear_path_pub.publish(fear_path)
         self.path_pub.publish(path)
         return
+
+    def fearPathDetection(self, goal, fear):
+        if fear > 0.5 and goal[0] > 0.0 and abs(goal[1]/goal[0]) < self.sensor_view:
+            if not self.is_fear_reaction:
+                self.fear_buffter = self.fear_buffter + 1
+        else:
+            if self.is_fear_reaction:
+                self.fear_buffter = self.fear_buffter - 1
+        if self.fear_buffter > self.buffer_size:
+            self.is_fear_reaction = True
+        elif self.fear_buffter <= 0:
+            self.is_fear_reaction = False
+        return None
 
     def goalCallback(self, msg):
         rospy.loginfo("Recevied a new goal")
         self.goal_pose = msg
         self.is_goal_init = True
         self.is_goal_processed = False
+         # reset fear reaction
+        self.fear_buffter = 0
+        self.is_fear_reaction = False
         return
 
     def imageCallback(self, msg):
@@ -164,6 +202,8 @@ if __name__ == '__main__':
     parser.add_argument('world_id',      type=str,   default='odom',                     help='world TF frame id')
     parser.add_argument('image_flip',    type=bool,  default=True,                       help='is the image fliped')
     parser.add_argument('conv_dist',     type=float, default=0.5,                        help='converge range to the goal')
+    parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
+    parser.add_argument('sensor_view',   type=float, default=1.0,                        help='tangent value of half view range')
 
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save

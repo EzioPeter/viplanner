@@ -16,5 +16,6 @@ image_topic:            /path_image
 robot_id:               base
 world_id:               odom
 # fear reaction
+is_fear_act:            True
 buffer_size:            5
-sensor_view:            1.0
+sensor_view:            0.75

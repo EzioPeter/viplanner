@@ -68,6 +68,7 @@ class InterestNode:
         self.image_flip  = args.image_flip
         self.conv_dist   = args.conv_dist  
         # fear reaction
+        self.is_fear_act = args.is_fear_act
         self.buffer_size = args.buffer_size
         self.sensor_view = args.sensor_view
         return 
@@ -86,12 +87,13 @@ class InterestNode:
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     rospy.loginfo("Goal Arrived")
-                self.fearPathDetection(goal_np, self.fear)
+                if self.is_fear_act:
+                    self.fearPathDetection(goal_np, self.fear)
+                    if self.fear > 0.5: # DEBUG
+                        rospy.logwarn("current path is invaild.")
                 self.pubPath(self.waypoints, self.is_goal_init)
                 # visualize image
                 self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.fear, self.img)
-                if self.fear > 0.5: # DEBUG
-                    rospy.logwarn("current path is invaild.")
             r.sleep()
         rospy.spin()
 
@@ -203,6 +205,7 @@ if __name__ == '__main__':
     parser.add_argument('is_sim',        type=bool,  default=False,                      help='is in simulation setting')
     parser.add_argument('image_flip',    type=bool,  default=True,                       help='is the image fliped')
     parser.add_argument('conv_dist',     type=float, default=0.5,                        help='converge range to the goal')
+    parser.add_argument('is_fear_act',   type=bool,  default=True,                       help='is open fear action or not')
     parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
     parser.add_argument('sensor_view',   type=float, default=1.0,                        help='tangent value of half view range')
 

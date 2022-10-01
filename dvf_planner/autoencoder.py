@@ -21,11 +21,11 @@ class AutoEncoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, in_channels, goal_channels, k=5): # Use 1280 for MobileNetV2
+    def __init__(self, in_channels, goal_channels, k=5):
         super().__init__()
         self.k = k
-        self.relu  = nn.ReLU(inplace=True)
-        self.fg    = nn.Linear(3, goal_channels)
+        self.relu    = nn.LeakyReLU(inplace=True)
+        self.fg      = nn.Linear(3, goal_channels)
         self.sigmoid = nn.Sigmoid()
 
         self.conv1 = nn.Conv2d((in_channels + goal_channels), 512, kernel_size=5, stride=1, padding=1)
@@ -56,33 +56,3 @@ class Decoder(nn.Module):
 
         c = self.sigmoid(self.lossfc(f))
         return x, c
-
-
-if __name__ == "__main__":
-    import torchvision.transforms as transforms
-
-    depth_transform = transforms.Compose([
-            # transforms.RandomRotation(20),
-            transforms.Resize(tuple([640,480])),
-            transforms.ToTensor()])
-
-    
-    batch_size = 2
-    root_path = os.getcwd() + "/data/"
-    data = PlannerData(root=root_path, train=True, transform=depth_transform)
-    loader = Data.DataLoader(dataset=data, batch_size=batch_size, shuffle=True)
-
-    knode = 10
-    net = AutoEncoder("resnet", knode)
-    if torch.cuda.is_available():
-        net = net.cuda()
-
-    with torch.no_grad():
-        enumerater = tqdm.tqdm(enumerate(loader))
-        for batch_idx, inputs in enumerater:
-            if torch.cuda.is_available():
-                image = inputs[0].cuda()
-                odom  = inputs[1].tensor().cuda()
-                goal  = inputs[2].tensor().cuda()
-            outputs, flags = net(image, goal)
-            show_batch(torch.cat([inputs, outputs], dim=0), name='test', waitkey=1000)

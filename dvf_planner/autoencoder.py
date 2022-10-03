@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-import os
-import tqdm
 import torch
 from PlannerNet import PlannerNet
 import torch.nn as nn
-import torch.utils.data as Data
 
 
 class AutoEncoder(nn.Module):

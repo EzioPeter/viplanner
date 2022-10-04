@@ -70,7 +70,8 @@ class InterestNode:
         # fear reaction
         self.is_fear_act = args.is_fear_act
         self.buffer_size = args.buffer_size
-        self.sensor_view = args.sensor_view
+        self.ang_thred   = args.angular_thred
+        self.track_dist  = args.track_dist
         return 
 
     def spin(self):
@@ -88,9 +89,10 @@ class InterestNode:
                     self.is_goal_init = False
                     rospy.loginfo("Goal Arrived")
                 if self.is_fear_act:
-                    self.fearPathDetection(goal_np, self.fear)
-                    if self.fear > 0.5: # DEBUG
-                        rospy.logwarn("current path is invaild.")
+                    is_track_ahead = self.isForwardTraking(self.waypoints)
+                    self.fearPathDetection(self.fear, is_track_ahead)
+                    if self.is_fear_reaction:
+                        rospy.logwarn("current path prediction is invaild.")
                 self.pubPath(self.waypoints, self.is_goal_init)
                 # visualize image
                 self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.fear, self.img)
@@ -101,8 +103,7 @@ class InterestNode:
         path = Path()
         fear_path = Path()
         if is_goal_init:
-            waypoints = waypoints.squeeze(0)
-            for p in waypoints:
+            for p in waypoints.squeeze(0):
                 pose = PoseStamped()
                 pose.pose.position.x = p[0]
                 pose.pose.position.y = p[1]
@@ -120,19 +121,29 @@ class InterestNode:
         self.path_pub.publish(path)
         return
 
-    def fearPathDetection(self, goal, fear):
-        if fear > 0.5 and goal[0] > 0.0 and abs(goal[1]/goal[0]) < self.sensor_view:
+    def fearPathDetection(self, fear, is_forward):
+        if fear > 0.5 and is_forward:
             if not self.is_fear_reaction:
                 self.fear_buffter = self.fear_buffter + 1
-        else:
-            if self.is_fear_reaction:
-                self.fear_buffter = self.fear_buffter - 1
+        elif self.is_fear_reaction:
+            self.fear_buffter = self.fear_buffter - 1
         if self.fear_buffter > self.buffer_size:
             self.is_fear_reaction = True
         elif self.fear_buffter <= 0:
             self.is_fear_reaction = False
         return None
-        
+
+    def isForwardTraking(self, waypoints):
+        xhead = np.array([1.0, 0])
+        phead = None
+        for p in waypoints.squeeze(0):
+            if torch.norm(p[0:2]).item() > self.track_dist:
+                phead = np.array([p[0].item(), p[1].item()])
+                phead /= np.linalg.norm(phead)
+                break
+        if np.all(phead != None) and phead.dot(xhead) > 1.0 - self.ang_thred:
+            return True
+        return False
 
     def goalCallback(self, msg):
         rospy.loginfo("Recevied a new goal")
@@ -207,7 +218,8 @@ if __name__ == '__main__':
     parser.add_argument('conv_dist',     type=float, default=0.5,                        help='converge range to the goal')
     parser.add_argument('is_fear_act',   type=bool,  default=True,                       help='is open fear action or not')
     parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
-    parser.add_argument('sensor_view',   type=float, default=1.0,                        help='tangent value of half view range')
+    parser.add_argument('angular_thred', type=float, default=1.0,                        help='angular thred for turning')
+    parser.add_argument('track_dist',    type=float, default=0.5,                        help='look ahead distance for path tracking')
 
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save

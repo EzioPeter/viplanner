@@ -17,5 +17,6 @@ robot_id:               vehicle
 world_id:               map
 # fear reaction
 is_fear_act:            True
-buffer_size:            5
-sensor_view:            0.75
+buffer_size:            3
+angular_thred:          0.3
+track_dist:             0.3

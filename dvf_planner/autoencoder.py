@@ -21,7 +21,7 @@ class Decoder(nn.Module):
     def __init__(self, in_channels, goal_channels, k=5):
         super().__init__()
         self.k = k
-        self.relu    = nn.LeakyReLU(inplace=True)
+        self.relu    = nn.ReLU(inplace=True)
         self.fg      = nn.Linear(3, goal_channels)
         self.sigmoid = nn.Sigmoid()
 
@@ -32,7 +32,8 @@ class Decoder(nn.Module):
         self.fc2   = nn.Linear(1024, 512)
         self.fc3   = nn.Linear(512,  k*3)
         
-        self.lossfc = nn.Linear(1024, 1)
+        self.frc1 = nn.Linear(1024, 128)
+        self.frc2 = nn.Linear(128, 1)
 
     def forward(self, x, goal):
         # compute goal encoding
@@ -51,5 +52,7 @@ class Decoder(nn.Module):
         x = self.fc3(x)
         x = x.reshape(-1, self.k, 3)
 
-        c = self.sigmoid(self.lossfc(f))
+        c = self.relu(self.frc1(f))
+        c = self.sigmoid(self.frc2(c))
+
         return x, c

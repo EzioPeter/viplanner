@@ -10,7 +10,7 @@ import open3d.visualization.rendering as rendering
 
 
 class TrajViz:
-    def __init__(self, root_path, is_sim, cameraTilt=0.2):
+    def __init__(self, root_path, is_sim, cameraTilt=0.0):
         self.camera_tilt = cameraTilt
         if is_sim:
             file_name = "sim" + "_intrinsic.txt"

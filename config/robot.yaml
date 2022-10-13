@@ -4,7 +4,7 @@ image_flip:             True
 conv_dist:              0.5
 is_sim:                 False
 # newwork model
-model_save:             /models/plannernet_real.pt
+model_save:             /models/plannernet_vehicle.pt
 crop_size:              [360, 640]
 uint_type:              True
 # images and gaol waypoint topics

@@ -8,7 +8,7 @@ import rospkg
 import tf
 import copy
 import time
-from std_msgs.msg import Float32
+from std_msgs.msg import Float32, Int16
 import numpy as np
 from sensor_msgs.msg import Image
 import torchvision.transforms as transforms
@@ -40,10 +40,13 @@ class InterestNode:
         self.is_goal_init = False
         self.ready_for_planning = False
 
+        # planner status
+        self.planner_status = Int16()
+        self.planner_status.data = 0
+        
         # fear reaction
         self.fear_buffter = 0
         self.is_fear_reaction = False
-
         # process time
         self.is_goal_processed = False
         self.timer_data = Float32()
@@ -52,7 +55,12 @@ class InterestNode:
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
 
         timer_topic = '/dvf_timer'
+        status_topic = '/planner_status'
+        
+        # planning experinment topics
         self.timer_pub = rospy.Publisher(timer_topic, Float32, queue_size=10)
+        self.status_pub = rospy.Publisher(status_topic, Int16, queue_size=10)
+
         self.path_pub  = rospy.Publisher(self.path_topic, Path, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", Path, queue_size=10)
 
@@ -95,12 +103,22 @@ class InterestNode:
                 if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist) and self.is_goal_processed:
                     self.ready_for_planning = False
                     self.is_goal_init = False
+                    # planner status -> Success
+                    if self.planner_status.data == 0:
+                        self.planner_status.data = 1
+                        self.status_pub.publish(self.planner_status)
+
                     rospy.loginfo("Goal Arrived")
                 if self.is_fear_act:
                     is_track_ahead = self.isForwardTraking(self.waypoints)
                     self.fearPathDetection(self.fear, is_track_ahead)
                     if self.is_fear_reaction:
                         rospy.logwarn("current path prediction is invaild.")
+                        # planner status -> Fails
+                        if self.planner_status.data == 0:
+                            self.planner_status.data = -1
+                            self.status_pub.publish(self.planner_status)
+
                 self.pubPath(self.waypoints, self.is_goal_init)
             r.sleep()
         rospy.spin()
@@ -159,6 +177,8 @@ class InterestNode:
          # reset fear reaction
         self.fear_buffter = 0
         self.is_fear_reaction = False
+        # reste planner status
+        self.planner_status.data = 0
         return
 
     def imageCallback(self, msg):

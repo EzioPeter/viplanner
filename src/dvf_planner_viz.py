@@ -33,7 +33,7 @@ class InterestNode:
         net, _ = torch.load(self.model_save, map_location=torch.device("cpu"))
         self.net = net.cuda() if torch.cuda.is_available() else net
 
-        self.traj_viz = traj_viz.TrajViz(os.path.join(*[planner_path, 'data']), is_sim=args.is_sim, cameraTilt=0.25)
+        self.traj_viz = traj_viz.TrajViz(os.path.join(*[planner_path, 'data']), is_sim=args.is_sim, cameraTilt=0.0)
         self.traj_generate = traj_opt.TrajOpt()
 
         self.image_time = rospy.get_rostime()

@@ -55,7 +55,7 @@ class InterestNode:
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
 
         timer_topic = '/dvf_timer'
-        status_topic = '/planner_status'
+        status_topic = '/dvf_planner_status'
         
         # planning experinment topics
         self.timer_pub = rospy.Publisher(timer_topic, Float32, queue_size=10)

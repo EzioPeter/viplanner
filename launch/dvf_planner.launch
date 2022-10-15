@@ -6,7 +6,6 @@
         <include file="$(find path_follower)/launch/path_follower.launch" />
     </group>
 
-
     <node pkg="dvf_planner_node" type="dvf_planner_node.py" name="dvf_planner_node" output="screen">
         <rosparam command="load" file="$(find dvf_planner_node)/config/$(arg config).yaml"/>
     </node>

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(dvf_planner_node)
+project(vi_planner_node)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -66,6 +66,10 @@ catkin_package(
 #  DEPENDS system_lib
 )
 
-catkin_install_python(PROGRAMS src/dvf_planner_node.py src/dvf_planner_viz.py
+catkin_install_python(PROGRAMS src/vi_planner_node.py 
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+catkin_install_python(PROGRAMS src/vi_planner_viz.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

@@ -13,6 +13,7 @@ import torchvision.transforms as transforms
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
+from vip_algo import VIPlannerAlgo
 
 rospack = rospkg.RosPack()
 pack_path = rospack.get_path('dvf_planner_node')
@@ -28,13 +29,11 @@ class InterestNode:
     def __init__(self, args, transform):
         super(InterestNode, self).__init__()
         self.config(args)
-        self.transform = transform
 
-        net, _ = torch.load(self.model_save, map_location=torch.device("cpu"))
-        self.net = net.cuda() if torch.cuda.is_available() else net
-
-        self.traj_viz = traj_viz.TrajViz(os.path.join(*[planner_path, 'data']), is_sim=args.is_sim, cameraTilt=0.0)
-        self.traj_generate = traj_opt.TrajOpt()
+        self.vip_algo = VIPlannerAlgo(args)
+        self.traj_viz = traj_viz.TrajViz(os.path.join(*[planner_path, 'data']), 
+                                         is_sim=args.is_sim,
+                                         cameraTilt=0.0)
 
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
@@ -57,7 +56,6 @@ class InterestNode:
 
     def config(self, args):
         self.main_freq   = args.main_freq
-        self.model_save  = args.model_save
         self.depth_topic = args.depth_topic
         self.goal_topic  = args.goal_topic
         self.path_topic  = args.path_topic
@@ -78,12 +76,10 @@ class InterestNode:
         r = rospy.Rate(self.main_freq)
         while not rospy.is_shutdown():
             if self.ready_for_planning:
-                # main planning starts
-                with torch.no_grad():
-                    self.preds, self.fear = self.net(self.img, self.goal)
-                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds, step=0.1)
+                # network planning
+                self.preds, self.waypoints, self.fear = self.vip_algo.plan(self.img, self.goal_rb)
                 # check goal less than converage range
-                goal_np = self.goal[0, :].cpu().detach().numpy()
+                goal_np = self.goal_rb[0, :].cpu().detach().numpy()
                 if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist):
                     self.ready_for_planning = False
                     self.is_goal_init = False
@@ -95,7 +91,7 @@ class InterestNode:
                         rospy.logwarn("current path prediction is invaild.")
                 self.pubPath(self.waypoints, self.is_goal_init)
                 # visualize image
-                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal, self.fear, self.img)
+                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal_rb, self.fear, self.img)
             r.sleep()
         rospy.spin()
 
@@ -170,30 +166,32 @@ class InterestNode:
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
         # img.show()
-        img = PIL.Image.fromarray(frame)
+        self.img = frame
         if self.image_flip:
-            img = img.transpose(PIL.Image.ROTATE_180)
-        img = self.transform(img)[None, ...]
+            self.img = PIL.Image.fromarray(frame)
+            self.img = np.array(self.img.transpose(PIL.Image.ROTATE_180))
+        # get odom from TF for camera image visualization 
+        try:
+            (odom, ori) = self.tf_listener.lookupTransform(self.world_id, self.frame_id, rospy.Time(0))
+            odom.extend(ori)
+            self.odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
+        except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            rospy.logerr("Fail to get odom from tf.")
+            return
+
         if self.is_goal_init:
-            p_in_vehicle = self.goal_pose
-            p_in_vehicle.header.stamp = rospy.Time(0)
+            goal_robot_frame = self.goal_pose
+            goal_robot_frame.header.stamp = rospy.Time(0)
             try:
-                p_in_vehicle = self.tf_listener.transformPoint(self.frame_id, p_in_vehicle)
-                (odom, ori) = self.tf_listener.lookupTransform(self.world_id, self.frame_id, rospy.Time(0))
-                odom.extend(ori)
+                goal_robot_frame = self.tf_listener.transformPoint(self.frame_id, goal_robot_frame)
             except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                rospy.logerr("Fail to transfer the goal into vehicle frame.")
+                rospy.logerr("Fail to transfer the goal into robot frame.")
                 return
-            p_in_vehicle = torch.tensor([p_in_vehicle.point.x, p_in_vehicle.point.y, p_in_vehicle.point.z], dtype=torch.float32)[None, ...]
+            self.goal_rb = torch.tensor([goal_robot_frame.point.x, 
+                                         goal_robot_frame.point.y,
+                                         goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
         else:
             return
-        odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
-        if torch.cuda.is_available():
-            self.odom  = odom.cuda()
-            self.img = img.cuda()
-            self.goal  = p_in_vehicle.cuda()
-        else:
-            self.odom  = odom, self.im = img, self.goal = p_in_vehicle
         self.ready_for_planning = True
         return
 

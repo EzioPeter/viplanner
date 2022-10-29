@@ -11,30 +11,26 @@ import time
 from std_msgs.msg import Float32, Int16
 import numpy as np
 from sensor_msgs.msg import Image
-import torchvision.transforms as transforms
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
+from vip_algo import VIPlannerAlgo
 
 rospack = rospkg.RosPack()
-pack_path = rospack.get_path('dvf_planner_node')
-planner_path = os.path.join(pack_path,'dvf_planner')
+pack_path = rospack.get_path('vi_planner_node')
+planner_path = os.path.join(pack_path,'vi_planner')
 sys.path.append(pack_path)
 sys.path.append(planner_path)
 
 from dvf_planner.rosutil import ROSArgparse
-from dvf_planner import traj_opt
 
-class InterestNode:
-    def __init__(self, args, transform):
-        super(InterestNode, self).__init__()
+class VIPlannerNode:
+    def __init__(self, args):
+        super(VIPlannerNode, self).__init__()
         self.config(args)
-        self.transform = transform
 
-        net, _ = torch.load(self.model_save, map_location=torch.device("cpu"))
-        self.net = net.cuda() if torch.cuda.is_available() else net
-
-        self.traj_generate = traj_opt.TrajOpt()
+        # init planner algo class
+        self.vip_algo = VIPlannerAlgo(args=args)
 
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
@@ -92,15 +88,13 @@ class InterestNode:
             if self.ready_for_planning:
                 # main planning starts
                 start = time.time()
-                with torch.no_grad():
-                    self.preds, self.fear = self.net(self.img, self.goal)
-                    self.waypoints = self.traj_generate.TrajGeneratorFromPFreeRot(self.preds, step=0.1)
+                # Network Planning
+                self.preds, self.waypoints, self.fear = self.vip_algo.plan(self.img, self.goal_rb)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
                 # check goal less than converage range
-                goal_np = self.goal[0, :].cpu().detach().numpy()
-                if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist) and self.is_goal_processed:
+                if (np.sqrt(self.goal_rb[0]**2 + self.goal_rb[1]**2) < self.conv_dist) and self.is_goal_processed:
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     # planner status -> Success
@@ -118,7 +112,6 @@ class InterestNode:
                         if self.planner_status.data == 0:
                             self.planner_status.data = -1
                             self.status_pub.publish(self.planner_status)
-
                 self.pubPath(self.waypoints, self.is_goal_init)
             r.sleep()
         rospy.spin()
@@ -191,37 +184,30 @@ class InterestNode:
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
         # img.show()
-        img = PIL.Image.fromarray(frame)
+        self.img = frame
         if self.image_flip:
-            img = img.transpose(PIL.Image.ROTATE_180)
-        img = self.transform(img)[None, ...]
+            self.img = PIL.Image.fromarray(frame)
+            self.img = np.array(self.img.transpose(PIL.Image.ROTATE_180))
+
         if self.is_goal_init:
-            p_in_vehicle = self.goal_pose
-            p_in_vehicle.header.stamp = rospy.Time(0)
+            goal_robot_frame = self.goal_pose
+            goal_robot_frame.header.stamp = rospy.Time(0)
             try:
-                p_in_vehicle = self.tf_listener.transformPoint(self.frame_id, p_in_vehicle)
-                (odom, ori) = self.tf_listener.lookupTransform(self.world_id, self.frame_id, rospy.Time(0))
-                odom.extend(ori)
+                goal_robot_frame = self.tf_listener.transformPoint(self.frame_id, goal_robot_frame)
             except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                 rospy.logerr("Fail to transfer the goal into vehicle frame.")
                 return
-            p_in_vehicle = torch.tensor([p_in_vehicle.point.x, p_in_vehicle.point.y, p_in_vehicle.point.z], dtype=torch.float32)[None, ...]
+            goal_robot_frame = torch.tensor([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
+            self.goal_rb = goal_robot_frame
         else:
             return
-        odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
-        if torch.cuda.is_available():
-            self.odom  = odom.cuda()
-            self.img   = img.cuda()
-            self.goal  = p_in_vehicle.cuda()
-        else:
-            self.odom  = odom, self.im = img, self.goal = p_in_vehicle
         self.ready_for_planning = True
-        self.is_goal_processed = True
+        self.is_goal_processed  = True
         return
 
 if __name__ == '__main__':
 
-    node_name = "dvf_planner_node"
+    node_name = "vi_planner_node"
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
@@ -244,10 +230,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save
 
-    depth_transform = transforms.Compose([
-        transforms.Resize(tuple(args.crop_size)),
-        transforms.ToTensor()])
 
-    node = InterestNode(args, depth_transform)
+    node = VIPlannerNode(args)
 
     node.spin()

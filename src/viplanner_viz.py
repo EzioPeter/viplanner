@@ -13,27 +13,26 @@ import torchvision.transforms as transforms
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
-from vip_algo import VIPlannerAlgo
 
 rospack = rospkg.RosPack()
-pack_path = rospack.get_path('dvf_planner_node')
-planner_path = os.path.join(pack_path,'dvf_planner')
+pack_path = rospack.get_path('viplanner_node')
+planner_path = os.path.join(pack_path,'viplanner')
 sys.path.append(pack_path)
 sys.path.append(planner_path)
 
+from viplanner.vip_algo import VIPlannerAlgo
+from viplanner.rosutil import ROSArgparse
+from viplanner import traj_viz
 
-from dvf_planner.rosutil import ROSArgparse
-from dvf_planner import traj_opt, traj_viz
-
-class InterestNode:
-    def __init__(self, args, transform):
-        super(InterestNode, self).__init__()
+class VIPNode:
+    def __init__(self, args):
+        super(VIPNode, self).__init__()
         self.config(args)
 
         self.vip_algo = VIPlannerAlgo(args)
         self.traj_viz = traj_viz.TrajViz(os.path.join(*[planner_path, 'data']), 
                                          is_sim=args.is_sim,
-                                         cameraTilt=0.0)
+                                         cameraTilt=args.camera_tilt)
 
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
@@ -51,7 +50,7 @@ class InterestNode:
         self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", Path, queue_size=10)
 
         self.tf_listener = tf.TransformListener()
-        rospy.loginfo("DVF Planner Ready.")
+        rospy.loginfo("VIPlanner Ready.")
         
 
     def config(self, args):
@@ -60,6 +59,7 @@ class InterestNode:
         self.goal_topic  = args.goal_topic
         self.path_topic  = args.path_topic
         self.image_topic = args.image_topic
+        self.camera_tilt = args.camera_tilt
         self.frame_id    = args.robot_id
         self.world_id    = args.world_id
         self.uint_type   = args.uint_type
@@ -77,7 +77,7 @@ class InterestNode:
         while not rospy.is_shutdown():
             if self.ready_for_planning:
                 # network planning
-                self.preds, self.waypoints, self.fear = self.vip_algo.plan(self.img, self.goal_rb)
+                self.preds, self.waypoints, self.fear, img_process = self.vip_algo.plan(self.img, self.goal_rb)
                 # check goal less than converage range
                 goal_np = self.goal_rb[0, :].cpu().detach().numpy()
                 if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist):
@@ -91,7 +91,7 @@ class InterestNode:
                         rospy.logwarn("current path prediction is invaild.")
                 self.pubPath(self.waypoints, self.is_goal_init)
                 # visualize image
-                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal_rb, self.fear, self.img)
+                self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal_rb, self.fear, img_process)
             r.sleep()
         rospy.spin()
 
@@ -151,6 +151,9 @@ class InterestNode:
         return
 
     def pubRenderImage(self, preds, waypoints, odom, goal, fear, image):
+        if torch.cuda.is_available():
+            odom = odom.cuda()
+            goal = goal.cuda()
         image = self.traj_viz.VizImages(preds, waypoints, odom, goal, fear, image)[0]
         ros_img = ros_numpy.msgify(Image, image, encoding='rgb8')
         self.img_pub.publish(ros_img)
@@ -172,11 +175,13 @@ class InterestNode:
             self.img = np.array(self.img.transpose(PIL.Image.ROTATE_180))
         # get odom from TF for camera image visualization 
         try:
-            (odom, ori) = self.tf_listener.lookupTransform(self.world_id, self.frame_id, rospy.Time(0))
+            self.tf_listener.waitForTransform(self.world_id, self.frame_id, rospy.Time(0), rospy.Duration(4.0))
+            t = self.tf_listener.getLatestCommonTime(self.world_id, self.frame_id)
+            (odom, ori) = self.tf_listener.lookupTransform(self.world_id, self.frame_id, t)
             odom.extend(ori)
             self.odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to get odom from tf.")
+            rospy.logerr("Fail to get odomemrty from tf.")
             return
 
         if self.is_goal_init:
@@ -197,7 +202,7 @@ class InterestNode:
 
 if __name__ == '__main__':
 
-    node_name = "dvf_planner_node"
+    node_name = "viplanner_node"
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
@@ -207,8 +212,9 @@ if __name__ == '__main__':
     parser.add_argument('uint_type',     type=bool,  default=False,                      help="image in uint type or not")
     parser.add_argument('depth_topic',   type=str,   default='/rgbd_camera/depth/image', help='depth image ros topic')
     parser.add_argument('goal_topic',    type=str,   default='/way_point',               help='goal waypoint ros topic')
-    parser.add_argument('path_topic',    type=str,   default='/path',                    help='DVF path topic')
-    parser.add_argument('image_topic',   type=str,   default='/path_image',              help='DVF image view topic')
+    parser.add_argument('path_topic',    type=str,   default='/path',                    help='VIP path topic')
+    parser.add_argument('image_topic',   type=str,   default='/path_image',              help='VIP image view topic')
+    parser.add_argument('camera_tilt',   type=float, default=0.0,                        help='camera tilted angle')
     parser.add_argument('robot_id',      type=str,   default='base',                     help='robot TF frame id')
     parser.add_argument('world_id',      type=str,   default='odom',                     help='world TF frame id')
     parser.add_argument('is_sim',        type=bool,  default=False,                      help='is in simulation setting')
@@ -222,10 +228,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save
 
-    depth_transform = transforms.Compose([
-        transforms.Resize(tuple(args.crop_size)),
-        transforms.ToTensor()])
-
-    node = InterestNode(args, depth_transform)
+    node = VIPNode(args)
 
     node.spin()

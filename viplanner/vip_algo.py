@@ -3,7 +3,7 @@ import PIL
 import torch
 import torchvision.transforms as transforms
 
-from dvf_planner import traj_opt
+from viplanner import traj_opt
 
 class VIPlannerAlgo:
     def __init__(self, args):
@@ -11,7 +11,7 @@ class VIPlannerAlgo:
         self.config(args)
 
         self.depth_transform = transforms.Compose([
-            transforms.Resize(tuple(360, 640)),
+            transforms.Resize(tuple(self.crop_size)),
             transforms.ToTensor()])
 
         net, _ = torch.load(self.model_save, map_location=torch.device("cpu"))
@@ -22,18 +22,18 @@ class VIPlannerAlgo:
 
     def config(self, args):
         self.model_save = args.model_save
+        self.crop_size  = args.crop_size
         return None
 
 
     def plan(self, image, goal_robot_frame):
         img = PIL.Image.fromarray(image)
         img = self.depth_transform(img)
-        goal_robot_frame = torch.tensor(goal_robot_frame, dtype=torch.float32)[None, ...]
         if torch.cuda.is_available():
             img = img.cuda()
             goal_robot_frame = goal_robot_frame.cuda()
-        with torch.no_grad:
+        with torch.no_grad():
             keypoints, fear = self.net(img, goal_robot_frame)
         traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints , step=0.1)
         
-        return keypoints, traj, fear
+        return keypoints, traj, fear, img

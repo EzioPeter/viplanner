@@ -11,7 +11,7 @@ class AutoEncoder(nn.Module):
         self.decoder = Decoder(512, encoder_channel, k)
 
     def forward(self, x, goal):
-        x = x.expand(-1, 3, -1, -1)
+        x = x.expand(1, 3, -1, -1)
         x = self.encoder(x)
         x, c = self.decoder(x, goal)
         return x, c

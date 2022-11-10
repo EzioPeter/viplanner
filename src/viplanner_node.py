@@ -14,15 +14,15 @@ from sensor_msgs.msg import Image
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
-from vip_algo import VIPlannerAlgo
 
 rospack = rospkg.RosPack()
-pack_path = rospack.get_path('vi_planner_node')
-planner_path = os.path.join(pack_path,'vi_planner')
+pack_path = rospack.get_path('viplanner_node')
+planner_path = os.path.join(pack_path,'viplanner')
 sys.path.append(pack_path)
 sys.path.append(planner_path)
 
-from dvf_planner.rosutil import ROSArgparse
+from viplanner.vip_algo import VIPlannerAlgo
+from viplanner.rosutil import ROSArgparse
 
 class VIPlannerNode:
     def __init__(self, args):
@@ -50,8 +50,8 @@ class VIPlannerNode:
         rospy.Subscriber(self.image_topic, Image, self.imageCallback)
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
 
-        timer_topic = '/dvf_timer'
-        status_topic = '/dvf_planner_status'
+        timer_topic = '/vip_timer'
+        status_topic = '/vip_planner_status'
         
         # planning experinment topics
         self.timer_pub = rospy.Publisher(timer_topic, Float32, queue_size=10)
@@ -61,7 +61,7 @@ class VIPlannerNode:
         self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", Path, queue_size=10)
 
         self.tf_listener = tf.TransformListener()
-        rospy.loginfo("DVF Planner Ready.")
+        rospy.loginfo("VIPlanner Ready.")
         
 
     def config(self, args):
@@ -89,12 +89,12 @@ class VIPlannerNode:
                 # main planning starts
                 start = time.time()
                 # Network Planning
-                self.preds, self.waypoints, self.fear = self.vip_algo.plan(self.img, self.goal_rb)
+                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(self.img, self.goal_rb)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
                 # check goal less than converage range
-                if (np.sqrt(self.goal_rb[0]**2 + self.goal_rb[1]**2) < self.conv_dist) and self.is_goal_processed:
+                if (np.sqrt(self.goal_rb[0][0]**2 + self.goal_rb[0][1]**2) < self.conv_dist) and self.is_goal_processed:
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     # planner status -> Success
@@ -207,7 +207,7 @@ class VIPlannerNode:
 
 if __name__ == '__main__':
 
-    node_name = "vi_planner_node"
+    node_name = "viplanner_node"
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
@@ -217,7 +217,7 @@ if __name__ == '__main__':
     parser.add_argument('uint_type',     type=bool,  default=False,                      help="image in uint type or not")
     parser.add_argument('depth_topic',   type=str,   default='/rgbd_camera/depth/image', help='depth image ros topic')
     parser.add_argument('goal_topic',    type=str,   default='/way_point',               help='goal waypoint ros topic')
-    parser.add_argument('path_topic',    type=str,   default='/path',                    help='DVF Path topic')
+    parser.add_argument('path_topic',    type=str,   default='/path',                    help='VIP Path topic')
     parser.add_argument('robot_id',      type=str,   default='base',                     help='robot TF frame id')
     parser.add_argument('world_id',      type=str,   default='odom',                     help='world TF frame id')
     parser.add_argument('image_flip',    type=bool,  default=True,                       help='is the image fliped')

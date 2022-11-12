@@ -10,7 +10,7 @@ import copy
 import time
 from std_msgs.msg import Float32, Int16
 import numpy as np
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, Joy
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
@@ -31,6 +31,7 @@ class VIPlannerNode:
 
         # init planner algo class
         self.vip_algo = VIPlannerAlgo(args=args)
+        self.tf_listener = tf.TransformListener()
 
         self.image_time = rospy.get_rostime()
         self.is_goal_init = False
@@ -39,28 +40,30 @@ class VIPlannerNode:
         # planner status
         self.planner_status = Int16()
         self.planner_status.data = 0
-        
+        self.is_goal_processed = False
+        self.is_smartjoy = False
+        self.joyGoal_scale = 5.0
+
         # fear reaction
         self.fear_buffter = 0
         self.is_fear_reaction = False
         # process time
-        self.is_goal_processed = False
         self.timer_data = Float32()
         
         rospy.Subscriber(self.image_topic, Image, self.imageCallback)
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
+        rospy.Subscriber("/joy", Joy, self.joyCallback, queue_size=10)
 
         timer_topic = '/vip_timer'
         status_topic = '/vip_planner_status'
         
-        # planning experinment topics
+        # planning status topics
         self.timer_pub = rospy.Publisher(timer_topic, Float32, queue_size=10)
         self.status_pub = rospy.Publisher(status_topic, Int16, queue_size=10)
 
         self.path_pub  = rospy.Publisher(self.path_topic, Path, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.path_topic + "_fear", Path, queue_size=10)
 
-        self.tf_listener = tf.TransformListener()
         rospy.loginfo("VIPlanner Ready.")
         
 
@@ -94,7 +97,7 @@ class VIPlannerNode:
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
                 # check goal less than converage range
-                if (np.sqrt(self.goal_rb[0][0]**2 + self.goal_rb[0][1]**2) < self.conv_dist) and self.is_goal_processed:
+                if (np.sqrt(self.goal_rb[0][0]**2 + self.goal_rb[0][1]**2) < self.conv_dist) and self.is_goal_processed and (not self.is_smartjoy):
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     # planner status -> Success
@@ -107,7 +110,7 @@ class VIPlannerNode:
                     is_track_ahead = self.isForwardTraking(self.waypoints)
                     self.fearPathDetection(self.fear, is_track_ahead)
                     if self.is_fear_reaction:
-                        rospy.logwarn("current path prediction is invaild.")
+                        rospy.logwarn_throttle(2.0, "current path prediction is invaild.")
                         # planner status -> Fails
                         if self.planner_status.data == 0:
                             self.planner_status.data = -1
@@ -162,12 +165,39 @@ class VIPlannerNode:
             return True
         return False
 
+    def joyCallback(self, joy_msg):
+        if joy_msg.buttons[4] > 0.9:
+            rospy.loginfo("Switch to Smart Joystick mode ...")
+            self.is_smartjoy = True
+            # reset fear reaction
+            self.fear_buffter = 0
+            self.is_fear_reaction = False
+        if self.is_smartjoy:
+            if np.sqrt(joy_msg.axes[3]**2 + joy_msg.axes[4]**2) < 1e-4:
+                # reset fear reaction
+                self.fear_buffter = 0
+                self.is_fear_reaction = False
+                self.ready_for_planning = False
+                self.is_goal_init = False
+            else:
+                joy_goal = PointStamped()
+                joy_goal.header.frame_id = self.frame_id
+                joy_goal.point.x = joy_msg.axes[4] * self.joyGoal_scale
+                joy_goal.point.y = joy_msg.axes[3] * self.joyGoal_scale
+                joy_goal.point.z = 0.0
+                joy_goal.header.stamp = rospy.Time.now()
+                self.goal_pose = joy_goal
+                self.is_goal_init = True
+                self.is_goal_processed = False
+        return
+
     def goalCallback(self, msg):
         rospy.loginfo("Recevied a new goal")
         self.goal_pose = msg
+        self.is_smartjoy = False
         self.is_goal_init = True
         self.is_goal_processed = False
-         # reset fear reaction
+        # reset fear reaction
         self.fear_buffter = 0
         self.is_fear_reaction = False
         # reste planner status
@@ -190,13 +220,14 @@ class VIPlannerNode:
             self.img = np.array(self.img.transpose(PIL.Image.ROTATE_180))
 
         if self.is_goal_init:
-            goal_robot_frame = self.goal_pose
+            goal_robot_frame = self.goal_pose;
             goal_robot_frame.header.stamp = rospy.Time(0)
-            try:
-                goal_robot_frame = self.tf_listener.transformPoint(self.frame_id, goal_robot_frame)
-            except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                rospy.logerr("Fail to transfer the goal into vehicle frame.")
-                return
+            if not self.goal_pose.header.frame_id == self.frame_id:
+                try:
+                    goal_robot_frame = self.tf_listener.transformPoint(self.frame_id, goal_robot_frame)
+                except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    rospy.logerr("Fail to transfer the goal into base frame.")
+                    return
             goal_robot_frame = torch.tensor([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
             self.goal_rb = goal_robot_frame
         else:

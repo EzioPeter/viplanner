@@ -17,7 +17,9 @@ Maintainer: Fan Yang, fanyang1@ethz.ch**
 The VIPlanner package has been tested under ROS Noetic on Ubuntu 20.04.
 This is research code, expect that it changes often and any fitness for a particular purpose is disclaimed.
 
-![Example image](img/example.jpg)
+<p align="center">
+  <img src="img/example.jpg" alt="Method" width="70%"/>
+</p>
 
 ## Installation
 

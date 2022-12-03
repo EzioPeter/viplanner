@@ -92,7 +92,8 @@ class VIPlannerNode:
                 # main planning starts
                 start = time.time()
                 # Network Planning
-                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(self.img, self.goal_rb)
+                cur_image = self.img.copy()
+                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(cur_image, self.goal_rb)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
@@ -214,10 +215,11 @@ class VIPlannerNode:
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
         # img.show()
-        self.img = frame
         if self.image_flip:
-            self.img = PIL.Image.fromarray(frame)
-            self.img = np.array(self.img.transpose(PIL.Image.ROTATE_180))
+            frame = PIL.Image.fromarray(frame)
+            self.img = np.array(frame.transpose(PIL.Image.ROTATE_180))
+        else:
+            self.img = frame
 
         if self.is_goal_init:
             goal_robot_frame = self.goal_pose;

@@ -77,7 +77,8 @@ class VIPNode:
         while not rospy.is_shutdown():
             if self.ready_for_planning:
                 # network planning
-                self.preds, self.waypoints, self.fear, img_process = self.vip_algo.plan(self.img, self.goal_rb)
+                cur_image = self.img.copy()
+                self.preds, self.waypoints, self.fear, img_process = self.vip_algo.plan(cur_image, self.goal_rb)
                 # check goal less than converage range
                 goal_np = self.goal_rb[0, :].cpu().detach().numpy()
                 if (np.sqrt(goal_np[0]**2 + goal_np[1]**2) < self.conv_dist):
@@ -169,10 +170,11 @@ class VIPNode:
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
         # img.show()
-        self.img = frame
         if self.image_flip:
-            self.img = PIL.Image.fromarray(frame)
-            self.img = np.array(self.img.transpose(PIL.Image.ROTATE_180))
+            frame = PIL.Image.fromarray(frame)
+            self.img = np.array(frame.transpose(PIL.Image.ROTATE_180))
+        else:
+            self.img = frame
         # get odom from TF for camera image visualization 
         try:
             self.tf_listener.waitForTransform(self.world_id, self.frame_id, rospy.Time(0), rospy.Duration(4.0))

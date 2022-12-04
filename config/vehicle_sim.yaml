@@ -21,3 +21,5 @@ is_fear_act:            True
 buffer_size:            3
 angular_thred:          0.3
 track_dist:             0.3
+# smart joystick
+joyGoal_scale:          5.0

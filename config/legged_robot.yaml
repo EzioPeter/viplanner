@@ -12,7 +12,7 @@ depth_topic:            /depth_camera_front_upper/depth/image_rect_raw
 goal_topic:             /mp_waypoint
 path_topic:             /path
 image_topic:            /path_image
-camera_tilt:            0.25
+camera_tilt:            0.2
 # frame ids
 robot_id:               base
 world_id:               odom
@@ -21,3 +21,5 @@ is_fear_act:            True
 buffer_size:            5
 angular_thred:          0.3
 track_dist:             0.3
+# smart joystick
+joyGoal_scale:          2.5

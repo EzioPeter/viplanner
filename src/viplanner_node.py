@@ -42,7 +42,6 @@ class VIPlannerNode:
         self.planner_status.data = 0
         self.is_goal_processed = False
         self.is_smartjoy = False
-        self.joyGoal_scale = 5.0
 
         # fear reaction
         self.fear_buffter = 0
@@ -83,6 +82,7 @@ class VIPlannerNode:
         self.buffer_size = args.buffer_size
         self.ang_thred   = args.angular_thred
         self.track_dist  = args.track_dist
+        self.joyGoal_scale = args.joyGoal_scale
         return 
 
     def spin(self):
@@ -259,6 +259,7 @@ if __name__ == '__main__':
     parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
     parser.add_argument('angular_thred', type=float, default=0.3,                        help='angular thred for turning')
     parser.add_argument('track_dist',    type=float, default=0.5,                        help='look ahead distance for path tracking')
+    parser.add_argument('joyGoal_scale', type=float, default=0.5,                        help='distance for joystick goal')
 
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save

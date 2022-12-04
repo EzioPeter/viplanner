@@ -26,4 +26,6 @@ data/
 
 *~
 
+*.bag
+
 .DS_Store

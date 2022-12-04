@@ -9,6 +9,7 @@
 @brief      reconstruct 3D structure with depth images
 """
 
+# python
 import os
 import argparse
 import cv2
@@ -19,57 +20,73 @@ from PIL import Image
 from scipy.spatial.transform import Rotation as R
 from ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
 
+# imperative-cost-map
+from config import ReconstructionCfg
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Reconstruct 3D structure from depth images')
-    parser.
 
 class DepthReconstruction:
     """
     Reconstruct 3D Map with depth images, assumes the ground truth camera odom is known
+    Config parameters can be set in ReconstructionCfg
+
+    Expects following datastructure:
+
+    - env_name
+        - camera_extrinsic.txt  (format: x y z qx qy qz qw)
+        - intrinsics.txt (expects ROS CameraInfo format --> P-Matrix)
+        - depth
+            - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
+        - semantic (optional)
+            - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
     """
-    def __init__(self, data_path, out_path, start_id, iters, voxel_size, is_max_iter=True):
-        self._data_path = data_path
-        self._out_path = out_path
-        self._voxel_size = voxel_size
-        self._is_max_iter = is_max_iter
-        intrinsic_path = os.path.join(self._data_path, "intrinsics.txt")
-        extrinsic_path = os.path.join(self._data_path, "camera_extrinsic.txt")
-        # read camera params
-        self._K = self._readIntrinsic(intrinsic_path)
-        self._extrinsics_list = self._readExtrinsic(extrinsic_path)
-        self._is_contruected =  False
-        N = len(self._extrinsics_list)
-        if self._is_max_iter:
-            self._start_id = 0
-            self._end_id = N
-        else:
-            self._start_id = start_id
-            self._end_id = min(start_id + iters, N)
+    def __init__(self, cfg: ReconstructionCfg):
+        # get config
+        self._cfg: ReconstructionCfg = cfg
+        # read camera params and odom
+        self.K: np.ndarray = None
+        self._read_intrinsic()
+        self.extrinsics_list: list = None
+        self._read_extrinsic()
+        # control flag if point-cloud has been loaded
+        self._is_constructed =  False
 
         print("Ready to read depth data.")
         return None
 
     # public methods
     def depthMapReconstruction(self):
-        self._im_arr_list = []
-        im_path = os.path.join(self._data_path, "depth")
-        for idx in range(self._start_id, self._end_id):
-            path = os.path.join(im_path, str(idx).zfill(4) + ".png")
-            im = cv2.imread(path, cv2.IMREAD_ANYDEPTH).T
-            self._im_arr_list.append(im.T)
+        # identify start and end image idx for the reconstruction
+        N = len(self.extrinsics_list)
+        if self._cfg.max_images:
+            self._start_idx = self._cfg.start_idx
+            self._end_idx = min(self._cfg.start_idx + self._cfg.max_images, N)
+        else:
+            self._start_idx = 0
+            self._end_idx = N
+        
+        # load images
+        self.depth_img = self._load_images(domain="depth")
+        if self._cfg.semantics:
+            self.semantic_img = self._load_images(domain="semantic")
+            assert self.depth_img.shape == self.semantic_img.shape, f"depth and semantic images should have the same shape, but got depth: {self.depth_img.shape} and semantic: {self.semantic_img.shape}"
         print("total number of images for reconstruction: {}".format(len(self._im_arr_list)))
-        x_nums, y_nums = self._im_arr_list[0].shape
+        
+        # init pixel and point arrays
+        x_nums, y_nums = self.depth_img.shape[1], self.depth_img.shape[2]
         T = self._computePixelTensor(x_nums, y_nums)
         pixel_nums = x_nums * y_nums
+        self._points = np.zeros([(self._end_idx-self._start_idx+1) * pixel_nums, 3])
+        if self._cfg.semantics:
+            self._sem_mapping = np.zeros([(self._end_idx-self._start_idx+1) * pixel_nums, 1])
+        
+        # 3D reconstruction from Depth 
         print("start reconstruction...")
-        self._points = np.zeros([(self._end_id-self._start_id+1) * pixel_nums, 3])
-        # 3D reconstraction from Depth 
-        k_inv = np.linalg.inv(self._K[:3, :3])     
-        for idx in range(len(self._im_arr_list)):
-            im = self._im_arr_list[idx] / 1000
-            extrinsics = self._extrinsics_list[idx+self._start_id]
+        k_inv = np.linalg.inv(self.K)     
+        for img_idx in range(self.depth_img.shape[0]):
+            im = self.depth_img[img_idx] / 1000
+            extrinsics = self.extrinsics_list[img_idx+self._start_idx]
             
+            # apply rotation
             rot = R.from_quat(extrinsics[3:]).as_euler("xyz", degrees=True)
             rot_transformed = np.zeros_like(rot)
             rot_transformed[1] = -rot[2]  # rotation around the z axis in robotics frame
@@ -86,15 +103,17 @@ class DepthReconstruction:
             non_zero_idx = np.where(points.any(axis=1))[0]
             
             points_final = points[non_zero_idx] + extrinsics[:3]
-            self._points[idx*pixel_nums: (idx)*pixel_nums + len(non_zero_idx), :] = points_final
+            self._points[img_idx*pixel_nums: (img_idx)*pixel_nums + len(non_zero_idx), :] = points_final
             
+            if self._cfg.semantics:
+                self.
         print("creating open3d geometry point cloud...")
-        self._pcd = self._createOpen3DCloud(self._points, self._voxel_size)
-        self._is_contruected = True
+        self._pcd = self._createOpen3DCloud(self._points, self._cfg.voxel_size)
+        self._is_constructed = True
         print("construction completed.")
         
     def showPointCloud(self):
-        if not self._is_contruected:
+        if not self._is_constructed:
             print("no reconstructed cloud")
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=np.array([0., 0., 0.]))
         o3d.visualization.draw_geometries([self._pcd, origin], mesh_show_wireframe=True) # visualize point cloud 
@@ -117,30 +136,28 @@ class DepthReconstruction:
         return np.uint16(img)
 
     def savePointCloud(self, is_shown=False, is_rotated=False):
-        if not self._is_contruected:
+        if not self._is_constructed:
             print("save points failed, no reconstructed cloud!")
 
-        print("save output files to: " + self._out_path)
-        im_path = os.path.join(self._out_path, "depth")
-        dila_path = os.path.join(self._out_path, "dilation")
-        if not os.path.exists(self._out_path):
-            os.makedirs(self._out_path)
+        print("save output files to: " + self._cfg.get_out_path())
+        im_path = os.path.join(self._cfg.get_out_path(), "depth")
+        dila_path = os.path.join(self._cfg.get_out_path(), "dilation")
+        if not os.path.exists(self._cfg.get_out_path()):
+            os.makedirs(self._cfg.get_out_path())
             os.makedirs(im_path)
             os.makedirs(dila_path)
             # pre-create the folder for the mapping
-            os.makedirs(os.path.join(*[self._out_path, "maps", "cloud"]))
-            os.makedirs(os.path.join(*[self._out_path, "maps", "data"]))
-            os.makedirs(os.path.join(*[self._out_path, "maps", "params"]))
+            os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "cloud"]))
+            os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "data"]))
+            os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "params"]))
         elif os.path.exists(im_path):
             # remove existing files
             for efile in os.listdir(im_path):
                 os.remove(os.path.join(im_path, efile))
 
-        extrinsics_file_name = os.path.join(self._out_path, "camera_extrinsic_ground_truth.txt")
+        extrinsics_file_name = os.path.join(self._cfg.get_out_path(), "camera_extrinsic_ground_truth.txt")
         np.savetxt(extrinsics_file_name, self._extrinsics_list, delimiter=",")  # extrinsics are cameras in robotics frame (x forward, y left, z up)
-        # open(extrinsics_file_name, 'w').close()  # clear txt file
-        # extrinsics_file = open(extrinsics_file_name, 'w')
-        # self._avg_z = 0.0
+
         for idx in range(len(self._im_arr_list)):
             ipath = os.path.join(im_path, str(idx) + ".png")
             dPath = os.path.join(dila_path, str(idx) + ".png")
@@ -148,22 +165,16 @@ class DepthReconstruction:
             cv2.imwrite(ipath, process_img)
             # Add image Dialation
             cv2.imwrite(dPath, self.imageDilation(process_img, is_shown=is_shown, is_rotated=is_rotated))
-            # extrinsics_line = self._extrinsics_list[idx+self._start_id]
-            # self._avg_z = self._avg_z + extrinsics_line[2]
-        #     extrinsics_file.writelines(str(extrinsics_line))
-        #     extrinsics_file.write('\n')
-        # extrinsics_file.close()
-        # self._avg_z =  self._avg_z / len(self._im_arr_list)
 
         # save intrinsic
-        intrinsic_file_name = os.path.join(self._out_path, "depth_intrinsic.txt")
+        intrinsic_file_name = os.path.join(self._cfg.get_out_path(), "depth_intrinsic.txt")
         open(intrinsic_file_name, 'w').close()  # clear txt file
         fc = open(intrinsic_file_name, 'w')
         fc.writelines(str(self._intrinsic))
         fc.close()
 
         # save clouds
-        o3d.io.write_point_cloud(os.path.join(self._out_path, "cloud.ply"), self._pcd) # save point cloud
+        o3d.io.write_point_cloud(os.path.join(self._cfg.get_out_path(), "cloud.ply"), self._pcd) # save point cloud
 
         print("saved point cloud to ply file.")
         return None
@@ -176,28 +187,37 @@ class DepthReconstruction:
     def pcd(self):
         return self._pcd
 
-    @property
-    def avg_z(self):
-        return self._avg_z
-
-    # prive methods
+    """helper functions"""
+    
     def _createOpen3DCloud(self, points, voxel_size):
         pcd = o3d.geometry.PointCloud() # point size (n, 3)
         pcd.points = o3d.utility.Vector3dVector(points)
         pcd = pcd.voxel_down_sample(voxel_size)
         return pcd
     
-    def _readExtrinsic(self, odom_path):
-        extrinsics = np.loadtxt(odom_path, delimiter=',')
-        self._avg_z = np.mean(extrinsics[:,2])
-        return extrinsics
+    def _read_extrinsic(self) -> None:
+        extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic.txt")
+        self.extrinsics_list = np.loadtxt(extrinsic_path, delimiter=',')
+        return 
 
-    def _readIntrinsic(self, file_path):
-        P = np.loadtxt(file_path, delimiter=",")
+    def _read_intrinsic(self) -> None:
+        intrinsic_path = os.path.join(self._cfg.get_data_path(), "intrinsics.txt")
+        P = np.loadtxt(intrinsic_path, delimiter=",")  # assumes ROS P matrix
         self._intrinsic = list(P)
-        # K = P.reshape(3, 4)[:3, :3]
-        K = np.concatenate((P.reshape(3, 4), np.array([[0, 0, 0, 1]])), axis=0)
-        return K
+        self.K = P.reshape(3, 4)[:3, :3]
+        return 
+
+    def _load_images(self, domain: str = "depth") -> np.ndarray:
+        # get path to images
+        dir_path = os.path.join(self._cfg.get_data_path(), domain)
+        # init
+        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K[0, 2]*2), int(self.K[1, 2]*2)))  # assumes camera center in the middle of image plane
+        # repeat for all further images
+        for idx in range(self._start_idx, self._end_idx):
+            img_path = os.path.join(dir_path, str(idx).zfill(4) + ".png")
+            im = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH).T
+            img_array[idx-self._start_idx, :, :] = im
+        return img_array
 
     def _computePixelTensor(self, x_nums, y_nums):
         T = np.zeros([3, x_nums, y_nums])
@@ -207,17 +227,7 @@ class DepthReconstruction:
         return T
 
 if __name__ == '__main__':
-    # empty
-    voxel_size = 0.04
-    env_name = "2n8kARJN3HM" 
 
-    start_id = 0
-    iters = 500
-    is_max_iter = True
-    raw_dir = "/home/pascal/SemNav/env/matterport/data_domains"
-    out_dir = "/home/pascal/SemNav/env/matterport/data_pc"
-    raw_path = os.path.join(raw_dir, env_name)
-    out_path = os.path.join(out_dir, env_name)
         
     # start depth reconstruction
     depth_constructor = DepthReconstruction(raw_path, out_path, start_id, iters, voxel_size, is_max_iter)

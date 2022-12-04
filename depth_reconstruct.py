@@ -1,5 +1,16 @@
 #!/usr/bin python3
+
+"""
+@author     Pascal Roth
+@email      rothpa@student.ethz.ch
+@author     Fan Yang
+@email      fanyang1@ethz.ch
+
+@brief      reconstruct 3D structure with depth images
+"""
+
 import os
+import argparse
 import cv2
 import PIL
 import numpy as np
@@ -8,7 +19,15 @@ from PIL import Image
 from scipy.spatial.transform import Rotation as R
 from ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
 
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='Reconstruct 3D structure from depth images')
+    parser.
+
 class DepthReconstruction:
+    """
+    Reconstruct 3D Map with depth images, assumes the ground truth camera odom is known
+    """
     def __init__(self, data_path, out_path, start_id, iters, voxel_size, is_max_iter=True):
         self._data_path = data_path
         self._out_path = out_path

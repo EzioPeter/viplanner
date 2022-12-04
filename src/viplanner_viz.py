@@ -89,7 +89,7 @@ class VIPNode:
     def spin(self):
         r = rospy.Rate(self.main_freq)
         while not rospy.is_shutdown():
-            if self.ready_for_planning:
+            if self.ready_for_planning and self.is_goal_init:
                 # network planning
                 cur_image = self.img.copy()
                 self.preds, self.waypoints, self.fear, img_process = self.vip_algo.plan(cur_image, self.goal_rb)
@@ -173,7 +173,7 @@ class VIPNode:
             self.fear_buffter = 0
             self.is_fear_reaction = False
         if self.is_smartjoy:
-            if np.sqrt(joy_msg.axes[3]**2 + joy_msg.axes[4]**2) < 1e-4:
+            if np.sqrt(joy_msg.axes[3]**2 + joy_msg.axes[4]**2) < 1e-3:
                 # reset fear reaction
                 self.fear_buffter = 0
                 self.is_fear_reaction = False

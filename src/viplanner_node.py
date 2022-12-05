@@ -77,6 +77,7 @@ class VIPlannerNode:
         self.uint_type   = args.uint_type
         self.image_flip  = args.image_flip
         self.conv_dist   = args.conv_dist
+        self.depth_max   = args.depth_max
         # fear reaction
         self.is_fear_act = args.is_fear_act
         self.buffer_size = args.buffer_size
@@ -212,6 +213,7 @@ class VIPlannerNode:
         frame[~np.isfinite(frame)] = 0
         if self.uint_type:
             frame = frame / 1000.0
+        frame[frame > self.depth_max] = 0.0
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
         # img.show()
@@ -223,7 +225,7 @@ class VIPlannerNode:
 
         if self.is_goal_init:
             goal_robot_frame = self.goal_pose;
-            goal_robot_frame.header.stamp = rospy.Time(0)
+            goal_robot_frame.header.stamp = self.image_time
             if not self.goal_pose.header.frame_id == self.frame_id:
                 try:
                     goal_robot_frame = self.tf_listener.transformPoint(self.frame_id, goal_robot_frame)
@@ -253,6 +255,7 @@ if __name__ == '__main__':
     parser.add_argument('path_topic',    type=str,   default='/path',                    help='VIP Path topic')
     parser.add_argument('robot_id',      type=str,   default='base',                     help='robot TF frame id')
     parser.add_argument('world_id',      type=str,   default='odom',                     help='world TF frame id')
+    parser.add_argument('depth_max',     type=float, default=10.0,                       help='max depth distance in image')
     parser.add_argument('image_flip',    type=bool,  default=True,                       help='is the image fliped')
     parser.add_argument('conv_dist',     type=float, default=0.5,                        help='converge range to the goal')
     parser.add_argument('is_fear_act',   type=bool,  default=True,                       help='is open fear action or not')

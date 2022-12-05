@@ -13,6 +13,7 @@ goal_topic:             /way_point
 path_topic:             /path
 image_topic:            /path_image
 camera_tilt:            0.0
+depth_max:              10.0
 # frame ids
 robot_id:               vehicle
 world_id:               map

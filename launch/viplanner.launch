@@ -4,7 +4,7 @@
     <arg name="use_path_follow" default="true"/>
 
     <group if="$(arg use_path_follow)">
-        <include file="$(find vip_path_follower)/launch/$(arg config).launch" />
+        <include file="$(find dvf_path_follow)/launch/path_follower.launch" />
     </group>
 
     <node pkg="viplanner_node" type="viplanner_node.py" name="viplanner_node" output="screen">

@@ -88,7 +88,7 @@ class TSDF_Creator:
         self.is_map_ready = True
         return
 
-    def CreateTSDFMap(self, sigma_expand=2.0, sigma_smooth=2.0):
+    def CreateTSDFMap(self, sigma_expand=1.0, sigma_smooth=2.0):
         if not self.is_map_ready:
             print("create tsdf map fails, no points received.")
             return
@@ -97,7 +97,7 @@ class TSDF_Creator:
         free_I = self.IndexArrayOfPs(self.free_points)
         obs_I = self.IndexArrayOfPs(self.obs_points)
         # create free place map
-        thred = 1e-2
+        thred = 1e-1
         for i in obs_I:
             obs_map[i[0], i[1]] = 1.0
         obs_map = gaussian_filter(obs_map, sigma=sigma_expand)
@@ -135,6 +135,7 @@ class TSDF_Creator:
     
     def VizCloud(self, pcd):
         o3d.visualization.draw_geometries([pcd]) # visualize point cloud 
+
 
 if __name__ == '__main__':
     # empty

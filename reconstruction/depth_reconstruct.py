@@ -11,14 +11,12 @@
 
 # python
 import os
-import argparse
 import cv2
-import PIL
 import numpy as np
 import open3d as o3d
 from PIL import Image
 from scipy.spatial.transform import Rotation as R
-from ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
+from third_party.ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
 
 # imperative-cost-map
 from config import ReconstructionCfg
@@ -36,7 +34,7 @@ class DepthReconstruction:
         - intrinsics.txt (expects ROS CameraInfo format --> P-Matrix)
         - depth
             - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
-        - semantic (optional)
+        - semantics (optional)
             - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
     """
     def __init__(self, cfg: ReconstructionCfg):
@@ -50,6 +48,10 @@ class DepthReconstruction:
         # control flag if point-cloud has been loaded
         self._is_constructed =  False
 
+        # variables
+        self._points: np.ndarray = None
+        self._pcd: o3d.geometry.PointCloud = None
+        
         print("Ready to read depth data.")
         return None
 
@@ -65,19 +67,19 @@ class DepthReconstruction:
             self._end_idx = N
         
         # load images
-        self.depth_img = self._load_images(domain="depth")
+        self.depth_img = self._load_depth_images()
         if self._cfg.semantics:
-            self.semantic_img = self._load_images(domain="semantic")
-            assert self.depth_img.shape == self.semantic_img.shape, f"depth and semantic images should have the same shape, but got depth: {self.depth_img.shape} and semantic: {self.semantic_img.shape}"
-        print("total number of images for reconstruction: {}".format(len(self._im_arr_list)))
+            self.semantic_img = self._load_semantic_images()
+            assert self.depth_img.shape[:3] == self.semantic_img.shape[:3], f"depth and semantic images should have the same shape, but got depth: {self.depth_img.shape} and semantic: {self.semantic_img.shape}"
+        print(f"total number of images for reconstruction: {self.depth_img.shape[0]}")
         
-        # init pixel and point arrays
+        # init pixel tensor and point arrays
         x_nums, y_nums = self.depth_img.shape[1], self.depth_img.shape[2]
         T = self._computePixelTensor(x_nums, y_nums)
         pixel_nums = x_nums * y_nums
         self._points = np.zeros([(self._end_idx-self._start_idx+1) * pixel_nums, 3])
         if self._cfg.semantics:
-            self._sem_mapping = np.zeros([(self._end_idx-self._start_idx+1) * pixel_nums, 1])
+            self._sem_mapping = np.zeros([(self._end_idx-self._start_idx+1) * pixel_nums, 3])
         
         # 3D reconstruction from Depth 
         print("start reconstruction...")
@@ -105,10 +107,13 @@ class DepthReconstruction:
             points_final = points[non_zero_idx] + extrinsics[:3]
             self._points[img_idx*pixel_nums: (img_idx)*pixel_nums + len(non_zero_idx), :] = points_final
             
+            # create semantic mapping for the points
             if self._cfg.semantics:
-                self.
+                sem_im = self.semantic_img[img_idx].reshape(-1, 3)
+                self._sem_mapping[img_idx*pixel_nums: (img_idx)*pixel_nums + len(non_zero_idx), :] = sem_im[non_zero_idx]
+
         print("creating open3d geometry point cloud...")
-        self._pcd = self._createOpen3DCloud(self._points, self._cfg.voxel_size)
+        self._createOpen3DCloud()
         self._is_constructed = True
         print("construction completed.")
         
@@ -119,29 +124,29 @@ class DepthReconstruction:
         o3d.visualization.draw_geometries([self._pcd, origin], mesh_show_wireframe=True) # visualize point cloud 
         return
 
-    def imageDilation(self, img, scale=1000.0, is_shown=False, is_rotated=False):
+    def imageDilation(self, img, scale=1000.0, is_shown=False):
         if img.dtype.name == 'uint16':
             img = np.float32(img / scale)
         img, _ = fill_in_multiscale(img)
         # DEBUG Visual Image
         if is_shown:
-            if is_rotated:
-                c_img = np.array(Image.fromarray(img).transpose(PIL.Image.ROTATE_180))
-            else:
-                c_img = np.array(Image.fromarray(img))
+            c_img = np.array(Image.fromarray(img))
             c_img = (c_img * 255 / np.max(c_img)).astype('uint8')
             cv2.imshow("Preview window", c_img)
             cv2.waitKey()
         img = img * scale
         return np.uint16(img)
 
-    def savePointCloud(self, is_shown=False, is_rotated=False):
+    def savePointCloud(self, is_shown=False):
         if not self._is_constructed:
             print("save points failed, no reconstructed cloud!")
 
         print("save output files to: " + self._cfg.get_out_path())
         im_path = os.path.join(self._cfg.get_out_path(), "depth")
         dila_path = os.path.join(self._cfg.get_out_path(), "dilation")
+        if self._cfg.semantics:
+            sem_path = os.path.join(self._cfg.get_out_path(), "semantic")
+            
         if not os.path.exists(self._cfg.get_out_path()):
             os.makedirs(self._cfg.get_out_path())
             os.makedirs(im_path)
@@ -150,22 +155,33 @@ class DepthReconstruction:
             os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "cloud"]))
             os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "data"]))
             os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "params"]))
+            
+            if self._cfg.semantics:
+                os.makedirs(sem_path)
+                
         elif os.path.exists(im_path):
             # remove existing files
             for efile in os.listdir(im_path):
                 os.remove(os.path.join(im_path, efile))
+            if self._cfg.semantics:
+                for efile in os.listdir(sem_path):
+                    os.remove(os.path.join(sem_path, efile))
 
         extrinsics_file_name = os.path.join(self._cfg.get_out_path(), "camera_extrinsic_ground_truth.txt")
-        np.savetxt(extrinsics_file_name, self._extrinsics_list, delimiter=",")  # extrinsics are cameras in robotics frame (x forward, y left, z up)
+        np.savetxt(extrinsics_file_name, self.extrinsics_list, delimiter=",")  # extrinsics are camera poses in robotics frame (x forward, y left, z up)
 
-        for idx in range(len(self._im_arr_list)):
+        for idx in range(len(self.depth_img)):
             ipath = os.path.join(im_path, str(idx) + ".png")
             dPath = os.path.join(dila_path, str(idx) + ".png")
-            process_img = self._im_arr_list[idx]  #NOTE: removed the transpose
+            process_img = self.depth_img[idx]  #NOTE: removed the transpose
             cv2.imwrite(ipath, process_img)
             # Add image Dialation
-            cv2.imwrite(dPath, self.imageDilation(process_img, is_shown=is_shown, is_rotated=is_rotated))
+            cv2.imwrite(dPath, self.imageDilation(process_img, is_shown=is_shown))
 
+            if self._cfg.semantics:
+                sempath = os.path.join(sem_path, str(idx) + ".png")
+                cv2.imwrite(sempath, self.semantic_img[idx])  # FIXME: not saving images correctly
+                
         # save intrinsic
         intrinsic_file_name = os.path.join(self._cfg.get_out_path(), "depth_intrinsic.txt")
         open(intrinsic_file_name, 'w').close()  # clear txt file
@@ -189,11 +205,13 @@ class DepthReconstruction:
 
     """helper functions"""
     
-    def _createOpen3DCloud(self, points, voxel_size):
+    def _createOpen3DCloud(self) -> None:
         pcd = o3d.geometry.PointCloud() # point size (n, 3)
-        pcd.points = o3d.utility.Vector3dVector(points)
-        pcd = pcd.voxel_down_sample(voxel_size)
-        return pcd
+        pcd.points = o3d.utility.Vector3dVector(self._points)
+        if self._cfg.semantics:
+            pcd.colors = o3d.utility.Vector3dVector(self._sem_mapping / 255.0)
+        self._pcd = pcd.voxel_down_sample(self._cfg.voxel_size)  # TODO: can lead to errors in mapping when colors averaged
+        return
     
     def _read_extrinsic(self) -> None:
         extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic.txt")
@@ -207,18 +225,28 @@ class DepthReconstruction:
         self.K = P.reshape(3, 4)[:3, :3]
         return 
 
-    def _load_images(self, domain: str = "depth") -> np.ndarray:
+    def _load_depth_images(self) -> np.ndarray:
         # get path to images
-        dir_path = os.path.join(self._cfg.get_data_path(), domain)
+        dir_path = os.path.join(self._cfg.get_data_path(), "depth")
         # init
-        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K[0, 2]*2), int(self.K[1, 2]*2)))  # assumes camera center in the middle of image plane
+        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K[1, 2]*2), int(self.K[0, 2]*2)))  # assumes camera center in the middle of image plane
         # repeat for all further images
         for idx in range(self._start_idx, self._end_idx):
             img_path = os.path.join(dir_path, str(idx).zfill(4) + ".png")
-            im = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH).T
-            img_array[idx-self._start_idx, :, :] = im
+            img_array[idx-self._start_idx] = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH)
         return img_array
 
+    def _load_semantic_images(self) -> np.ndarray:
+        # get path to images
+        dir_path = os.path.join(self._cfg.get_data_path(), "semantics")
+        # init
+        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K[1, 2]*2), int(self.K[0, 2]*2), 3))  # assumes camera center in the middle of image plane
+        # repeat for all further images
+        for idx in range(self._start_idx, self._end_idx):
+            img_path = os.path.join(dir_path, str(idx).zfill(4) + ".png")
+            img_array[idx-self._start_idx] = cv2.imread(img_path)
+        return img_array
+    
     def _computePixelTensor(self, x_nums, y_nums):
         T = np.zeros([3, x_nums, y_nums])
         for u in range(x_nums):
@@ -227,10 +255,10 @@ class DepthReconstruction:
         return T
 
 if __name__ == '__main__':
-
+    cfg = ReconstructionCfg()
         
     # start depth reconstruction
-    depth_constructor = DepthReconstruction(raw_path, out_path, start_id, iters, voxel_size, is_max_iter)
+    depth_constructor = DepthReconstruction(cfg)
     depth_constructor.depthMapReconstruction()
 
     depth_constructor.savePointCloud()

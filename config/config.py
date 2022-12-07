@@ -44,26 +44,66 @@ class ReconstructionCfg:
 @dataclass
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
-    # path to point cloud
-    ply_path: str = "/home/pascal/SemNav/env/matterport/data_pc/2n8kARJN3HM/cloud.ply"
-    # resolution of the cost map
-    resolution: float = 0.01
     # filter parameters
-    ground_height: float = 0.0
+    ground_height: float = -0.05
     robot_height: float = 0.70
     robot_height_factor: float = 1.5
     nb_neighbors: int = 100
-    std_ratio: float = 1.0
-    # map parameters
-    clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
-    # smooting parameters
-    sigma_expand: float = 1.0
-    sigma_smooth: float = 2.0
+    std_ratio: float = 2.0  # keep high, otherwise ground will be removed
     # color mapping
     data_source: str = "matterport"  # "matterport" or "carla"
     mapping_dir: str = "/home/pascal/SemNav/env/matterport/data_domains/2n8kARJN3HM/mapping"
-    # obstacle dilation
-    dilation: int = 15  # dilation of obstacles in grid cells (grid cell size = resolution)
     
 
+@dataclass
+class TsdfCostMapConfig:
+    """Configuration for the tsdf cost map"""
+    # offset of the point cloud 
+    offset_z: float = 0.0
+    # filter parameters
+    ground_height: float = 0.25
+    robot_height: float = 0.70
+    robot_height_factor: float = 1.5
+    nb_neighbors: int = 50
+    std_ratio: float = 0.5
+    filter_outliers: bool = True
+
+
+@ dataclass 
+class GeneralCostMapConfig:
+    """General Cost Map Configuration"""
+    # path to point cloud
+    root_path: str = "/home/pascal/SemNav/env/matterport/data_pc/2n8kARJN3HM"
+    ply_file: str = "cloud.ply"
+    # resolution of the cost map
+    resolution: float = 0.01 
+    # map parameters
+    clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
+    # smoothing parameters
+    sigma_smooth: float = 2.0
+    # dilation parameters
+    sigma_expand: float = 1.0
+    sigma_expand_free: float = 0.5
+    obstacle_threshold: float = 0.01
+    free_space_threshold: float = 0.4
+
+@dataclass
+class CostMapConfig:
+    """General Cost Map Configuration"""
+    # cost map domains
+    semantics: bool = True
+    geometry: bool = True
+    
+    # name
+    map_name: str = "tsdf_sem_1"
+    
+    # general cost map configuration
+    general: GeneralCostMapConfig = GeneralCostMapConfig()
+    
+    # individual cost map configurations
+    sem_cost_map: SemCostMapConfig = SemCostMapConfig()
+    tsdf_cost_map: TsdfCostMapConfig = TsdfCostMapConfig()
+    
+    # visualize cost map
+    visualize: bool = False
 # EoF

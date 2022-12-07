@@ -1,3 +1,14 @@
+#!/usr/bin python3
+
+"""
+@author     Fan Yang
+@email      fanyang1@ethz.ch
+@author     Pascal Roth
+@email      rothpa@student.ethz.ch
+
+@brief      cost to pcd mapper and saving to file together with params
+"""
+
 import open3d as o3d
 import numpy as np
 import torch
@@ -5,7 +16,8 @@ import os
 
 torch.set_default_dtype(torch.float32)
 
-class TSDF_Map:
+
+class CostToPcd:
     def __init__(self):
         self.map_init = False
         if torch.cuda.is_available():

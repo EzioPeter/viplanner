@@ -16,10 +16,10 @@ import numpy as np
 import open3d as o3d
 from PIL import Image
 from scipy.spatial.transform import Rotation as R
-from third_party.ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
 
 # imperative-cost-map
 from config import ReconstructionCfg
+from third_party.ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
 
 
 class DepthReconstruction:
@@ -89,11 +89,11 @@ class DepthReconstruction:
             extrinsics = self.extrinsics_list[img_idx+self._start_idx]
             
             # apply rotation
-            rot = R.from_quat(extrinsics[3:]).as_euler("xyz", degrees=True)
+            rot = R.from_quat(extrinsics[3:]).as_euler("XYZ", degrees=True)
             rot_transformed = np.zeros_like(rot)
             rot_transformed[1] = -rot[2]  # rotation around the z axis in robotics frame
-            rot_transformed[0] = rot[1]  # rotation around the y axis in robotics frame
-            rot_mat = R.from_euler("xyz", rot_transformed, degrees=True).as_matrix()
+            rot_transformed[0] = -rot[1]  # rotation around the y axis in robotics frame
+            rot_mat = R.from_euler("XYZ", rot_transformed, degrees=True).as_matrix()
             T_z = T.reshape(3, -1)
             T_z = T_z[[1, 0, 2], :]  # reorder to be in camera frame (z forward, x right, y down)
             
@@ -254,6 +254,7 @@ class DepthReconstruction:
                 T[:, u, v] = np.array([u, v, 1.0])
         return T
 
+
 if __name__ == '__main__':
     cfg = ReconstructionCfg()
         
@@ -264,4 +265,4 @@ if __name__ == '__main__':
     depth_constructor.savePointCloud()
     depth_constructor.showPointCloud()
 
-
+# EoF

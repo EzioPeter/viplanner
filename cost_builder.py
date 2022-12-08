@@ -25,10 +25,9 @@ def main(cfg: CostMapConfig):
     # create semantic cost map
     if cfg.semantics:
         print("============ Creating Semantic Map from cloud ===============")
-        sem_cost_map = SemCostMap(cfg.general, cfg.sem_cost_map, visualize=True)
+        sem_cost_map = SemCostMap(cfg.general, cfg.sem_cost_map, visualize=cfg.visualize)
         sem_cost_map.pcd_init()
         data_sem, coord_sem = sem_cost_map.create_costmap()
-        sem_cost_map.viz_costmap() if cfg.visualize else None
     
     # create tsdf cost map
     if cfg.geometry:
@@ -47,12 +46,12 @@ def main(cfg: CostMapConfig):
         # combine data and apply additional smoothing
         cost_map = data_sem[0] + data_tsdf[0]
                 
-        # FIXME: remove after debug
-        import matplotlib.pyplot as plt
-        fig, axs = plt.subplots(2)
-        axs[0].imshow(data_sem[0])
-        axs[1].imshow(data_tsdf[0])
-        plt.show()
+        if cfg.visualize:
+            import matplotlib.pyplot as plt
+            fig, axs = plt.subplots(1,2)
+            axs[0].imshow(data_sem[0])
+            axs[1].imshow(data_tsdf[0])
+            plt.show()
         
         # rename parameter
         data = [cost_map, data_tsdf[1], data_tsdf[2]]  # TODO: when height-map implemented, check if both are equal before just passing one

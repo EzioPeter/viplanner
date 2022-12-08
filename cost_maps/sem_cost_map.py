@@ -20,6 +20,8 @@ from sklearn.neighbors import KNeighborsRegressor
 import multiprocessing as mp
 from functools import partial
 import alphashape
+from shapely.geometry import Point
+from geopandas import GeoSeries
 
 # imperative-cost-map
 from config import SemCostMapConfig, GeneralCostMapConfig, CARLA_LOSS, MATTERPORT_LOSS, OBSTACLE_LOSS
@@ -84,16 +86,13 @@ class SemCostMap:
         # make grid loss differentiable
         grid_loss = self._dense_grid_loss(grid_loss)
 
+        grid_loss = self._smooth_grid_loss(grid_loss)
         print("COST-MAP CREATION DONE")
         
         # TODO: Change when using true terrain analysis module to make applicable for non-flat surfaces
         ground_array = np.ones([self._num_x, self._num_y]) * 0.0
         return [grid_loss, self.pcd_filtered.points, ground_array], [self._start_x, self._start_y]
 
-    def viz_costmap(self):
-        plt.imshow(self.grid_cell_loss, cmap="jet")
-        plt.show()
-        return
             
     """Helper functions"""
 
@@ -155,16 +154,12 @@ class SemCostMap:
         return pts_class_idx[known_idx]
 
     @staticmethod
-    def _smoother(pts_idx: np.ndarray, pts_grid: np.ndarray, pts_loss: np.ndarray) -> np.ndarray:
+    def _smoother(pts_idx: np.ndarray, pts_grid: np.ndarray, pts_loss: np.ndarray, conv_crit: float, nb_neigh: int, change_decimal: int) -> np.ndarray:
         # get grid idx for each point
         lock.acquire()  # do not access the same memort twice
         pts_loss_local = pts_loss[pts_idx].copy()
         pts_grid_local = pts_grid[pts_idx].copy()
         lock.release()
-        
-        # parameters
-        conv_crit = 0.85
-        nb_neigh = 25
         
         # fit kd-tree to available points
         kd_tree = scipy.spatial.KDTree(pts_grid_local)
@@ -184,14 +179,10 @@ class SemCostMap:
             counter += 1
             pts_loss_smooth = np.sum(pts_loss_smooth[pt_neigh_idx] * pt_weights, axis=1)
             
-            conv_rate = np.sum(np.round(pts_loss_smooth, 3) != np.round(pts_loss_local, 3)) / pts_loss_local.shape[0]            
+            conv_rate = np.sum(np.round(pts_loss_smooth, change_decimal) != np.round(pts_loss_local, change_decimal)) / pts_loss_local.shape[0]            
             if conv_rate > conv_crit:
                 print(f"Process {mp.current_process().name} converged with {np.round(conv_rate * 100, decimals=2)} % of changed points after {counter} iterations.")
                 break
-        
-        # lock.acquire()  # do not access the same memort twice
-        # smooth_loss[pts_idx] = pts_loss_smooth
-        # lock.release()
         
         return pts_loss_smooth
     
@@ -213,13 +204,20 @@ class SemCostMap:
             pts_loss[class_idx == sem_class] = class_loss[sem_class]
              
         # split task index
-        num_tasks = mp.cpu_count()
+        num_tasks = self._cfg_sem.nb_tasks if self._cfg_sem.nb_tasks else mp.cpu_count()
         pts_task_idx = np.array_split(np.random.permutation(pts_loss.shape[0]), num_tasks)
         
         # create pool with lock
         l = mp.Lock()
         pool = mp.pool.Pool(processes=num_tasks, initializer=self._smoother_init, initargs=(l,))
-        loss_array = pool.map(partial(self._smoother, pts_grid=pts_grid, pts_loss=pts_loss), pts_task_idx)
+        loss_array = pool.map(partial(
+            self._smoother, 
+            pts_grid=pts_grid, 
+            pts_loss=pts_loss, 
+            conv_crit=self._cfg_sem.conv_crit, 
+            nb_neigh=self._cfg_sem.nb_neigh,
+            change_decimal=self._cfg_sem.change_decimal
+            ), pts_task_idx)
         pool.close()
         pool.join() 
         
@@ -248,30 +246,43 @@ class SemCostMap:
         non_classified_idx = np.where(grid_loss == -1)
         non_classified_idx = np.vstack((non_classified_idx[0], non_classified_idx[1])).T
         
-        # fit non-convex hull around points to get grid points outside of mesh
-        mesh_shape = alphashape.alphashape(pts_grid_idx)
-        inside_mesh = mesh_shape.contains_points(pts_grid_idx[non_classified_idx[:, 0], non_classified_idx[:, 1]])
-        non_classified_idx_in_mesh = non_classified_idx[inside_mesh]
-        non_classified_idx_out_mesh = non_classified_idx[~inside_mesh]
-        
+        if self._cfg_sem.filter_out_mesh:
+            # fit non-convex hull around points to get grid points outside of mesh
+            grid_qhull_idx = np.random.choice(np.arange(len(grid_idx)), size=self._cfg_sem.a_shape_nb_pts, replace=False)
+            mesh_shape = alphashape.alphashape(grid_idx[grid_qhull_idx], self._cfg_sem.alpha_value)
+            
+            if mesh_shape.geom_type == 'Polygon':
+                idx_shapely_pt = GeoSeries(map(Point, zip(non_classified_idx[:, 0], non_classified_idx[:, 1])))
+                inside_mesh = [mesh_shape.contains(pt) for pt in idx_shapely_pt.to_list()]
+                non_classified_idx_in_mesh = non_classified_idx[inside_mesh]
+                non_classified_idx_out_mesh = non_classified_idx[~inside_mesh]
+                
+                # assign points outside the mesh the obstacle loss
+                grid_loss[non_classified_idx_out_mesh] = OBSTACLE_LOSS 
+
+                if self.visualize:
+                    plt.plot(*mesh_shape.exterior.xy)
+            else:
+                print("No polygon could be fitted to mesh, Regressor will be used for all points.")
+                non_classified_idx_in_mesh = non_classified_idx
+        else:
+            non_classified_idx_in_mesh = non_classified_idx
+            
         # fit a k-nearest neighbor regressor to the grid cells with a known loss and regress their loss
-        classifier = KNeighborsRegressor(n_neighbors=2, weights="distance", n_jobs=-1)
-        classifier.fit(grid_idx, grid_loss[grid_idx])
+        classifier = KNeighborsRegressor(n_neighbors=self._cfg_sem.reg_nb_neigh, weights="distance", n_jobs=-1)
+        classifier.fit(grid_idx, smooth_loss[pts_to_grid_idx_map])
         grid_loss[non_classified_idx_in_mesh[:, 0], non_classified_idx_in_mesh[:, 1]] = classifier.predict(non_classified_idx_in_mesh)
         
-        # assign points outside the mesh the obstacle loss
-        grid_loss[non_classified_idx_out_mesh] = OBSTACLE_LOSS
-        
-        assert any(grid_loss == -1) == False, "There are still grid cells without a loss value."
+        assert (grid_loss == -1).any() == False, "There are still grid cells without a loss value."
         
         # plot grid classes and losses
         if self.visualize:
-            plt.imshow(grid_loss)
+            plt.imshow(grid_loss, cmap='jet')
             plt.show()
 
         return grid_loss
     
-    def _smooth_loss(self, grid_loss: np.ndarray) -> np.ndarray:      
+    def _smooth_grid_loss(self, grid_loss: np.ndarray) -> np.ndarray:      
         # # apply log
         # grid_loss[grid_loss > 0.0]  = np.log(grid_loss[grid_loss > 0.0] + math.e)
         
@@ -279,7 +290,7 @@ class SemCostMap:
         grid_loss = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_general.sigma_expand*2)        
       
         if self.visualize:
-            plt.imshow(grid_loss)
+            plt.imshow(grid_loss, cmap='jet')
             plt.show()
             
         return grid_loss

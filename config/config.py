@@ -44,7 +44,7 @@ class ReconstructionCfg:
 @dataclass
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
-    # filter parameters
+    # point-cloud filter parameters
     ground_height: float = -0.05
     robot_height: float = 0.70
     robot_height_factor: float = 1.5
@@ -53,6 +53,17 @@ class SemCostMapConfig:
     # color mapping
     data_source: str = "matterport"  # "matterport" or "carla"
     mapping_dir: str = "/home/pascal/SemNav/env/matterport/data_domains/2n8kARJN3HM/mapping"
+    # smooting
+    nb_neigh: int = 25
+    change_decimal: int = 3
+    conv_crit: float = 0.85  # ration of points that have to change by at least the #change_decimal decimal value to converge  
+    nb_tasks: Optional[int] = None  # number of tasks for parallel processing, if None, all available cores are used
+    # filter outside of mesh
+    filter_out_mesh: bool = False  # set values outside the mesh to OBSTACLE_LOSS (SLOW!!!)
+    a_shape_nb_pts: int = 1000  # number of points to sample to create alphashape --> higher values lead to more accurate shapes, but slower
+    alpha_value: float = 0.5
+    # point regression  --> KNeighborsRegressor
+    reg_nb_neigh: int = 1
     
 
 @dataclass
@@ -83,8 +94,7 @@ class GeneralCostMapConfig:
     sigma_smooth: float = 2.0
     # dilation parameters
     sigma_expand: float = 1.0
-    sigma_expand_free: float = 0.5
-    obstacle_threshold: float = 0.01
+    obstacle_threshold: float = 0.1
     free_space_threshold: float = 0.4
 
 @dataclass
@@ -105,5 +115,5 @@ class CostMapConfig:
     tsdf_cost_map: TsdfCostMapConfig = TsdfCostMapConfig()
     
     # visualize cost map
-    visualize: bool = False
+    visualize: bool = True
 # EoF

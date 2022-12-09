@@ -54,17 +54,14 @@ class SemCostMapConfig:
     data_source: str = "matterport"  # "matterport" or "carla"
     mapping_dir: str = "/home/pascal/SemNav/env/matterport/data_domains/2n8kARJN3HM/mapping"
     # smooting
-    nb_neigh: int = 25
+    nb_neigh: int = 15
     change_decimal: int = 3
-    conv_crit: float = 0.85  # ration of points that have to change by at least the #change_decimal decimal value to converge  
-    nb_tasks: Optional[int] = None  # number of tasks for parallel processing, if None, all available cores are used
-    # filter outside of mesh
-    filter_out_mesh: bool = False  # set values outside the mesh to OBSTACLE_LOSS (SLOW!!!)
-    a_shape_nb_pts: int = 1000  # number of points to sample to create alphashape --> higher values lead to more accurate shapes, but slower
-    alpha_value: float = 0.5
-    # point regression  --> KNeighborsRegressor
-    reg_nb_neigh: int = 1
-    
+    conv_crit: float = 0.75  # ration of points that have to change by at least the #change_decimal decimal value to converge  
+    nb_tasks: Optional[int] = 2  # number of tasks for parallel processing, if None, all available cores are used
+    sigma_smooth: float = 2.0
+    max_iterations: int = 100
+    # obstacle threshold
+    obstacle_threshold: float = 0.6
 
 @dataclass
 class TsdfCostMapConfig:
@@ -78,6 +75,10 @@ class TsdfCostMapConfig:
     nb_neighbors: int = 50
     std_ratio: float = 0.5
     filter_outliers: bool = True
+    # dilation parameters
+    sigma_expand: float = 2.0
+    obstacle_threshold: float = 0.01
+    free_space_threshold: float = 0.5
 
 
 @ dataclass 
@@ -87,21 +88,18 @@ class GeneralCostMapConfig:
     root_path: str = "/home/pascal/SemNav/env/matterport/data_pc/2n8kARJN3HM"
     ply_file: str = "cloud.ply"
     # resolution of the cost map
-    resolution: float = 0.01 
+    resolution: float = 0.1 
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
     sigma_smooth: float = 2.0
-    # dilation parameters
-    sigma_expand: float = 1.0
-    obstacle_threshold: float = 0.1
-    free_space_threshold: float = 0.4
+
 
 @dataclass
 class CostMapConfig:
     """General Cost Map Configuration"""
     # cost map domains
-    semantics: bool = True
+    semantics: bool = False
     geometry: bool = True
     
     # name
@@ -115,5 +113,5 @@ class CostMapConfig:
     tsdf_cost_map: TsdfCostMapConfig = TsdfCostMapConfig()
     
     # visualize cost map
-    visualize: bool = True
+    visualize: bool = False
 # EoF

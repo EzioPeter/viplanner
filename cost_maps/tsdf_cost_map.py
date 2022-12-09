@@ -53,7 +53,7 @@ class TsdfCostMap:
         self.UpdateMapParams()
         if self._cfg_tsdf.filter_outliers:
             obs_p  = self.FilterCloud(self.obs_points)
-            free_p = self.FilterCloud(self.free_points)
+            # free_p = self.FilterCloud(self.free_points)
             self.UpdatePCDwithPs(obs_p, free_p)
         return
 
@@ -100,14 +100,14 @@ class TsdfCostMap:
         # create free place map
         for i in obs_I:
             obs_map[i[0], i[1]] = 1.0
-        obs_map = gaussian_filter(obs_map, sigma=self._cfg_general.sigma_expand)
+        obs_map = gaussian_filter(obs_map, sigma=self._cfg_tsdf.sigma_expand)
         for i in free_I:
             if i[0] < self.num_x and i[1] < self.num_y:
                 free_map[i[0], i[1]] = 0
-        free_map = gaussian_filter(free_map, sigma=self._cfg_general.sigma_expand)
-        free_map[free_map < 0.5] = 0
+        free_map = gaussian_filter(free_map, sigma=self._cfg_tsdf.sigma_expand)
+        free_map[free_map < self._cfg_tsdf.free_space_threshold] = 0
         # assign obstacles
-        free_map[obs_map > self._cfg_general.obstacle_threshold] = 1.0
+        free_map[obs_map > self._cfg_tsdf.obstacle_threshold] = 1.0
 
         print("occupancy map generation completed.")
         # Distance Transform

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import PIL
+import math
 import torch
 import torchvision.transforms as transforms
 
@@ -23,6 +24,11 @@ class VIPlannerAlgo:
     def config(self, args):
         self.model_save = args.model_save
         self.crop_size  = args.crop_size
+        self.sensor_offset_x = args.sensor_offset_x
+        self.sensor_offset_y = args.sensor_offset_y
+        self.is_traj_shift = False
+        if math.hypot(self.sensor_offset_x, self.sensor_offset_y) > 1e-1:
+            self.is_traj_shift = True
         return None
 
 
@@ -34,6 +40,11 @@ class VIPlannerAlgo:
             goal_robot_frame = goal_robot_frame.cuda()
         with torch.no_grad():
             keypoints, fear = self.net(img, goal_robot_frame)
+        if self.is_traj_shift:
+            batch_size, _, dims = keypoints.shape
+            keypoints = torch.cat((torch.zeros(batch_size, 1, dims, device=keypoints.device, requires_grad=False), keypoints), axis=1)
+            keypoints[..., 0] += self.sensor_offset_x
+            keypoints[..., 1] += self.sensor_offset_y
         traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints , step=0.1)
         
         return keypoints, traj, fear, img

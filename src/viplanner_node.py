@@ -262,7 +262,10 @@ if __name__ == '__main__':
     parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
     parser.add_argument('angular_thred', type=float, default=0.3,                        help='angular thred for turning')
     parser.add_argument('track_dist',    type=float, default=0.5,                        help='look ahead distance for path tracking')
-    parser.add_argument('joyGoal_scale', type=float, default=0.5,                        help='distance for joystick goal')
+    parser.add_argument('joyGoal_scale',   type=float, default=0.5,                        help='distance for joystick goal')
+    
+    parser.add_argument('sensor_offset_x', type=float, default=0.0,                      help='sensor offset X')
+    parser.add_argument('sensor_offset_y', type=float, default=0.0,                      help='sensor offset Y')
 
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save

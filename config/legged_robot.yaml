@@ -4,7 +4,7 @@ image_flip:             True
 conv_dist:              0.5
 is_sim:                 False
 # newwork model
-model_save:             /models/plannernet_tune.pt
+model_save:             /models/plannernet_real.pt
 crop_size:              [360, 640]
 uint_type:              True
 # images and gaol waypoint topics
@@ -22,5 +22,8 @@ is_fear_act:            True
 buffer_size:            5
 angular_thred:          0.3
 track_dist:             0.3
+# sensor offset
+sensor_offset_x:        0.4
+sensor_offset_y:        0.0
 # smart joystick
 joyGoal_scale:          2.5

@@ -22,5 +22,8 @@ is_fear_act:            True
 buffer_size:            3
 angular_thred:          0.3
 track_dist:             0.3
+# sensor offset
+sensor_offset_x:        0.0
+sensor_offset_y:        0.0
 # smart joystick
 joyGoal_scale:          5.0

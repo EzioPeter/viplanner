@@ -16,6 +16,7 @@ import numpy as np
 import open3d as o3d
 from PIL import Image
 from scipy.spatial.transform import Rotation as R
+import psutil
 
 # imperative-cost-map
 from config import ReconstructionCfg
@@ -47,7 +48,8 @@ class DepthReconstruction:
         self._read_extrinsic()
         # control flag if point-cloud has been loaded
         self._is_constructed =  False
-
+        self.mem_free = False
+        
         # variables
         self._points: np.ndarray = None
         self._pcd: o3d.geometry.PointCloud = None
@@ -85,13 +87,13 @@ class DepthReconstruction:
         print("start reconstruction...")
         k_inv = np.linalg.inv(self.K)     
         for img_idx in range(self.depth_img.shape[0]):
-            im = self.depth_img[img_idx] / 1000
+            im = self.depth_img[img_idx]
             extrinsics = self.extrinsics_list[img_idx+self._start_idx]
             
             # apply rotation
             rot = R.from_quat(extrinsics[3:]).as_euler("XYZ", degrees=True)
             rot_transformed = np.zeros_like(rot)
-            rot_transformed[1] = -rot[2]  # rotation around the z axis in robotics frame
+            rot_transformed[1] = rot[2]  # rotation around the z axis in robotics frame  # NOTE: remove minus if FAN's data is used
             rot_transformed[0] = -rot[1]  # rotation around the y axis in robotics frame
             rot_mat = R.from_euler("XYZ", rot_transformed, degrees=True).as_matrix()
             T_z = T.reshape(3, -1)
@@ -112,6 +114,14 @@ class DepthReconstruction:
                 sem_im = self.semantic_img[img_idx].reshape(-1, 3)
                 self._sem_mapping[img_idx*pixel_nums: (img_idx)*pixel_nums + len(non_zero_idx), :] = sem_im[non_zero_idx]
 
+        T = T_z = im_reshape = im = points = points_final = None  # free up memory
+        
+        if psutil.virtual_memory().percent > 50:
+            print("WARNING: Memory usage is high. Raw images are deleted to free up memory and later loaded again when saved.")
+            self.mem_free = True
+            self.depth_img = None
+            self.semantic_img = None
+            
         print("creating open3d geometry point cloud...")
         self._createOpen3DCloud()
         self._is_constructed = True
@@ -145,7 +155,7 @@ class DepthReconstruction:
         im_path = os.path.join(self._cfg.get_out_path(), "depth")
         dila_path = os.path.join(self._cfg.get_out_path(), "dilation")
         if self._cfg.semantics:
-            sem_path = os.path.join(self._cfg.get_out_path(), "semantic")
+            sem_path = os.path.join(self._cfg.get_out_path(), "semantics")
             
         if not os.path.exists(self._cfg.get_out_path()):
             os.makedirs(self._cfg.get_out_path())
@@ -163,13 +173,19 @@ class DepthReconstruction:
             # remove existing files
             for efile in os.listdir(im_path):
                 os.remove(os.path.join(im_path, efile))
-            if self._cfg.semantics:
+            for efile in os.listdir(dila_path):
+                os.remove(os.path.join(dila_path, efile))
+            if self._cfg.semantics and os.path.isdir(sem_path):
                 for efile in os.listdir(sem_path):
                     os.remove(os.path.join(sem_path, efile))
 
         extrinsics_file_name = os.path.join(self._cfg.get_out_path(), "camera_extrinsic_ground_truth.txt")
         np.savetxt(extrinsics_file_name, self.extrinsics_list, delimiter=",")  # extrinsics are camera poses in robotics frame (x forward, y left, z up)
 
+        if self.mem_free:
+            self.depth_img = self._load_depth_images()
+            self.semantic_img = self._load_semantic_images() if self._cfg.semantics else None
+                
         for idx in range(len(self.depth_img)):
             ipath = os.path.join(im_path, str(idx) + ".png")
             dPath = os.path.join(dila_path, str(idx) + ".png")
@@ -180,7 +196,7 @@ class DepthReconstruction:
 
             if self._cfg.semantics:
                 sempath = os.path.join(sem_path, str(idx) + ".png")
-                cv2.imwrite(sempath, self.semantic_img[idx])  # FIXME: not saving images correctly
+                cv2.imwrite(sempath, self.semantic_img[idx])
                 
         # save intrinsic
         intrinsic_file_name = os.path.join(self._cfg.get_out_path(), "depth_intrinsic.txt")
@@ -196,10 +212,6 @@ class DepthReconstruction:
         return None
 
     @property
-    def points(self):
-        return self._points
-
-    @property
     def pcd(self):
         return self._pcd
 
@@ -208,6 +220,7 @@ class DepthReconstruction:
     def _createOpen3DCloud(self) -> None:
         pcd = o3d.geometry.PointCloud() # point size (n, 3)
         pcd.points = o3d.utility.Vector3dVector(self._points)
+        self._points = None
         if self._cfg.semantics:
             pcd.colors = o3d.utility.Vector3dVector(self._sem_mapping / 255.0)
         self._pcd = pcd.voxel_down_sample(self._cfg.voxel_size)  # TODO: can lead to errors in mapping when colors averaged
@@ -229,11 +242,17 @@ class DepthReconstruction:
         # get path to images
         dir_path = os.path.join(self._cfg.get_data_path(), "depth")
         # init
-        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K[1, 2]*2), int(self.K[0, 2]*2)))  # assumes camera center in the middle of image plane
+        img_array = np.zeros((self._end_idx-self._start_idx, 360, 640), dtype=np.uint16)  # int(self.K[1, 2]*2), int(self.K[0, 2]*2)))  # assumes camera center in the middle of image plane
         # repeat for all further images
         for idx in range(self._start_idx, self._end_idx):
-            img_path = os.path.join(dir_path, str(idx).zfill(4) + ".png")
-            img_array[idx-self._start_idx] = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH)
+            if os.path.isfile(os.path.join(dir_path, str(idx).zfill(4) + ".npy")):
+                img_array[idx-self._start_idx] =  np.load(os.path.join(dir_path, str(idx).zfill(4) + ".npy")) / self._cfg.depth_scale
+            else:
+                img_path = os.path.join(dir_path, str(idx).zfill(4) + ".png")
+                img_array[idx-self._start_idx] = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH) / self._cfg.depth_scale
+            
+            if self._cfg.max_depth:
+                img_array[idx-self._start_idx] = np.clip(img_array[idx-self._start_idx], 0, self._cfg.max_depth)
         return img_array
 
     def _load_semantic_images(self) -> np.ndarray:

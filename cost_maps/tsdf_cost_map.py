@@ -65,7 +65,7 @@ class TsdfCostMap:
         # naive approach with z values
         for p in input_points:
             p_height = p[2] + self._cfg_tsdf.offset_z
-            if (p_height > self._cfg_tsdf.ground_height * 1.2) and (p_height < self._cfg_tsdf.robot_height * 1.5): # remove ground and ceiling
+            if (p_height > self._cfg_tsdf.ground_height * 1.2) and (p_height < self._cfg_tsdf.robot_height * self._cfg_tsdf.robot_height_factor): # remove ground and ceiling
                 obs_points[obs_idx, :] = p
                 obs_idx = obs_idx + 1
             elif p_height < self._cfg_tsdf.ground_height and p_height > - self._cfg_tsdf.ground_height:
@@ -77,11 +77,11 @@ class TsdfCostMap:
         if (self.obs_points.shape[0] == 0):
             print("No points received.")
             return
-        max_x, max_y, _ = np.round(np.amax(self.obs_points, axis=0), decimals=1) + self._cfg_general.clear_dist
-        min_x, min_y, _ = np.round(np.amin(self.obs_points, axis=0), decimals=1) - self._cfg_general.clear_dist
+        max_x, max_y, _ = np.amax(self.obs_points, axis=0) + self._cfg_general.clear_dist
+        min_x, min_y, _ = np.amin(self.obs_points, axis=0) - self._cfg_general.clear_dist
 
-        self.num_x = np.ceil((max_x - min_x) / self._cfg_general.resolution).astype(int)
-        self.num_y = np.ceil((max_y - min_y) / self._cfg_general.resolution).astype(int)
+        self.num_x = np.ceil((max_x - min_x) / self._cfg_general.resolution / 10).astype(int) * 10
+        self.num_y = np.ceil((max_y - min_y) / self._cfg_general.resolution / 10).astype(int) * 10
         self.start_x = (max_x + min_x) / 2.0 - self.num_x / 2.0 * self._cfg_general.resolution
         self.start_y = (max_y + min_y) / 2.0 - self.num_y / 2.0 * self._cfg_general.resolution
 

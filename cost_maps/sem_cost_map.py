@@ -16,13 +16,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 from typing import Tuple
-from sklearn.neighbors import KNeighborsRegressor
 import multiprocessing as mp
 from functools import partial
-import alphashape
 
 # imperative-cost-map
-from config import SemCostMapConfig, GeneralCostMapConfig, CARLA_LOSS, MATTERPORT_LOSS, OBSTACLE_LOSS
+from config import SemCostMapConfig, GeneralCostMapConfig, CARLA_LOSS, MATTERPORT_LOSS, OBSTACLE_LOSS, CARLA_COLOR_MAPPING
 
 
 class SemCostMap:
@@ -70,7 +68,7 @@ class SemCostMap:
             class_idx = self._mapping_matterport()
             class_loss = list(MATTERPORT_LOSS.values())
         elif self._cfg_sem.data_source == "carla":
-            raise NotImplementedError
+            class_idx = self._mapping_carla()
             class_loss = list(CARLA_LOSS.values())
         else:
             raise ValueError(f"unknown data source: {self._cfg_sem.data_source}")
@@ -100,9 +98,21 @@ class SemCostMap:
         # TODO: take ground height into account --> currently only for flat surfaces
         pts = np.asarray(self.pcd.points)
         pts_ceil_idx = pts[:, 2] < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
-        pts_ground_idx = pts[:, 2] > self._cfg_sem.ground_height
+        pts_ground_idx = pts[:, 2] > self._cfg_sem.ground_height if self._cfg_sem.ground_height is not None else np.ones(pts.shape[0], dtype=bool)
         pcd_height_filtered = self.pcd.select_by_index(np.where(np.vstack((pts_ceil_idx, pts_ground_idx)).all(axis=0))[0])
         
+        if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
+            pts = np.asarray(pcd_height_filtered.points)
+            pts_x_idx_upper = (pts[:, 0] < self._cfg_general.x_max) if self._cfg_general.x_max is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_x_idx_lower = (pts[:, 0] > self._cfg_general.x_min) if self._cfg_general.x_min is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_y_idx_upper = (pts[:, 1] < self._cfg_general.y_max) if self._cfg_general.y_max is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_y_idx_lower = (pts[:, 1] > self._cfg_general.y_min) if self._cfg_general.y_min is not None else np.ones(pts.shape[0], dtype=bool)
+            pcd_height_filtered = pcd_height_filtered.select_by_index(np.where(np.vstack((pts_x_idx_lower, pts_x_idx_upper, pts_y_idx_upper, pts_y_idx_lower)).all(axis=0))[0])
+        
+        if self._cfg_sem.downsample:
+            pcd_height_filtered = pcd_height_filtered.voxel_down_sample(self._cfg_general.resolution)
+            print("Voxel Downsampling applied")
+            
         # remove statistical outliers
         pcd_filtered, _ = pcd_height_filtered.remove_statistical_outlier(nb_neighbors=self._cfg_sem.nb_neighbors, std_ratio=self._cfg_sem.std_ratio)
         
@@ -114,11 +124,11 @@ class SemCostMap:
         assert pts.shape[0] > 0, "No points received."
         
         # get max and minimum of cost map
-        max_x, max_y, _ = np.round(np.amax(pts, axis=0), decimals=1) + self._cfg_general.clear_dist
-        min_x, min_y, _ = np.round(np.amin(pts, axis=0), decimals=1) - self._cfg_general.clear_dist
+        max_x, max_y, _ = np.amax(pts, axis=0) + self._cfg_general.clear_dist
+        min_x, min_y, _ = np.amin(pts, axis=0) - self._cfg_general.clear_dist
 
-        self._num_x = np.ceil((max_x - min_x) / self._cfg_general.resolution).astype(int)
-        self._num_y = np.ceil((max_y - min_y) / self._cfg_general.resolution).astype(int)
+        self._num_x = np.ceil((max_x - min_x) / self._cfg_general.resolution / 10).astype(int) * 10
+        self._num_y = np.ceil((max_y - min_y) / self._cfg_general.resolution / 10).astype(int) * 10
         self._start_x = (max_x + min_x) / 2.0 - self._num_x / 2.0 * self._cfg_general.resolution
         self._start_y = (max_y + min_y) / 2.0 - self._num_y / 2.0 * self._cfg_general.resolution
         print(f"cost map size set to: {self._num_x} x {self._num_y}")
@@ -150,6 +160,30 @@ class SemCostMap:
 
         return pts_class_idx[known_idx]
 
+    def _mapping_carla(self) -> np.ndarray:
+        """mapping between color and carla semantic classes"""
+        # get colors
+        color = np.asarray(self.pcd_filtered.colors) * 255.0
+        
+        # mapping between color and carla semantic classes        
+        self.color_to_id = CARLA_COLOR_MAPPING
+        
+        # pts to class idx array
+        pts_class_idx = np.ones(color.shape[0], dtype=int) * -1
+
+        # assign each point to a class
+        color = color.astype(int)
+        for class_idx, class_color in enumerate(self.color_to_id.values()):
+            pts_idx_of_class = (color == class_color).all(axis=1).nonzero()[0]
+            pts_class_idx[pts_idx_of_class] = class_idx
+        
+        # identify points with unknown classes --> remove from point cloud
+        known_idx = np.where(pts_class_idx != -1)[0]
+        self.pcd_filtered = self.pcd_filtered.select_by_index(known_idx)
+        print(f"Class of {len(known_idx)} points identified ({len(known_idx) / len(color)} %).")
+
+        return pts_class_idx[known_idx]
+        
     @staticmethod
     def _smoother(
         pts_idx: np.ndarray,
@@ -175,6 +209,7 @@ class SemCostMap:
         # turn distance into weight
         # pt_dist_weighted = pt_dist * np.linspace(1, 0.01, nb_neigh)     
         pt_dist_inv = 1.0 / pt_dist
+        pt_dist_inv[~np.isfinite(pt_dist_inv)] = 0.0  # set inf to 0 (inf or nan values when closest point at the same position)
         pt_weights = scipy.special.softmax(pt_dist_inv, axis=1)
         
         # smooth losses
@@ -233,7 +268,7 @@ class SemCostMap:
         for process_idx in range(num_tasks):
             smooth_loss[pts_task_idx[process_idx]] = loss_array[process_idx]
         
-        if self.visualize:
+        if False:  # self.visualize:
             plt.scatter(pts[:, 0], pts[:, 1], c=smooth_loss, cmap='jet')
             plt.show()
         

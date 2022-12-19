@@ -40,7 +40,7 @@ def main(cfg: CostMapConfig):
     # combine cost maps if both are selected
     if all([cfg.semantics, cfg.geometry]):
         # check coords, params 
-        assert (np.round(coord_sem, decimals=5) == np.round(coord_tsdf, decimals=5)).all(), "Cost-Map offsets do not match (caused by filtering operations)"
+        assert (np.round(coord_sem, decimals=5) == np.round(coord_tsdf, decimals=5)).all(), f"Cost-Map offsets do not match (caused by filtering operations)\n {np.round(coord_sem, decimals=5)} vs {np.round(coord_tsdf, decimals=5)}"
         assert data_sem[0].shape == data_tsdf[0].shape, "Cost-Map shapes do not match"
         
         # combine data and apply additional smoothing

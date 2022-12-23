@@ -28,11 +28,14 @@ class ReconstructionCfg:
     # reconstruction parameters
     voxel_size: float = 0.04
     start_idx: int = 0  # start index for reconstruction
-    max_images: Optional[int] = 900  # maximum number of images to reconstruct, fi None, all images are used
+    max_images: Optional[int] = 800  # maximum number of images to reconstruct, fi None, all images are used
     max_depth : Optional[float] = None  # maximum depth value in the images (in meters) -
     depth_scale: float = 1000.0  # depth scale factor
     # semantic reconstruction
     semantics: bool = True
+
+    # speed vs. memory trade-off parameters
+    point_cloud_batch_size: int = 100  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
 
     """ Internal functions """    
     def get_data_path(self) -> str:
@@ -58,7 +61,7 @@ class SemCostMapConfig:
     # smooting
     nb_neigh: int = 15
     change_decimal: int = 3
-    conv_crit: float = 0.55  # ration of points that have to change by at least the #change_decimal decimal value to converge  
+    conv_crit: float = 0.65  # ration of points that have to change by at least the #change_decimal decimal value to converge  
     nb_tasks: Optional[int] = 10  # number of tasks for parallel processing, if None, all available cores are used
     sigma_smooth: float = 0.5
     max_iterations: int = 1

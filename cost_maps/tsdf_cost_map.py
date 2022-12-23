@@ -50,11 +50,11 @@ class TsdfCostMap:
         pcd_load = o3d.io.read_point_cloud(os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file))
         obs_p, free_p = self.TerrainAnalysis(np.asarray(pcd_load.points))
         self.UpdatePCDwithPs(obs_p, free_p, is_downsample=True)
-        self.UpdateMapParams()
         if self._cfg_tsdf.filter_outliers:
             obs_p  = self.FilterCloud(self.obs_points)
-            # free_p = self.FilterCloud(self.free_points)
+            free_p = self.FilterCloud(self.free_points, outlier_filter=False)
             self.UpdatePCDwithPs(obs_p, free_p)
+        self.UpdateMapParams()
         return
 
     def TerrainAnalysis(self, input_points):
@@ -126,12 +126,23 @@ class TsdfCostMap:
         I = (np.round(I / self._cfg_general.resolution)).astype(int)
         return I
 
-    def FilterCloud(self, points):
-        # Filter outlier in self.obs_points
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        cl, _ = pcd.remove_statistical_outlier(nb_neighbors=self._cfg_tsdf.nb_neighbors, std_ratio=self._cfg_tsdf.std_ratio)
-        return np.asarray(cl.points)
+    def FilterCloud(self, points, outlier_filter=True):
+        # crop points
+        if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
+            points_x_idx_upper = (points[:, 0] < self._cfg_general.x_max) if self._cfg_general.x_max is not None else np.ones(points.shape[0], dtype=bool)
+            points_x_idx_lower = (points[:, 0] > self._cfg_general.x_min) if self._cfg_general.x_min is not None else np.ones(points.shape[0], dtype=bool)
+            points_y_idx_upper = (points[:, 1] < self._cfg_general.y_max) if self._cfg_general.y_max is not None else np.ones(points.shape[0], dtype=bool)
+            points_y_idx_lower = (points[:, 1] > self._cfg_general.y_min) if self._cfg_general.y_min is not None else np.ones(points.shape[0], dtype=bool)
+            points = points[np.vstack((points_x_idx_lower, points_x_idx_upper, points_y_idx_upper, points_y_idx_lower)).all(axis=0)]
+        
+        if outlier_filter:
+            # Filter outlier in points
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            cl, _ = pcd.remove_statistical_outlier(nb_neighbors=self._cfg_tsdf.nb_neighbors, std_ratio=self._cfg_tsdf.std_ratio)
+            points = np.asarray(cl.points)
+
+        return points
     
     def VizCloud(self, pcd):
         o3d.visualization.draw_geometries([pcd]) # visualize point cloud 

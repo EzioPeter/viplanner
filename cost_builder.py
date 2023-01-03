@@ -10,8 +10,7 @@
 # python
 import os
 import numpy as np
-from scipy import ndimage
-import math
+import yaml
 
 # imperative-cost-map
 from config import CostMapConfig
@@ -69,6 +68,10 @@ def main(cfg: CostMapConfig):
     cost_mapper.SaveTSDFMap(cfg.general.root_path, cfg.map_name)
     cost_mapper.ShowTSDFMap(cost_map=True)
     
+    # save config parameters
+    yaml_path = os.path.join(cfg.general.root_path, "maps", "params", f"config_{cfg.map_name}.yaml")
+    with open(yaml_path, 'w+') as file:
+        yaml.dump(vars(cfg), file, allow_unicode=True, default_flow_style=False)
     return
 
 

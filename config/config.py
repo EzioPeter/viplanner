@@ -35,7 +35,7 @@ class ReconstructionCfg:
     semantics: bool = True
 
     # speed vs. memory trade-off parameters
-    point_cloud_batch_size: int = 100  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
+    point_cloud_batch_size: int = 200  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
 
     """ Internal functions """    
     def get_data_path(self) -> str:
@@ -61,12 +61,15 @@ class SemCostMapConfig:
     # smooting
     nb_neigh: int = 15
     change_decimal: int = 3
-    conv_crit: float = 0.65  # ration of points that have to change by at least the #change_decimal decimal value to converge  
+    conv_crit: float = 0.45  # ration of points that have to change by at least the #change_decimal decimal value to converge  
     nb_tasks: Optional[int] = 10  # number of tasks for parallel processing, if None, all available cores are used
-    sigma_smooth: float = 0.5
+    sigma_smooth: float = 2.0
     max_iterations: int = 1
     # obstacle threshold
-    obstacle_threshold: float = 0.9
+    obstacle_threshold: float = 0.7
+    # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
+    round_decimal_traversable: int = 2
+
 
 @dataclass
 class TsdfCostMapConfig:
@@ -82,7 +85,7 @@ class TsdfCostMapConfig:
     filter_outliers: bool = True
     # dilation parameters
     sigma_expand: float = 2.0
-    obstacle_threshold: float = 0.1
+    obstacle_threshold: float = 0.05
     free_space_threshold: float = 0.5
 
 
@@ -90,10 +93,10 @@ class TsdfCostMapConfig:
 class GeneralCostMapConfig:
     """General Cost Map Configuration"""
     # path to point cloud
-    root_path: str = "/home/pascal/SemNav/env/data_pc/town01"
+    root_path: str = "/home/pascal/SemNav/env/data_pc/town01"  # 2n8kARJN3HM 2azQ1b91cZZ 
     ply_file: str = "cloud.ply"
     # resolution of the cost map
-    resolution: float = 0.5
+    resolution: float = 0.1  # [m]
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
@@ -113,7 +116,7 @@ class CostMapConfig:
     geometry: bool = False
     
     # name
-    map_name: str = "cost_map_sem"
+    map_name: str = "cost_map_sem_test"
     
     # general cost map configuration
     general: GeneralCostMapConfig = GeneralCostMapConfig()
@@ -123,5 +126,5 @@ class CostMapConfig:
     tsdf_cost_map: TsdfCostMapConfig = TsdfCostMapConfig()
     
     # visualize cost map
-    visualize: bool = True
+    visualize: bool = False
 # EoF

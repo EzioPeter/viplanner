@@ -46,7 +46,6 @@ class SemCostMap:
         self.grid_cell_loss: np.ndarray = None
         return
     
-    
     def pcd_init(self) -> None:
         # load pcd and filter it
         print("COST-MAP INIT START")
@@ -80,7 +79,7 @@ class SemCostMap:
         grid_loss = self._get_grid_loss(class_idx=class_idx, class_loss=class_loss)
         
         # make grid loss differentiable
-        grid_loss = self._dense_grid_loss(grid_loss)
+        grid_loss = self._dense_grid_loss(grid_loss, class_loss=class_loss)
 
         print("COST-MAP CREATION DONE")
         
@@ -195,10 +194,14 @@ class SemCostMap:
         max_iterations: int,
     ) -> np.ndarray:
         # get grid idx for each point
+        print(f"Process {mp.current_process().name} started")
+        
         lock.acquire()  # do not access the same memort twice
         pts_loss_local = pts_loss[pts_idx].copy()
         pts_grid_local = pts_grid[pts_idx].copy()
         lock.release()
+
+        print(f"Process {mp.current_process().name} data loaded")
         
         # fit kd-tree to available points
         kd_tree = scipy.spatial.KDTree(pts_grid_local)
@@ -274,25 +277,47 @@ class SemCostMap:
         
         return smooth_loss
     
-    def _dense_grid_loss(self, smooth_loss: np.ndarray) -> None:
+    def _distance_based_gradient(
+        self, 
+        loss_level_idx: np.ndarray, 
+        loss_min: float, 
+        loss_max: float, 
+        log_scaling: bool
+    ) -> np.ndarray:
+        grid = np.zeros((self._num_x, self._num_y))
+        
+        # distance transform
+        grid[loss_level_idx] = 1
+        grid = scipy.ndimage.distance_transform_edt(grid)
+        
+        # loss scaling
+        if log_scaling:
+            grid[grid > 0.0]  = np.log(grid[grid > 0.0] + math.e)
+        else:
+            grid = (grid - np.min(grid)) / (np.max(grid) - np.min(grid))
+            grid = grid * (loss_max - loss_min) + loss_min
+        
+        return grid[loss_level_idx]
+                
+    def _dense_grid_loss(self, smooth_loss: np.ndarray, class_loss: list) -> None:
         # get grid idx of all classified points
         pts = np.asarray(self.pcd_filtered.points)
         pts_grid_idx = (np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)).astype(int)
         grid_idx, pts_to_grid_idx_map = np.unique(pts_grid_idx, axis=0, return_index=True)
         
         # assign each point its smoothed loss
-        grid_loss = np.ones((self._num_x, self._num_y)) * -1
+        grid_loss = np.ones((self._num_x, self._num_y)) * -10
         grid_loss[grid_idx[:, 0], grid_idx[:, 1]] = smooth_loss[pts_to_grid_idx_map]
         
         # get grid idx of all (non-) classified points
-        non_classified_idx = np.where(grid_loss == -1)
+        non_classified_idx = np.where(grid_loss == -10)
         non_classified_idx = np.vstack((non_classified_idx[0], non_classified_idx[1])).T
         
         kdtree = scipy.spatial.KDTree(grid_idx)
         distances, idx = kdtree.query(non_classified_idx, k=1) 
         
         # only use points within the mesh, i.e. distance to nearest neighbor smaller than 10 cells
-        within_mesh = distances < 10 
+        within_mesh = distances < 5 
         
         # assign each point its neighbor loss
         grid_loss[non_classified_idx[within_mesh, 0], non_classified_idx[within_mesh, 1]] = grid_loss[grid_idx[idx[within_mesh], 0], grid_idx[idx[within_mesh], 1]]
@@ -301,31 +326,53 @@ class SemCostMap:
         grid_loss[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = OBSTACLE_LOSS
         grid_loss = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_sem.sigma_smooth)        
 
+        # get different loss levels
+        loss_levels = np.unique(class_loss)
+        assert round(loss_levels[0], 3) == 0.0, f"Lowest loss level should be 0.0, instead found {loss_levels[0]}."
+        assert round(loss_levels[-1], 3) == 1.0, f"Highest loss level should be 1.0, instead found {loss_levels[-1]}."
+        
+        # intended traversable area is best traversed with maximum distance to any area with higher cost
+        # apply distance transform to nearest obstacle to enforce smallest loss when distance is max
+        traversable_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[0])
+        grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], 1.0, False) * -1
+        
         # outside of the mesh is an obstacle and all points over obstacle theshold of grid loss are obstacles 
-        # following code increases their cost and applies their gradient
-        grid_obs = np.zeros((self._num_x, self._num_y))
-        grid_obs[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = 1
+        # grid_obs = np.zeros((self._num_x, self._num_y))
         obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold)
-        grid_obs[obs_within_mesh_idx] = 1
-        grid_obs = scipy.ndimage.distance_transform_edt(grid_obs)
-        grid_obs[grid_obs > 0.0]  = np.log(grid_obs[grid_obs > 0.0] + math.e)
+        obs_idx = (np.hstack((obs_within_mesh_idx[0], non_classified_idx[~within_mesh, 0])), np.hstack((obs_within_mesh_idx[1], non_classified_idx[~within_mesh, 1])))
+        grid_loss[obs_idx] = self._distance_based_gradient(obs_idx, None, None, True)
+        # grid_obs[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = 1
+        # grid_obs[obs_within_mesh_idx] = 1
+        # grid_obs = scipy.ndimage.distance_transform_edt(grid_obs)
+        # grid_obs[grid_obs > 0.0]  = np.log(grid_obs[grid_obs > 0.0] + math.e)
         
-        #overlay both losses
-        grid_loss[obs_within_mesh_idx] = 0.0
-        grid_loss[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = 0.0
-        loss_smooth = grid_loss + grid_obs
+        # repeat distance transform for intermediate loss levels
+        for i in range(1, len(loss_levels) - 1):
+            loss_level_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[i])
+            grid_loss[loss_level_idx] = self._distance_based_gradient(loss_level_idx, loss_levels[i], loss_levels[i + 1], False)
         
-        assert (loss_smooth == -1).any() == False, "There are still grid cells without a loss value."
+        # overlay both losses
+        # grid_loss[obs_within_mesh_idx] = 0.0
+        # grid_loss[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = 0.0
+        # grid_loss[traversable_idx] = 0.0
+        # loss_smooth = grid_loss + grid_obs - grid_traversable 
+        
+        assert (grid_loss == -10).any() == False, "There are still grid cells without a loss value."
 
         # smooth loss again
-        loss_smooth = scipy.ndimage.gaussian_filter(loss_smooth, sigma=self._cfg_general.sigma_smooth)        
+        loss_smooth = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_general.sigma_smooth)        
         
         # plot grid classes and losses
         if self.visualize:
-            fig, axs = plt.subplots(1, 3)
-            axs[0].imshow(grid_loss, cmap='jet')
-            axs[1].imshow(grid_obs, cmap='jet')
-            axs[2].imshow(loss_smooth, cmap='jet')
+            fig, axs = plt.subplots(2, 2)
+            axs[0, 0].set_title('grid loss')
+            axs[0, 0].imshow(grid_loss, cmap='jet')
+            axs[0, 1].set_title('loss smooth')
+            axs[0, 1].imshow(loss_smooth, cmap='jet')
+            axs[1, 0].set_title('grid loss x-grad')
+            axs[1, 0].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=0, mode='constant')) + math.e) - 1, cmap='jet')
+            axs[1, 1].set_title('grid loss y-grad')
+            axs[1, 1].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=1, mode='constant')) + math.e) - 1, cmap='jet')
             plt.show()
 
         return loss_smooth

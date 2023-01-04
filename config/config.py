@@ -77,7 +77,7 @@ class TsdfCostMapConfig:
     # offset of the point cloud 
     offset_z: float = 0.0
     # filter parameters
-    ground_height: float = 0.25
+    ground_height: float = 0.5
     robot_height: float = 0.70
     robot_height_factor: float = 2.0
     nb_neighbors: int = 50
@@ -116,7 +116,7 @@ class CostMapConfig:
     geometry: bool = False
     
     # name
-    map_name: str = "cost_map_sem_test"
+    map_name: str = "cost_map_sem"
     
     # general cost map configuration
     general: GeneralCostMapConfig = GeneralCostMapConfig()

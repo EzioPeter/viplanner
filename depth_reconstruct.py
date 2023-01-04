@@ -17,7 +17,7 @@ import open3d as o3d
 from PIL import Image
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
-import psutil
+import shutil
 
 # imperative-cost-map
 from config import ReconstructionCfg
@@ -128,33 +128,18 @@ class DepthReconstruction:
         o3d.visualization.draw_geometries([self._pcd, origin], mesh_show_wireframe=True) # visualize point cloud 
         return
 
-    def imageDilation(self, img, scale=1000.0, is_shown=False):
-        if img.dtype.name == 'uint16':
-            img = np.float32(img / scale)
-        img, _ = fill_in_multiscale(img)
-        # DEBUG Visual Image
-        if is_shown:
-            c_img = np.array(Image.fromarray(img))
-            c_img = (c_img * 255 / np.max(c_img)).astype('uint8')
-            cv2.imshow("Preview window", c_img)
-            cv2.waitKey()
-        img = img * scale
-        return np.uint16(img)
-
     def savePointCloud(self, is_shown=False):
         if not self._is_constructed:
             print("save points failed, no reconstructed cloud!")
 
         print("save output files to: " + self._cfg.get_out_path())
         im_path = os.path.join(self._cfg.get_out_path(), "depth")
-        dila_path = os.path.join(self._cfg.get_out_path(), "dilation")
         if self._cfg.semantics:
             sem_path = os.path.join(self._cfg.get_out_path(), "semantic")
             
         if not os.path.exists(self._cfg.get_out_path()):
             os.makedirs(self._cfg.get_out_path())
             os.makedirs(im_path)
-            os.makedirs(dila_path)
             # pre-create the folder for the mapping
             os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "cloud"]))
             os.makedirs(os.path.join(*[self._cfg.get_out_path(), "maps", "data"]))
@@ -167,8 +152,6 @@ class DepthReconstruction:
             # remove existing files
             for efile in os.listdir(im_path):
                 os.remove(os.path.join(im_path, efile))
-            for efile in os.listdir(dila_path):
-                os.remove(os.path.join(dila_path, efile))
             if self._cfg.semantics and os.path.isdir(sem_path):
                 for efile in os.listdir(sem_path):
                     os.remove(os.path.join(sem_path, efile))
@@ -176,23 +159,21 @@ class DepthReconstruction:
         extrinsics_file_name = os.path.join(self._cfg.get_out_path(), "camera_extrinsic_ground_truth.txt")
         np.savetxt(extrinsics_file_name, self.extrinsics_list, delimiter=",")  # extrinsics are camera poses in robotics frame (x forward, y left, z up)
 
-        self._end_idx = len(self.extrinsics_list)
-        self.depth_img = self._load_depth_images()
-        self.semantic_img = self._load_semantic_images() if self._cfg.semantics else None
-                
-        for idx in range(len(self.depth_img)):
-            ipath_img = os.path.join(im_path, str(idx) + ".png")
-            ipath_npy = os.path.join(im_path, str(idx) + ".npy")
-            process_img = self.depth_img[idx] * self._cfg.depth_scale  #NOTE: removed the transpose
-            cv2.imwrite(ipath_img, process_img.astype(np.uint16))
-            np.save(ipath_npy, process_img)
-            # Add image Dialation
-            dPath = os.path.join(dila_path, str(idx) + ".png")
-            cv2.imwrite(dPath, self.imageDilation(process_img, is_shown=is_shown))
+        # copy images
+        for idx in range(len(self.extrinsics_list)):
+            ipath_img_src = os.path.join(self._cfg.get_data_path(), "depth", str(idx).zfill(4) + ".png")
+            ipath_img_dst = os.path.join(im_path, str(idx) + ".png")
+            shutil.copyfile(ipath_img_src, ipath_img_dst)
 
+            ipath_npy_src = os.path.join(self._cfg.get_data_path(), "depth", str(idx).zfill(4) + ".npy")
+            if os.path.isfile(ipath_npy_src):
+                ipath_npy_dst = os.path.join(im_path, str(idx) + ".npy")
+                shutil.copyfile(ipath_npy_src, ipath_npy_dst)
+                
             if self._cfg.semantics:
-                sempath = os.path.join(sem_path, str(idx) + ".png")
-                cv2.imwrite(sempath, self.semantic_img[idx])
+                sempath_src = os.path.join(self._cfg.get_data_path(), "semantics", str(idx).zfill(4) + ".png")
+                sempath_dst = os.path.join(sem_path, str(idx) + ".png")
+                shutil.copyfile(sempath_src, sempath_dst)
                 
         # save intrinsic
         intrinsic_file_name = os.path.join(self._cfg.get_out_path(), "depth_intrinsic.txt")

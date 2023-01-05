@@ -12,7 +12,7 @@ depth_topic:            /depth_camera_front_upper/depth/image_rect_raw
 goal_topic:             /mp_waypoint
 path_topic:             /path
 image_topic:            /path_image
-camera_tilt:            0.18
+camera_tilt:            0.3
 depth_max:              10.0
 # frame ids
 robot_id:               base

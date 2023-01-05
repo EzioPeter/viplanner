@@ -243,9 +243,10 @@ class VIPNode:
 
         if self.is_goal_init:
             goal_robot_frame = self.goal_pose
-            goal_robot_frame.header.stamp = self.image_time
             if not self.goal_pose.header.frame_id == self.frame_id:
                 try:
+                    goal_robot_frame.header.stamp = self.tf_listener.getLatestCommonTime(self.goal_pose.header.frame_id,
+                                                                                         self.frame_id)
                     goal_robot_frame = self.tf_listener.transformPoint(self.frame_id, goal_robot_frame)
                 except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     rospy.logerr("Fail to transfer the goal into robot frame.")

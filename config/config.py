@@ -23,13 +23,12 @@ class ReconstructionCfg:
     # directory where the reconstructed 3D map is saved
     out_dir: str = "/home/pascal/SemNav/env/data_pc"
     # environment name
-    env: str = "town01"
+    env: str = "town01"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM town01_2 JeFG25nYj2p
 
     # reconstruction parameters
-    voxel_size: float = 0.04
+    voxel_size: float = 0.1
     start_idx: int = 0  # start index for reconstruction
-    max_images: Optional[int] = 800  # maximum number of images to reconstruct, fi None, all images are used
-    max_depth : Optional[float] = None  # maximum depth value in the images (in meters) -
+    max_images: Optional[int] = 800  # maximum number of images to reconstruct, if None, all images are used
     depth_scale: float = 1000.0  # depth scale factor
     # semantic reconstruction
     semantics: bool = True
@@ -57,7 +56,7 @@ class SemCostMapConfig:
     downsample: bool = False
     # color mapping
     data_source: str = "carla"  # "matterport" or "carla"
-    mapping_dir: str = "/home/pascal/SemNav/env/data_domains/2n8kARJN3HM/mapping"  # only needed for matterport
+    mapping_dir: str = "/home/pascal/SemNav/omni_isaac_orbit/source/extensions/omni.isaac.matterport/data/mappings"  # only needed for matterport
     # smooting
     nb_neigh: int = 15
     change_decimal: int = 3
@@ -77,7 +76,7 @@ class TsdfCostMapConfig:
     # offset of the point cloud 
     offset_z: float = 0.0
     # filter parameters
-    ground_height: float = 0.5
+    ground_height: float = 0.25
     robot_height: float = 0.70
     robot_height_factor: float = 2.0
     nb_neighbors: int = 50
@@ -93,7 +92,7 @@ class TsdfCostMapConfig:
 class GeneralCostMapConfig:
     """General Cost Map Configuration"""
     # path to point cloud
-    root_path: str = "/home/pascal/SemNav/env/data_pc/town01"  # 2n8kARJN3HM 2azQ1b91cZZ 
+    root_path: str = "/home/pascal/SemNav/env/data_pc/town01"  # B6ByNegPMKs JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM  2azQ1b91cZZ 
     ply_file: str = "cloud.ply"
     # resolution of the cost map
     resolution: float = 0.1  # [m]

@@ -75,33 +75,36 @@ class DepthReconstruction:
             assert self.depth_img.shape[:3] == self.semantic_img.shape[:3], f"depth and semantic images should have the same shape, but got depth: {self.depth_img.shape} and semantic: {self.semantic_img.shape}"
         print(f"total number of images for reconstruction: {self.depth_img.shape[0]}")
         
+        # 3D reconstruction from Depth 
+        k_inv = np.linalg.inv(self.K) 
+        
         # init pixel tensor and point arrays
         x_nums, y_nums = self.depth_img.shape[1], self.depth_img.shape[2]
         T = self._computePixelTensor(x_nums, y_nums)
-        pixel_nums = x_nums * y_nums
+        T_z = T.reshape(3, -1)
+        T_z = T_z[[1, 0, 2], :]  # reorder to be in camera frame (z forward, x right, y down)            
+        pix_cam = (k_inv @ T_z).T
+        pix_cam_reordered = pix_cam[:, [2, 0, 1]]  # reorder to be in "robotics" axis order (x forward, y left, z up)
+        
+        # init lists
         self._points = []
         if self._cfg.semantics:
             self._sem_mapping = []
-        
-        # 3D reconstruction from Depth 
-        k_inv = np.linalg.inv(self.K)     
+            
         for img_idx in tqdm(range(self.depth_img.shape[0]), desc="Reconstructing 3D Points"):
             im = self.depth_img[img_idx]
             extrinsics = self.extrinsics_list[img_idx+self._start_idx]
+
+            # project points in world frame
+            rot = R.from_quat(extrinsics[3:]).as_matrix()
             
-            # apply rotation
-            rot = R.from_quat(extrinsics[3:]).as_euler("XYZ", degrees=True)
-            rot_transformed = np.zeros_like(rot)
-            rot_transformed[1] = rot[2]  # rotation around the z axis in robotics frame  # NOTE: remove minus if FAN's data is used
-            rot_transformed[0] = -rot[1]  # rotation around the y axis in robotics frame
-            rot_mat = R.from_euler("XYZ", rot_transformed, degrees=True).as_matrix()
-            T_z = T.reshape(3, -1)
-            T_z = T_z[[1, 0, 2], :]  # reorder to be in camera frame (z forward, x right, y down)
+            rot_carla = R.from_quat(extrinsics[3:]).as_euler("XYZ", degrees=True)
+            rot_carla = -rot_carla
+            rot_carla = R.from_euler("XYZ", rot_carla, degrees=True).as_matrix()
             
-            im_reshape = im.reshape(-1, 1)
-            points = im_reshape * (rot_mat.T @ k_inv @ T_z).T
-            points = points[:, [2, 0, 1]] * np.array([[1, -1, -1]])  # reorder to be in "robotics" frame (x forward, y left, z up)
-            
+            im_reshaped = np.flipud(im.reshape(-1, 1))  # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
+            points = im_reshaped * (rot_carla.T @ pix_cam_reordered.T).T
+                        
             # filter points with 0 depth --> otherwise obstacles at camera position
             non_zero_idx = np.where(points.any(axis=1))[0]
             
@@ -111,6 +114,7 @@ class DepthReconstruction:
             # create semantic mapping for the points
             if self._cfg.semantics:
                 sem_im = self.semantic_img[img_idx].reshape(-1, 3)
+                sem_im = np.flipud(sem_im)  # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
                 self._sem_mapping.append(sem_im[non_zero_idx])
 
         T = T_z = im_reshape = im = points = points_final = None  # free up memory
@@ -250,9 +254,6 @@ class DepthReconstruction:
             else:
                 img_path = os.path.join(dir_path, str(idx).zfill(4) + ".png")
                 img_array[idx-self._start_idx] = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH) / self._cfg.depth_scale
-            
-            if self._cfg.max_depth:
-                img_array[idx-self._start_idx] = np.clip(img_array[idx-self._start_idx], 0, self._cfg.max_depth)
         
         img_array[~np.isfinite(img_array)] = 0
         return img_array
@@ -278,12 +279,12 @@ class DepthReconstruction:
 
 if __name__ == '__main__':
     cfg = ReconstructionCfg()
-        
+
     # start depth reconstruction
     depth_constructor = DepthReconstruction(cfg)
     depth_constructor.depthMapReconstruction()
 
-    depth_constructor.savePointCloud()
+    # depth_constructor.savePointCloud()
     depth_constructor.showPointCloud()
 
 # EoF

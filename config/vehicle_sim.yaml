@@ -4,7 +4,7 @@ image_flip:             False
 conv_dist:              0.5
 is_sim:                 True
 # newwork model
-model_save:             /models/plannernet_sim.pt
+model_save:             /models/plannernet_01_22.pt
 crop_size:              [360, 640]
 uint_type:              False
 # images and gaol waypoint topics

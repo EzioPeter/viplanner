@@ -35,7 +35,7 @@ class TrajViz:
         self.camera = o3d.camera.PinholeCameraIntrinsic(img_width, img_height, K[0,0], K[1,1], K[0,2], K[1,2])
         return
 
-    def VizImages(self, preds, waypoints, odom, goal, fear, images, visual_offset=0.35, mesh_size=0.3):
+    def VizImages(self, preds, waypoints, odom, goal, fear, images, visual_offset=0.5, mesh_size=0.3):
         batch_size, _, _ = waypoints.shape
         preds_ws = self.TransformPoints(odom, preds)
         wp_ws = self.TransformPoints(odom, waypoints)

@@ -1,7 +1,7 @@
 <launch>
     <arg name="config"/>
     <arg name="rosbag" default="false"/>
-    <arg name="use_path_follow" default="true"/>
+    <arg name="use_path_follow" default="false"/>  <!-- FIXME: Changed, has been enabled before -->
 
     <group if="$(arg use_path_follow)">
         <include file="$(find dvf_path_follow)/launch/path_follower.launch" />

@@ -9,6 +9,7 @@ crop_size:              [360, 640]
 uint_type:              True
 # images and gaol waypoint topics
 depth_topic:            /depth_camera_front_upper/depth/image_rect_raw
+rgb_topic:              /wide_angle_camera_front/image_raw/compressed
 goal_topic:             /mp_waypoint
 path_topic:             /path
 image_topic:            /path_image

@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
+"""
+@author     Fan Yang
+@email      fanyang1@ethz.ch
+@author     Pascal Roth
+@email      rothpa@student.ethz.ch
 
+@brief      ROS Utilities
+"""
+
+# python
 import os
-import rospy
 import torch
 import numpy as np
+
+# ROS
+import rospy
+
 
 class ROSArgparse():
     def __init__(self, relative=None):
@@ -32,3 +44,5 @@ def msg_to_torch(data, shape=np.array([-1])):
 
 def torch_to_msg(tensor):
     return [tensor.view(-1).cpu().numpy(), tensor.shape]
+
+# EoF

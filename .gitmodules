@@ -1,0 +1,6 @@
+[submodule "model_src/viplanner"]
+	path = model_src/viplanner
+	url = git@github.com:pascal-roth/viplanner.git
+[submodule "model_src/mask2former"]
+	path = model_src/mask2former
+	url = git@github.com:facebookresearch/Mask2Former.git

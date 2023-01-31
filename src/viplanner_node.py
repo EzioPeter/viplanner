@@ -1,36 +1,64 @@
 #!/usr/bin/env python3
+"""
+@author     Pascal Roth
+@email      rothpa@student.ethz.ch
+@author     Fan Yang
+@email      fanyang1@ethz.ch
+
+
+@brief      Visual Imperative Planner (VIPlanner) ROS Node
+"""
+
+# python
 import os
 import PIL
 import sys
 import torch
+import copy
+import time
+import numpy as np
+
+# ROS
 import rospy
 import rospkg
 import tf
-import copy
-import time
 from std_msgs.msg import Float32, Int16
-import numpy as np
 from sensor_msgs.msg import Image, Joy
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
+import message_filters
 
+# init ros node
 rospack = rospkg.RosPack()
 pack_path = rospack.get_path('viplanner_node')
 planner_path = os.path.join(pack_path,'viplanner')
 sys.path.append(pack_path)
 sys.path.append(planner_path)
 
-from viplanner.vip_algo import VIPlannerAlgo
-from viplanner.rosutil import ROSArgparse
+# visual imperative planner
+from model_src.vip_inference import VIPlannerInference
+from model_src.m2f_inference import M2FInference
+from utils.rosutil import ROSArgparse
+
 
 class VIPlannerNode:
+    """VIPlanner ROS Node Class"""
     def __init__(self, args):
         super(VIPlannerNode, self).__init__()
         self.config(args)
 
         # init planner algo class
-        self.vip_algo = VIPlannerAlgo(args=args)
+        self.vip_algo = VIPlannerInference(
+            model_save=args.model_save,
+            crop_size=args.crop_size,
+            sensor_offset_x=args.sensor_offset_x,
+            sensor_offset_y=args.sensor_offset_y,
+            semantics=args.semantics,
+        )
+        # init semantic network
+        self.m2f_inference = None
+        
         self.tf_listener = tf.TransformListener()
 
         self.image_time = rospy.get_rostime()
@@ -49,7 +77,13 @@ class VIPlannerNode:
         # process time
         self.timer_data = Float32()
         
-        rospy.Subscriber(self.image_topic, Image, self.imageCallback)
+        # depth and rgb image message --> time syncronization by message_filters
+        img_depth_sub = message_filters.Subscriber(self.depth_topic, Image)
+        img_rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
+        ts = message_filters.TimeSynchronizer([img_depth_sub, img_rgb_sub], 10)
+        ts.registerCallback(self.imageCallback)
+        
+        # subscribe to further topics
         rospy.Subscriber(self.goal_topic, PointStamped, self.goalCallback)
         rospy.Subscriber("/joy", Joy, self.joyCallback, queue_size=10)
 
@@ -68,16 +102,18 @@ class VIPlannerNode:
 
     def config(self, args):
         self.main_freq   = args.main_freq
-        self.model_save  = args.model_save
-        self.image_topic = args.depth_topic
-        self.goal_topic  = args.goal_topic
-        self.path_topic  = args.path_topic
+
         self.frame_id    = args.robot_id
         self.world_id    = args.world_id
         self.uint_type   = args.uint_type
         self.image_flip  = args.image_flip
         self.conv_dist   = args.conv_dist
         self.depth_max   = args.depth_max
+        # ROS topics
+        self.depth_topic = args.depth_topic
+        self.rgb_topic   = args.rgb_topic
+        self.goal_topic  = args.goal_topic
+        self.path_topic  = args.path_topic        
         # fear reaction
         self.is_fear_act = args.is_fear_act
         self.buffer_size = args.buffer_size
@@ -91,10 +127,13 @@ class VIPlannerNode:
         while not rospy.is_shutdown():
             if self.ready_for_planning and self.is_goal_init:
                 # main planning starts
-                cur_image = self.img.copy()
+                cur_depth_image = self.depth_img.copy()
+                cur_rgb_image = self.rgb_img.copy()
                 start = time.time()
+                # Estimate Semantics of RGB Image
+                cur_sem_image = self.m2f_inference.inference(cur_rgb_image)
                 # Network Planning
-                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(cur_image, self.goal_rb)
+                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(cur_depth_image, self.goal_rb)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
@@ -206,10 +245,13 @@ class VIPlannerNode:
         self.planner_status.data = 0
         return
 
-    def imageCallback(self, msg):
-        # rospy.loginfo("Received image %s: %d"%(msg.header.frame_id, msg.header.seq))
-        self.image_time = msg.header.stamp
-        frame = ros_numpy.numpify(msg)
+    def imageCallback(self, depth_msg: Image, rgb_msg: Image):
+        rospy.loginfo("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
+        rospy.loginfo("Received rgb image   %s: %d"%(rgb_msg.header.frame_id, rgb_msg.header.seq))
+        self.image_time = depth_msg.header.stamp
+        
+        # convert depth image to numpy array
+        frame = ros_numpy.numpify(depth_msg)
         frame[~np.isfinite(frame)] = 0
         if self.uint_type:
             frame = frame / 1000.0
@@ -219,10 +261,19 @@ class VIPlannerNode:
         # img.show()
         if self.image_flip:
             frame = PIL.Image.fromarray(frame)
-            self.img = np.array(frame.transpose(PIL.Image.ROTATE_180))
+            self.depth_img = np.array(frame.transpose(PIL.Image.ROTATE_180))
         else:
-            self.img = frame
+            self.depth_img = frame
 
+        # convert rgb image to numpy array
+        frame = ros_numpy.numpify(rgb_msg)
+        # DEBUG - Visual Image
+        # img = PIL.Image.fromarray((frame)).astype('uint8'))
+        # img.show()
+        # TODO: transform rgb image to same frame as depth image
+        self.rgb_img = frame
+        
+        # transform goal into robot frame
         if self.is_goal_init:
             goal_robot_frame = self.goal_pose;
             if not self.goal_pose.header.frame_id == self.frame_id:
@@ -237,6 +288,8 @@ class VIPlannerNode:
             self.goal_rb = goal_robot_frame
         else:
             return
+        
+        # declare ready for planning
         self.ready_for_planning = True
         self.is_goal_processed  = True
         return
@@ -247,30 +300,153 @@ if __name__ == '__main__':
     rospy.init_node(node_name, anonymous=False)
 
     parser = ROSArgparse(relative=node_name)
-    parser.add_argument('main_freq',     type=int,   default=5,                          help="frequency of path planner")
-    parser.add_argument('model_save',    type=str,   default='/models/plannernet.pt',    help="read model")
-    parser.add_argument('crop_size',     type=tuple, default=[360,640],                  help='image crop size')
-    parser.add_argument('uint_type',     type=bool,  default=False,                      help="image in uint type or not")
-    parser.add_argument('depth_topic',   type=str,   default='/rgbd_camera/depth/image', help='depth image ros topic')
-    parser.add_argument('goal_topic',    type=str,   default='/way_point',               help='goal waypoint ros topic')
-    parser.add_argument('path_topic',    type=str,   default='/path',                    help='VIP Path topic')
-    parser.add_argument('robot_id',      type=str,   default='base',                     help='robot TF frame id')
-    parser.add_argument('world_id',      type=str,   default='odom',                     help='world TF frame id')
-    parser.add_argument('depth_max',     type=float, default=10.0,                       help='max depth distance in image')
-    parser.add_argument('image_flip',    type=bool,  default=True,                       help='is the image fliped')
-    parser.add_argument('conv_dist',     type=float, default=0.5,                        help='converge range to the goal')
-    parser.add_argument('is_fear_act',   type=bool,  default=True,                       help='is open fear action or not')
-    parser.add_argument('buffer_size',   type=int,   default=10,                         help='buffer size for fear reaction')
-    parser.add_argument('angular_thred', type=float, default=0.3,                        help='angular thred for turning')
-    parser.add_argument('track_dist',    type=float, default=0.5,                        help='look ahead distance for path tracking')
-    parser.add_argument('joyGoal_scale',   type=float, default=0.5,                        help='distance for joystick goal')
+    parser.add_argument(
+        'main_freq',       
+        type=int,    
+        default=5,                          
+        help="frequency of path planner"
+    )
+    parser.add_argument(
+        'uint_type',       
+        type=bool,   
+        default=False,                      
+        help="image in uint type or not"
+    )
+    parser.add_argument(
+        'robot_id',        
+        type=str,    
+        default='base',                     
+        help='robot TF frame id'
+    )
+    parser.add_argument(
+        'world_id',        
+        type=str,    
+        default='odom',                     
+        help='world TF frame id'
+    )
+    parser.add_argument(
+        'depth_max',       
+        type=float,  
+        default=10.0,                       
+        help='max depth distance in image'
+    )
+    parser.add_argument(
+        'image_flip',      
+        type=bool,   
+        default=True,                       
+        help='is the image fliped'
+    )
+    parser.add_argument(
+        'conv_dist',       
+        type=float,  
+        default=0.5,                        
+        help='converge range to the goal'
+    )
+    parser.add_argument(
+        'is_fear_act',     
+        type=bool,   
+        default=True,                       
+        help='is open fear action or not'
+    )
+    parser.add_argument(
+        'buffer_size',     
+        type=int,    
+        default=10,                         
+        help='buffer size for fear reaction'
+    )
+    parser.add_argument(
+        'angular_thred',   
+        type=float,  
+        default=0.3,                        
+        help='angular thred for turning'
+    )
+    parser.add_argument(
+        'track_dist',      
+        type=float,  
+        default=0.5,                        
+        help='look ahead distance for path tracking'
+    )
+    parser.add_argument(
+        'joyGoal_scale',   
+        type=float,  
+        default=0.5,                        
+        help='distance for joystick goal'
+    )
     
-    parser.add_argument('sensor_offset_x', type=float, default=0.0,                      help='sensor offset X')
-    parser.add_argument('sensor_offset_y', type=float, default=0.0,                      help='sensor offset Y')
+    # ROS topics
+    parser.add_argument(
+        'depth_topic',     
+        type=str,    
+        default='/rgbd_camera/depth/image', 
+        help='depth image ros topic'
+    )
+    parser.add_argument(
+        'goal_topic',      
+        type=str,    
+        default='/way_point',               
+        help='goal waypoint ros topic'
+    )
+    parser.add_argument(
+        'path_topic',      
+        type=str,    
+        default='/path',                    
+        help='VIP Path topic'
+    )
+    parser.add_argument(
+        'rgb_topic',       
+        type=str,    
+        default='/wide_angle_camera_front/image_raw/compressed',
+        help='rgb camera topic'
+    )
 
+    # VIPlannerInferenceConfig
+    parser.add_argument(
+        'model_save',      
+        type=str,    
+        default='/models/plannernet.pt',    
+        help="read model"
+    )
+    parser.add_argument(
+        'crop_size',       
+        type=tuple,  
+        default=[360,640],                  
+        help='image crop size'
+    )
+    parser.add_argument(
+        'sensor_offset_x', 
+        type=float,  
+        default=0.0,                        
+        help='sensor offset X'
+    )
+    parser.add_argument(
+        'sensor_offset_y', 
+        type=float,  
+        default=0.0,                        
+        help='sensor offset Y'
+    )
+    parser.add_argument(
+        'semantics',       
+        type=bool,   
+        default=False,                      
+        help='use semantics or not'
+    )
+    
+    # Mask2FormerInferenceConfig
+    parser.add_argument(
+        'm2f_config_file', 
+        type=str,    
+        default='/models/swin/maskformer2_swin_tiny_bs16_50ep.yaml',   
+        help="config file for m2f model"
+    )
+    parser.add_argument(
+        'm2f_model_save',  
+        type=str,    
+        default='/models/swin/model_final_9fd0ae.pkl',   
+        help="read model"
+    )
+    
     args = parser.parse_args()
     args.model_save = planner_path + args.model_save
-
 
     node = VIPlannerNode(args)
 

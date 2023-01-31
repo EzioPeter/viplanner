@@ -333,9 +333,9 @@ class SemCostMap:
         
         # intended traversable area is best traversed with maximum distance to any area with higher cost
         # apply distance transform to nearest obstacle to enforce smallest loss when distance is max
-        traversable_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[0])
-        grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], 1.0, False) * -1
-        
+        # traversable_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[0])
+        # grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], 1.0, False) * -1
+
         # outside of the mesh is an obstacle and all points over obstacle theshold of grid loss are obstacles 
         # grid_obs = np.zeros((self._num_x, self._num_y))
         obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold)
@@ -351,6 +351,8 @@ class SemCostMap:
             loss_level_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[i])
             grid_loss[loss_level_idx] = self._distance_based_gradient(loss_level_idx, loss_levels[i], loss_levels[i + 1], False)
         
+        grid_loss[1520:1930, 1060:3400] = 0.0
+                
         # overlay both losses
         # grid_loss[obs_within_mesh_idx] = 0.0
         # grid_loss[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = 0.0

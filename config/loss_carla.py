@@ -10,8 +10,9 @@
 # has to be the same as used in CARLA exploration
 OBSTACLE_LOSS = 1
 TRAVERSABLE_LOSS = 0
-ROAD_LOSS = 0.3
-TERRAIN_LOSS = 0.6
+ROAD_LOSS = 0.0
+TERRAIN_LOSS = 0.0
+VOID_LOSS = 0.0
 
 CARLA_LOSS = {
     # flat
@@ -49,9 +50,9 @@ CARLA_LOSS = {
     # sky
     "sky" : OBSTACLE_LOSS,
     # void
-    "ground" : OBSTACLE_LOSS,
-    "dynamic" : OBSTACLE_LOSS,
-    "static" : OBSTACLE_LOSS,
+    "ground" : VOID_LOSS,
+    "dynamic" : VOID_LOSS,
+    "static" : VOID_LOSS,
 }
 
 # colors equal to https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py

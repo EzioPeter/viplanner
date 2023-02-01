@@ -22,7 +22,7 @@ class TrajViz:
         return None
 
     def SetMap(self, root_path, map_name):
-        intrinsic_path = os.path.join(*[root_path, "depth_intrinsic.txt"])
+        intrinsic_path = os.path.join(*[root_path, "intrinsics.txt"])
         self.is_map = False
         if not map_name == "robot":
             self.tsdf_map.ReadTSDFMap(root_path, map_name)
@@ -42,13 +42,8 @@ class TrajViz:
         return world_ps
 
     def SetCamera(self, intrinsic_path, img_width=640, img_height=360):
-        try:
-            elems = np.loadtxt(intrinsic_path, delimiter=',')
-        except ValueError:
-            with open(intrinsic_path) as f:
-                lines = f.readlines()
-                elems = np.fromstring(lines[0][1:-2], dtype=float, sep=', ')
-        K = np.array(elems).reshape(3, 4)
+        P = np.loadtxt(intrinsic_path, delimiter=",")  # assumes ROS P matrix
+        K = P[0].reshape(3, 4)[:3, :3]
         self.camera = o3d.camera.PinholeCameraIntrinsic(img_width, img_height, K[0,0], K[1,1], K[0,2], K[1,2])
         return
 

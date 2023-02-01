@@ -17,7 +17,11 @@ class DataCfg:
     
     # real world data used --> images have to be rotated by 180 degrees
     real_world_data: bool = False 
-
+    
+    # identification suffix of the cameras for semantic and depth images
+    depth_suffix = "_cam0"
+    sem_suffix = "_cam1"
+        
     # data processing
     max_depth: float = 15.0
     "maximum depth for depth image"
@@ -38,6 +42,8 @@ class DataCfg:
     """odom points after all filtering with cost heigher can be weighted in the neural network cost"""
     fov_scale: float = 1.0
     "scaling of the field of view (only goals within fov are considered)"
+    depth_scale: float = 1000.0
+    "scaling of the depth image"
     
     # train val split
     ratio: float = 0.9
@@ -53,11 +59,9 @@ class DataCfg:
 class TrainCfg:
     """Config for multi environment training"""
     
-    data_root: str = "data_pc" 
-    "dataset root folder"
     sem: bool = True 
     "use semantic image"
-    cost_map_name: str = "cost_map_geom" # "cost_map_sem" 
+    cost_map_name: str = "cost_map_sem" # "cost_map_sem" 
     "cost map name"
     camera_tilt: float = 0.15 
     "camera tilt angle for visualization only"
@@ -67,8 +71,9 @@ class TrainCfg:
     test_env_id: int = 5
     "the test env id in the id list"
     resume: bool = False
-    crop_size: Tuple[int, int] = field(default_factory=lambda: [360, 640]) 
-    "image crop size"
+    "resume training"
+    img_input_size: Tuple[int, int] = field(default_factory=lambda: [360, 640]) 
+    "image size (will be cropped if larger or resized if smaller)"
     in_channel: int = 16 
     "goal input channel numbers"
     knodes: int = 5 

@@ -393,23 +393,25 @@ def model_train(cfg: TrainCfg) -> None:
     model_path = os.path.join(model_dir, cfg._get_model_save())
     
     # set data root directory  --> to make it work on euler cluster
-    data_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/env"), cfg.data_root)
+    data_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "data")
     
     transform = transforms.Compose([
-        transforms.Resize((cfg.crop_size)),
+        transforms.Resize((cfg.img_input_size)),
         transforms.ToTensor()])
 
     # logging
     if cfg.training:
         os.environ["WANDB_API_KEY"] = cfg.wb_api_key
         os.environ["WANDB_MODE"] = "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
+        dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
+        os.makedirs(dir_path, exist_ok=True)
         
         wandb.init(
             project=cfg.wb_project,
             entity=cfg.wb_entity,
             name=cfg._get_model_save()[:-3],
             config=cfg.__dict__,
-            dir=os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
+            dir=dir_path
         )
     
     """RUN TRAINING"""
@@ -526,7 +528,7 @@ if __name__ == "__main__":
         file_name="augment_ldata",
         weight_samples_difficult=2.0,
     )  
-    # model_train(cfg_2d)
+    model_train(cfg_2d)
     # torch.cuda.empty_cache()
         
     # cfg_3a: TrainCfg = TrainCfg(

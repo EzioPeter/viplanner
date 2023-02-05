@@ -80,34 +80,4 @@ class Decoder(nn.Module):
 
         return x, c
 
-
-if __name__ == "__main__":
-    from dataset import PlannerData
-    from utils.torchutil import show_batch
-    import torchvision.transforms as transforms
-
-    depth_transform = transforms.Compose([
-            # transforms.RandomRotation(20),
-            transforms.Resize(tuple([640,480])),
-            transforms.ToTensor()])
-
-    
-    batch_size = 2
-    root_path = os.getcwd() + "/data/"
-    data = PlannerData(root=root_path, train=True, transform=depth_transform)
-    loader = Data.DataLoader(dataset=data, batch_size=batch_size, shuffle=True)
-
-    knode = 10
-    net = AutoEncoder("resnet", knode)
-    if torch.cuda.is_available():
-        net = net.cuda()
-
-    with torch.no_grad():
-        enumerater = tqdm.tqdm(enumerate(loader))
-        for batch_idx, inputs in enumerater:
-            if torch.cuda.is_available():
-                image = inputs[0].cuda()
-                odom  = inputs[1].tensor().cuda()
-                goal  = inputs[2].tensor().cuda()
-            outputs, flags = net(image, goal)
-            show_batch(torch.cat([inputs, outputs], dim=0), name='test', waitkey=1000)
+# EoF

@@ -1,0 +1,13 @@
+# General Configurations
+main_freq:            15
+robot_id:             base
+# ROS topics
+sem_topic:            /m2f_sem
+rgb_topic:            /wide_angle_camera_front/image_raw/compressed
+depth_topic:          /rgbd_camera/depth/image
+rgb_cam_info_topic:   /wide_angle_camera_front/image_raw/camerainfo
+depth_cam_info_topic: /rgbd_camera/depth/camerainfo
+timer_topic:          /m2f_timer'
+# Mask2FormerInferenceConfig
+m2f_config_file:      /models/swin/maskformer2_swin_tiny_bs16_50ep.yaml 
+m2f_model_path:       /models/swin/model_final_9fd0ae.pkl

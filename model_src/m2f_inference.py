@@ -53,9 +53,8 @@ class Mask2FormerInference:
         # Convert image to OpenCV BGR format
         image = image[:, :, ::-1]
         
-        predictions = self.predictor(image)
+        return self.predictor(image)
         
-        return
     """Helper functions"""
     
     def _setup_cfg(self) -> CfgNode:

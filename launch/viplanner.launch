@@ -1,5 +1,6 @@
 <launch>
-    <arg name="config"/>
+    <arg name="config_m2f"/>
+    <arg name="config_viplanner"/>
     <arg name="rosbag" default="false"/>
     <arg name="use_path_follow" default="false"/>  <!-- FIXME: Changed, has been enabled before -->
 
@@ -7,8 +8,10 @@
         <include file="$(find dvf_path_follow)/launch/path_follower.launch" />
     </group>
 
+    <node pkg="m2f_node" type="m2f_node.py" name="m2f_node" output="screen">
+        <rosparam command="load" file="$(find m2f_node)/config/$(arg config_m2f).yaml"/>
     <node pkg="viplanner_node" type="viplanner_node.py" name="viplanner_node" output="screen">
-        <rosparam command="load" file="$(find viplanner_node)/config/$(arg config).yaml"/>
+        <rosparam command="load" file="$(find viplanner_node)/config/$(arg config_viplanner).yaml"/>
     </node>
     <!-- <node type="rviz" name="dvf_planner_rviz" pkg="rviz" args="-d $(find dvf_planner_node)/rviz/default.rviz" respawn="false"/> -->
 </launch>

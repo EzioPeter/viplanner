@@ -54,10 +54,7 @@ class VIPlannerNode:
             crop_size=args.crop_size,
             sensor_offset_x=args.sensor_offset_x,
             sensor_offset_y=args.sensor_offset_y,
-            semantics=args.semantics,
         )
-        # init semantic network
-        self.m2f_inference = None
         
         self.tf_listener = tf.TransformListener()
 
@@ -79,8 +76,8 @@ class VIPlannerNode:
         
         # depth and rgb image message --> time syncronization by message_filters
         img_depth_sub = message_filters.Subscriber(self.depth_topic, Image)
-        img_rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
-        ts = message_filters.TimeSynchronizer([img_depth_sub, img_rgb_sub], 10)
+        img_sem_sub = message_filters.Subscriber(self.sem_topic, Image)
+        ts = message_filters.TimeSynchronizer([img_depth_sub, img_sem_sub], 10)
         ts.registerCallback(self.imageCallback)
         
         # subscribe to further topics
@@ -128,12 +125,10 @@ class VIPlannerNode:
             if self.ready_for_planning and self.is_goal_init:
                 # main planning starts
                 cur_depth_image = self.depth_img.copy()
-                cur_rgb_image = self.rgb_img.copy()
+                cur_sem_image = self.sem_img.copy()
                 start = time.time()
-                # Estimate Semantics of RGB Image
-                cur_sem_image = self.m2f_inference.inference(cur_rgb_image)
                 # Network Planning
-                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(cur_depth_image, self.goal_rb)
+                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(cur_depth_image, cur_sem_image, self.goal_rb)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
@@ -245,9 +240,9 @@ class VIPlannerNode:
         self.planner_status.data = 0
         return
 
-    def imageCallback(self, depth_msg: Image, rgb_msg: Image):
+    def imageCallback(self, depth_msg: Image, sem_msg: Image):
         rospy.loginfo("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
-        rospy.loginfo("Received rgb image   %s: %d"%(rgb_msg.header.frame_id, rgb_msg.header.seq))
+        rospy.loginfo("Received sem image   %s: %d"%(sem_msg.header.frame_id, sem_msg.header.seq))
         self.image_time = depth_msg.header.stamp
         
         # convert depth image to numpy array
@@ -266,12 +261,11 @@ class VIPlannerNode:
             self.depth_img = frame
 
         # convert rgb image to numpy array
-        frame = ros_numpy.numpify(rgb_msg)
+        frame = ros_numpy.numpify(sem_msg)
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame)).astype('uint8'))
         # img.show()
-        # TODO: transform rgb image to same frame as depth image
-        self.rgb_img = frame
+        self.sem_img = frame
         
         # transform goal into robot frame
         if self.is_goal_init:
@@ -393,9 +387,9 @@ if __name__ == '__main__':
         help='VIP Path topic'
     )
     parser.add_argument(
-        'rgb_topic',       
+        'sem_topic',       
         type=str,    
-        default='/wide_angle_camera_front/image_raw/compressed',
+        default='/m2f_sem',
         help='rgb camera topic'
     )
 
@@ -429,20 +423,6 @@ if __name__ == '__main__':
         type=bool,   
         default=False,                      
         help='use semantics or not'
-    )
-    
-    # Mask2FormerInferenceConfig
-    parser.add_argument(
-        'm2f_config_file', 
-        type=str,    
-        default='/models/swin/maskformer2_swin_tiny_bs16_50ep.yaml',   
-        help="config file for m2f model"
-    )
-    parser.add_argument(
-        'm2f_model_save',  
-        type=str,    
-        default='/models/swin/model_final_9fd0ae.pkl',   
-        help="read model"
     )
     
     args = parser.parse_args()

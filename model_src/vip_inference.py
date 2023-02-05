@@ -31,7 +31,6 @@ class VIPlannerInference:
         sensor_offset_x: float = 0.47,
         sensor_offset_y: float = 0.0,
         crop_size: list = [360,640],
-        semantics: bool = False,
         encoder_channel: int = 16,
         k_nodes: int = 5,
     ) -> None:
@@ -42,7 +41,6 @@ class VIPlannerInference:
             sensor_offset_x (float, optional): sensor offset in x direction. Defaults to 0.47.
             sensor_offset_y (float, optional): sensor offset in y direction. Defaults to 0.0.
             crop_size (list, optional): crop size of the image. Defaults to [360,640].
-            semantics (bool, optional): use semantic input data. Defaults to False.
             encoder_channel (int, optional): number of channels in the encoder. Defaults to 16.
             k_nodes (int, optional): number of keypoints as output of the network. Defaults to 5.
         """
@@ -51,15 +49,11 @@ class VIPlannerInference:
         self._sensor_offset_x = sensor_offset_x
         self._sensor_offset_y = sensor_offset_y
         self._crop_size = crop_size
-        self._semantics = semantics
         self._encoder_channel = encoder_channel
         self._k_nodes = k_nodes
         
         # get model
-        if self._semantics:
-            self.net = DualAutoEncoder(encoder_channel=self._encoder_channel, k=self._k_nodes)
-        else:
-            self.net = AutoEncoder(encoder_channel=self._encoder_channel, k=self._k_nodes)
+        self.net = DualAutoEncoder(encoder_channel=self._encoder_channel, k=self._k_nodes)
         try:
             model_state_dict, _ = torch.load(self._model_save)
         except ValueError:
@@ -101,10 +95,10 @@ class VIPlannerInference:
     def plan(
         self,
         depth_image: np.ndarray,
+        sem_image: np.ndarray,
         goal_robot_frame: torch.Tensor,
-        sem_image: Optional[np.ndarray] = None,
     ) -> tuple:
-        """Plan to path towards the goal given depth (and semantic image)
+        """Plan to path towards the goal given depth and semantic image
 
         Args:
             depth_image (np.ndarray): Depth image from the robot
@@ -117,12 +111,9 @@ class VIPlannerInference:
         # get keypoints and fear from planner
         with torch.no_grad():
             depth_image = self.img_converter(depth_image)
-            if self._semantics:
-                sem_image = self.img_converter(sem_image)
-                keypoints, fear = self.net(depth_image, sem_image, goal_robot_frame.to(self._device))
-            else:
-                keypoints, fear = self.net(depth_image, goal_robot_frame.to(self._device))
-        
+            sem_image = self.img_converter(sem_image)
+            keypoints, fear = self.net(depth_image, sem_image, goal_robot_frame.to(self._device))
+
         # add potential offset from sensor to robot
         if self.is_traj_shift:
             batch_size, _, dims = keypoints.shape

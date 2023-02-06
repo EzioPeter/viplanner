@@ -120,7 +120,7 @@ class DepthReconstruction:
             # rot_carla = tf.Rotation.from_euler("XYZ", rot_carla, degrees=True).as_matrix()
             
             im_reshaped = np.flipud(im.reshape(-1, 1))  # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
-            points = im_reshaped * (rot.T @ pix_cam_reordered.T).T
+            points = im_reshaped * (rot @ pix_cam_reordered.T).T
             # filter points with 0 depth --> otherwise obstacles at camera position
             non_zero_idx = np.where(points.any(axis=1))[0]
             
@@ -251,7 +251,7 @@ class DepthReconstruction:
         sem_image = cv2.imread(img_path)
         pose_sem   = self.extrinsics_sem[idx + self._cfg.start_idx]
         # transform points to semantic camera frame
-        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix() @ (points - pose_sem[:3]).T).T
+        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T
         # normalize points
         points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
         # reorder points be camera convention (z-forward)

@@ -17,7 +17,7 @@ from config import CostMapConfig
 from cost_maps import SemCostMap, TsdfCostMap, CostToPcd
 
 
-def main(cfg: CostMapConfig):
+def main(cfg: CostMapConfig, final_viz: bool = True):
     
     assert any([cfg.semantics, cfg.geometry]), "no cost map type selected"
     
@@ -66,7 +66,8 @@ def main(cfg: CostMapConfig):
     cost_mapper = CostToPcd()
     cost_mapper.DirectLoadMap(data, coord, [cfg.general.resolution, cfg.general.clear_dist])
     cost_mapper.SaveTSDFMap(cfg.general.root_path, cfg.map_name)
-    cost_mapper.ShowTSDFMap(cost_map=True)
+    if final_viz:
+        cost_mapper.ShowTSDFMap(cost_map=True)
     
     # save config parameters
     yaml_path = os.path.join(cfg.general.root_path, "maps", "params", f"config_{cfg.map_name}.yaml")

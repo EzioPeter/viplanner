@@ -60,13 +60,13 @@ def main(args):
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser()
-    parser.add_argument("-bf", "--bag_file", default='/home/pascal/SemNav/sem_seg/data/rosbags/2023-01-13-16-01-31_anymal-d020-npc_mission_0.bag', # required=True, 
+    parser.add_argument("-bf", "--bag_file", default='/home/pascal/SemNav/env/anymal/2023_01_26_eth/2023-01-26-16-10-24_rgb_front_rear_lidar_depth_left_right_mission_3.bag', # required=True, 
                         help="Input ROS bag.")
-    parser.add_argument("-o", "--output_dir", default='/home/pascal/SemNav/sem_seg/data/rosbags/2023-01-13-16-01-31_anymal-d020-npc_mission_0', # required=True, 
+    parser.add_argument("-o", "--output_dir", default='/home/pascal/SemNav/env/anymal/2023_01_26_eth/2023-01-26-16-10-24_rgb_front_rear_lidar_depth_left_right_mission_3', # required=True, 
                         help="Output directory.")
     parser.add_argument("-t", "--image_topic", default='/wide_angle_camera_front/image_color_rect/compressed', # required=True, 
                         help="Image topic.")
-    parser.add_argument("-n", "--nb_images", type=int, default=1000, 
+    parser.add_argument("-n", "--nb_images", type=int, default=100, 
                         help="Total number of image extracted from the ROS bag")
     parser.add_argument('-c', "--compressed", action='store_false', 
                         help='Compressed images within rosbag')

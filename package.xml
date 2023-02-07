@@ -2,9 +2,10 @@
 <package format="2">
   <name>viplanner_node</name>
   <version>1.0.0</version>
-  <description>A ROS warper for Visual Imperative Planner (VIPlanner) package</description>
+  <description>A ROS wrapper for Visual Imperative Planner (VIPlanner) package</description>
 
-  <maintainer email="fanyang1@ethz.ch">Fan Yang</maintainer>
+  <maintainer email="rothpa@ethz.ch">Pascal Roth</maintainer>
+  <author email="fanyang1@ethz.ch">Fan Yang</author>
 
   <license>BSD-3</license>
 

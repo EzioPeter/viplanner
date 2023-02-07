@@ -32,13 +32,10 @@ import message_filters
 # init ros node
 rospack = rospkg.RosPack()
 pack_path = rospack.get_path('viplanner_node')
-planner_path = os.path.join(pack_path,'viplanner')
 sys.path.append(pack_path)
-sys.path.append(planner_path)
 
 # visual imperative planner
 from model_src.vip_inference import VIPlannerInference
-from model_src.m2f_inference import M2FInference
 from utils.rosutil import ROSArgparse
 
 
@@ -108,7 +105,7 @@ class VIPlannerNode:
         self.depth_max   = args.depth_max
         # ROS topics
         self.depth_topic = args.depth_topic
-        self.rgb_topic   = args.rgb_topic
+        self.sem_topic   = args.sem_topic
         self.goal_topic  = args.goal_topic
         self.path_topic  = args.path_topic        
         # fear reaction
@@ -397,7 +394,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'model_save',      
         type=str,    
-        default='/models/plannernet.pt',    
+        default='models/plannernet_town01_ep200_inputDepSem_costSem_optimSGD_WeightFilter.pt',    
         help="read model"
     )
     parser.add_argument(
@@ -426,8 +423,9 @@ if __name__ == '__main__':
     )
     
     args = parser.parse_args()
-    args.model_save = planner_path + args.model_save
-
+    # model save path
+    args.model_save = os.path.join(pack_path, args.model_save)
+    
     node = VIPlannerNode(args)
 
     node.spin()

@@ -27,10 +27,8 @@ import ros_numpy
 
 # init ros node
 rospack = rospkg.RosPack()
-pack_path = rospack.get_path('m2f_node')
-m2f_path = os.path.join(pack_path,'model_src')
+pack_path = rospack.get_path('viplanner_node')
 sys.path.append(pack_path)
-sys.path.append(m2f_path)
 
 # visual imperative planner
 from model_src.m2f_inference import Mask2FormerInference
@@ -275,19 +273,19 @@ if __name__ == '__main__':
     parser.add_argument(
         'm2f_config_file', 
         type=str,    
-        default='/models/swin/maskformer2_swin_tiny_bs16_50ep.yaml',   
+        default='models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml',   
         help="config file for m2f model"
     )
     parser.add_argument(
         'm2f_model_path',  
         type=str,    
-        default='/models/swin/model_final_9fd0ae.pkl',   
+        default='models/coco_panoptic/swin/model_final_9fd0ae.pkl',   
         help="read model"
     )
     
     args = parser.parse_args()
-    args.m2f_config_path = m2f_path + args.m2f_config_file
-    args.m2f_model_path = m2f_path + args.m2f_model_path
+    args.m2f_config_path = os.path.join(pack_path, args.m2f_config_file)
+    args.m2f_model_path  = os.path.join(pack_path, args.m2f_model_path)
 
     node = VIPlannerNode(args)
 

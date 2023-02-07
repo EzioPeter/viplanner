@@ -70,6 +70,10 @@ catkin_install_python(PROGRAMS src/viplanner_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+catkin_install_python(PROGRAMS src/m2f_node.py 
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 catkin_install_python(PROGRAMS src/viplanner_viz.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

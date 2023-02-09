@@ -6,6 +6,8 @@
 """
 
 # python
+import time
+import torch
 import numpy as np
 import torchvision.transforms as transforms
 
@@ -50,10 +52,21 @@ class Mask2FormerInference:
         Args:
             image (np.ndarray): image to be processed
         """
-        # Convert image to OpenCV BGR format
-        image = image[:, :, ::-1]
+        start = time.time()
+        # get predictions
+        predictions = self.predictor(image)
+        panoptic_seg, seg_infos = predictions['panoptic_seg']
         
-        return self.predictor(image)
+        # create output
+        segments = torch.zeros(panoptic_seg.shape).cuda()
+        for sinfo in seg_infos:
+            segments[panoptic_seg == sinfo['id']] = sinfo['category_id']+1
+        panoptic_mask = 255*torch.ones((panoptic_seg.shape[0], panoptic_seg.shape[1], 3)).cuda()
+        panoptic_mask[..., 2] = segments
+        print("Pred. + vis. time: {:.3f}s".format(time.time() - start))
+        
+        # TODO: colorize panoptic mask 
+        return np.rot90(panoptic_mask.cpu().numpy(), k=3).astype(np.uint8)
         
     """Helper functions"""
     

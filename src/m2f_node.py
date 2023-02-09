@@ -15,15 +15,17 @@ import sys
 import time
 import numpy as np
 import PIL
+import cv2 
 
 # ROS
 import rospy
 import rospkg
 import tf
 from std_msgs.msg import Float32
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 import message_filters
 import ros_numpy
+import cv_bridge
 
 # init ros node
 rospack = rospkg.RosPack()
@@ -50,6 +52,7 @@ class VIPlannerNode:
         self.depth_info_topic   = args.depth_cam_info_topic
         self.sem_info_topic     = args.sem_cam_info_topic
         self.timer_topic        = args.timer_topic
+        self.compressed         = args.compressed
         # flags
         self.img_init: bool = False
         self.depth_intrinsics_init: bool = False
@@ -65,6 +68,9 @@ class VIPlannerNode:
         # init transforms
         self.tf_listener = tf.TransformListener()
 
+        # init bridge
+        self.bridge = cv_bridge.CvBridge()
+        
         # init semantic network
         self.m2f_inference = Mask2FormerInference(
             config_file=args.m2f_config_path,
@@ -75,7 +81,10 @@ class VIPlannerNode:
         img_depth_sub = message_filters.Subscriber(self.depth_topic, Image)
         img_rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
         ts = message_filters.TimeSynchronizer([img_depth_sub, img_rgb_sub], 10)
-        ts.registerCallback(self.imageCallback)
+        if self.compressed:
+            ts.registerCallback(self.imageCallbackCompressed)
+        else:
+            ts.registerCallback(self.imageCallback)
         
         # camera info subscribers
         rospy.Subscriber(self.depth_info_topic, CameraInfo, callback=self.depthCamInfoCallback)
@@ -151,10 +160,46 @@ class VIPlannerNode:
         return sem_annotation.reshape(depth_img.shape[0], depth_img.shape[1], 3)
 
     def imageCallback(self, depth_msg: Image, rgb_msg: Image):
-        rospy.loginfo("Received rgb image %s: %d"%(rgb_msg.header.frame_id, rgb_msg.header.seq))
+        rospy.loginfo("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
+        rospy.loginfo("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))        
+
+        # image time
         self.image_time = depth_msg.header.stamp
         
-        # convert depth image to numpy array
+        # RGB image
+        try:
+            rgb_img = self.bridge.imgmsg_to_cv2(rgb_msg, "bgr8")
+            # rotate image 90 degrees coutner clockwise
+            self.rgb_img = cv2.rotate(rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        except cv_bridge.CvBridgeError as e:
+            print(e)
+
+        self.depthCallback(depth_msg)
+        self.poseCallback(rgb_msg, depth_msg)
+        return        
+            
+    def imageCallbackCompressed(self, depth_msg: Image, rgb_msg: CompressedImage):
+        rospy.loginfo("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
+        rospy.loginfo("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
+
+        # image time
+        self.image_time = depth_msg.header.stamp
+
+        # RGB Image
+        try:
+            rgb_arr = np.fromstring(rgb_msg.data, np.uint8)
+            rgb_img = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
+            # rotate image 90 degrees coutner clockwise
+            self.rgb_img = cv2.rotate(rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        except cv_bridge.CvBridgeError as e:
+            print(e)
+
+        self.depthCallback(depth_msg)
+        self.poseCallback(rgb_msg, depth_msg)
+        return
+    
+    def depthCallback(self, depth_msg: Image):
+        # DEPTH Image
         frame = ros_numpy.numpify(depth_msg)
         frame[~np.isfinite(frame)] = 0
         if self.uint_type:
@@ -168,25 +213,18 @@ class VIPlannerNode:
             self.depth_img = np.array(frame.transpose(PIL.Image.ROTATE_180))
         else:
             self.depth_img = frame
-        
-        # convert rgb image to numpy array
-        frame = ros_numpy.numpify(rgb_msg)
-        # DEBUG - Visual Image
-        # img = PIL.Image.fromarray((frame)).astype('uint8'))
-        # img.show()
-        self.rgb_img = frame
-        
+        return
+    
+    def poseCallback(self, rgb_msg: Image, depth_msg: Image):
         # get current pose of semantic and depth image
-        try:
-            rgb_msg.header.stamp = self.tf_listener.getLatestCommonTime(rgb_msg.header.frame_id, self.frame_id)
-            # TODO: what transform to use? camera center?
-            self.rgb_pose = self.tf_listener.transformPoint(self.frame_id, rgb)
+        try:            
+            pose = self.tf_listener.lookupTransform(self.frame_id, rgb_msg.header.frame_id, rgb_msg.header.stamp)
+            self.rgb_pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr("Fail to transfer the goal into base frame.")
         try:
-            depth_msg.header.stamp = self.tf_listener.getLatestCommonTime(depth_msg.header.frame_id, self.frame_id)
-            # TODO: what transfrom to use? 
-            self.depth_pose = self.tf_listener.transformPoint(self.frame_id, depth)
+            pose = self.tf_listener.lookupTransform(self.frame_id, depth_msg.header.frame_id, depth_msg.header.stamp)
+            self.depth_pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr("Fail to transfer the goal into base frame.")
 
@@ -268,7 +306,13 @@ if __name__ == '__main__':
         default='/m2f_timer', 
         help='Time needed for semantic segmentation'
     )
-
+    parser.add_argument(
+        'compressed',     
+        type=bool,    
+        default=True, 
+        help='If compressed rgb topic is used'
+    )
+    
     # Mask2FormerInferenceConfig
     parser.add_argument(
         'm2f_config_file', 

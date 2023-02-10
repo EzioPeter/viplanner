@@ -33,8 +33,9 @@ class DepthReconstruction:
     - env_name
         - camera_extrinsic.txt  (format: x y z qx qy qz qw)
         - intrinsics.txt (expects ROS CameraInfo format --> P-Matrix)
-        - depth
+        - depth  (either png and/ or npy)
             - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
+            - xxxx.npy  (arrays should be named with 4 digits, e.g. 0000.npy, 0001.npy, etc.)
         - semantics (optional)
             - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
     
@@ -44,11 +45,16 @@ class DepthReconstruction:
         - camera_extrinsic{depth_suffix}.txt  (format: x y z qx qy qz qw)
         - camera_extrinsic{sem_suffix}.txt  (format: x y z qx qy qz qw)
         - intrinsics.txt (expects ROS CameraInfo format --> P-Matrix) (contains both intrinsics for depth and semantic images)
-        - depth
+        - depth (either png and/ or npy)
             - xxxx{depth_suffix}.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
+            - xxxx{depth_suffix}.npy  (arrays should be named with 4 digits, e.g. 0000.npy, 0001.npy, etc.)
         - semantics (optional)
             - xxxx{sem_suffix}.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
-                
+    
+    in the case of high resolution depth images for the reconstruction, the following additional directory is expected:
+        - depth_high_res (either png and/ or npy)
+            - xxxx{depth_suffix}.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
+            - xxxx{depth_suffix}.npy  (arrays should be named with 4 digits, e.g. 0000.npy, 0001.npy, etc.)
     """
     
     debug = False
@@ -92,16 +98,7 @@ class DepthReconstruction:
         #     self._compute_overlay_pixel()
         print(f"total number of images for reconstruction: {self.depth_img.shape[0]}")
             
-        # 3D reconstruction from Depth 
-        k_inv = np.linalg.inv(self.K_depth) 
-        # init pixel tensor and point arrays
-        x_nums, y_nums = self.depth_img.shape[1], self.depth_img.shape[2]
-        
-        T = self._computePixelTensor(x_nums, y_nums)
-        T_z = T.reshape(3, -1)
-        T_z = T_z[[1, 0, 2], :]  # reorder to be in camera frame (z forward, x right, y down)            
-        pix_cam = (k_inv @ T_z).T
-        pix_cam_reordered = pix_cam[:, [2, 0, 1]]  # reorder to be in "robotics" axis order (x forward, y left, z up)
+        pixels = self._computePixelTensor()
         
         # init lists
         self._points = []
@@ -114,13 +111,7 @@ class DepthReconstruction:
             
             # project points in world frame
             rot = tf.Rotation.from_quat(extrinsics[3:]).as_matrix()
-            
-            # rot_carla = tf.Rotation.from_quat(extrinsics[3:]).as_euler("XYZ", degrees=True)
-            # rot_carla = -rot_carla
-            # rot_carla = tf.Rotation.from_euler("XYZ", rot_carla, degrees=True).as_matrix()
-            
-            im_reshaped = np.flipud(im.reshape(-1, 1))  # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
-            points = im_reshaped * (rot @ pix_cam_reordered.T).T
+            points = im.reshape(-1, 1) * (rot @ pixels.T).T
             # filter points with 0 depth --> otherwise obstacles at camera position
             non_zero_idx = np.where(points.any(axis=1))[0]
             
@@ -224,9 +215,14 @@ class DepthReconstruction:
 
     def _load_depth_images(self) -> np.ndarray:
         # get path to images
-        dir_path = os.path.join(self._cfg.get_data_path(), "depth")
+        if self._cfg.high_res_depth:
+            dir_path = os.path.join(self._cfg.get_data_path(), "depth_high_res")
+            res_factor = self._cfg.res_factor
+        else:
+            dir_path = os.path.join(self._cfg.get_data_path(), "depth")
+            res_factor = 1
         # init
-        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K_depth[1, 2])*2, int(self.K_depth[0, 2])*2))  # assumes camera center in the middle of image plane
+        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K_depth[1, 2])*2*res_factor, int(self.K_depth[0, 2])*2*res_factor))  # assumes camera center in the middle of image plane
         # repeat for all further images
         for idx in range(self._start_idx, self._end_idx):
             if os.path.isfile(os.path.join(dir_path, str(idx).zfill(4) + self._cfg.depth_suffix + ".npy")):
@@ -238,12 +234,21 @@ class DepthReconstruction:
         img_array[~np.isfinite(img_array)] = 0
         return img_array
       
-    def _computePixelTensor(self, x_nums, y_nums):
-        T = np.zeros([3, x_nums, y_nums])
-        for u in range(x_nums):
-            for v in range(y_nums):
-                T[:, u, v] = np.array([u, v, 1.0])
-        return T
+    def _computePixelTensor(self):  
+        # get image plane mesh grid
+        pix_u = np.arange(0, self.depth_img.shape[2])
+        pix_v = np.arange(0, self.depth_img.shape[1])
+        grid = np.meshgrid(pix_u, pix_v)
+        pixels = np.vstack(list(map(np.ravel, grid))).T
+        pixels = np.hstack(
+            [pixels, np.ones((len(pixels), 1))]
+        )  # add ones for 3D coordinates 
+        
+        # transform to camera frame
+        k_inv = np.linalg.inv(self.K_depth)
+        pix_cam_frame = np.matmul(k_inv, pixels.T)
+        # reorder to be in "robotics" axis order (x forward, y left, z up)
+        return pix_cam_frame[[2, 0, 1], :].T  * np.array([1, -1, -1])          
 
     def _get_semantic_image(self, points, idx):
         # load semantic image and pose
@@ -261,7 +266,7 @@ class DepthReconstruction:
         # filter points outside of image
         filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_image.shape[0])
         # get semantic annotation
-        sem_annotation = sem_image[pixels[filter_idx, 1].astype(int)-1, pixels[filter_idx, 0].astype(int)-1]
+        sem_annotation = sem_image[pixels[filter_idx, 1].astype(int), pixels[filter_idx, 0].astype(int)]
         
         return sem_annotation, filter_idx
 

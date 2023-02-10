@@ -10,9 +10,9 @@
 # has to be the same as used in CARLA exploration
 OBSTACLE_LOSS = 1
 TRAVERSABLE_LOSS = 0
-ROAD_LOSS = 0.0
-TERRAIN_LOSS = 0.0
-VOID_LOSS = 0.0
+ROAD_LOSS = 0.6
+TERRAIN_LOSS = 0.3
+VOID_LOSS = 1.0
 
 CARLA_LOSS = {
     # flat

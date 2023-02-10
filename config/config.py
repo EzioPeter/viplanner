@@ -21,10 +21,13 @@ class ReconstructionCfg:
     # directory where the environment with the depth (and semantic) images is located
     data_dir: str = "/home/pascal/SemNav/imperative_learning/data"
     # environment name
-    env: str = "2n8kARJN3HM"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ  town01_2 JeFG25nYj2p town01
+    env: str = "town01"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM town01_2 JeFG25nYj2p 
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"
+    # higher resolution depth images available for reconstruction
+    high_res_depth: bool = False
+    res_factor: int = 2  # resolution factor for high resolution depth images
     
     # reconstruction parameters
     voxel_size: float = 0.05  # [m]
@@ -96,16 +99,16 @@ class GeneralCostMapConfig:
     root_path: str = "/home/pascal/SemNav/imperative_learning/data/2n8kARJN3HM"  # B6ByNegPMKs JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A  town01 2azQ1b91cZZ 
     ply_file: str = "cloud.ply"
     # resolution of the cost map
-    resolution: float = 0.04  # [m]
+    resolution: float = 0.04  # [m]  (0.04 for matterport, 0.1 for carla)
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
     sigma_smooth: float = 2.0
     # cost map expansion
-    x_min: Optional[float] = None # -8.05  # [m] if None, the minimum of the point cloud is used
-    y_min: Optional[float] = None # -8.05  # [m] if None, the minimum of the point cloud is used
-    x_max: Optional[float] = None # 402.38 # [m] if None, the maximum of the point cloud is used
-    y_max: Optional[float] = None # 336.65 # [m] if None, the maximum of the point cloud is used
+    x_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
+    y_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
+    x_max: Optional[float] = None  # 402.38 # [m] if None, the maximum of the point cloud is used
+    y_max: Optional[float] = None  # 336.65 # [m] if None, the maximum of the point cloud is used
 
 
 @dataclass

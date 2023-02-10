@@ -407,7 +407,6 @@ class PlannerDataGenerator(Dataset):
         
         # init buffer lists
         odom_list_dep = []
-        odom_list_sem = []
         goal_list = []
         pair_outside = []
         

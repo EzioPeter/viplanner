@@ -18,7 +18,7 @@ torch.set_default_dtype(torch.float32)
 from config import TrainCfg, DataCfg
 from plannernet import AutoEncoder, DualAutoEncoder
 from utils.torchutil import EarlyStopScheduler, count_parameters
-from dataset import PlannerData, PlannerDataGenerator, PlannerDataOld
+from dataset import PlannerData, PlannerDataGenerator, PlannerDataOld, MultiEpochsDataLoader
 from traj_cost_opt import TrajCost, TrajViz
 
 
@@ -37,8 +37,8 @@ def train(
     enumerater = tqdm.tqdm(enumerate(loader))
 
     for batch_idx, inputs in enumerater:
-        odom  = inputs[2].cuda(cfg.gpu_id) if not cfg.old_dataloader else inputs[1].cuda(cfg.gpu_id)
-        goal  = inputs[3].cuda(cfg.gpu_id) if not cfg.old_dataloader else inputs[2].cuda(cfg.gpu_id)
+        odom  = inputs[2].cuda(cfg.gpu_id) if not cfg.old_plannerdata else inputs[1].cuda(cfg.gpu_id)
+        goal  = inputs[3].cuda(cfg.gpu_id) if not cfg.old_plannerdata else inputs[2].cuda(cfg.gpu_id)
         optimizer.zero_grad()
         
         if sem:
@@ -84,8 +84,8 @@ def performance(
 
     with torch.no_grad():
         for batch_idx, inputs in enumerate(loader):
-            odom  = inputs[2].cuda(cfg.gpu_id) if not cfg.old_dataloader else inputs[1].cuda(cfg.gpu_id)
-            goal  = inputs[3].cuda(cfg.gpu_id) if not cfg.old_dataloader else inputs[2].cuda(cfg.gpu_id)
+            odom  = inputs[2].cuda(cfg.gpu_id) if not cfg.old_plannerdata else inputs[1].cuda(cfg.gpu_id)
+            goal  = inputs[3].cuda(cfg.gpu_id) if not cfg.old_plannerdata else inputs[2].cuda(cfg.gpu_id)
             
             if sem:
                 image = inputs[0].cuda(cfg.gpu_id)  # depth
@@ -213,7 +213,7 @@ def run_train(
         traj_cost, traj_viz = get_cost_and_viz(cfg, data_path)
         
         # create dataset
-        if not cfg.old_dataloader:
+        if not cfg.old_plannerdata:
             train_data = PlannerData(
                 cfg=cfg.data_cfg,
                 transform=transform,
@@ -249,8 +249,12 @@ def run_train(
                 transform=transform,
                 max_depth=cfg.data_cfg.max_depth,
                 )
-        train_loader = Data.DataLoader(dataset=train_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
-        val_loader = Data.DataLoader(dataset=val_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+        if cfg.multi_epoch_dataloader:
+            train_loader = MultiEpochsDataLoader(train_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+            val_loader = MultiEpochsDataLoader(val_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+        else:
+            train_loader = Data.DataLoader(dataset=train_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+            val_loader = Data.DataLoader(dataset=val_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
         
         train_loader_list.append(train_loader)
         val_loader_list.append(val_loader)
@@ -318,7 +322,7 @@ def run_testing(
 
     traj_cost, traj_viz = get_cost_and_viz(cfg, test_path)
     
-    if not cfg.old_dataloader:
+    if not cfg.old_plannerdata:
         test_data = PlannerData(
             cfg=cfg.data_cfg,
             transform=transform,
@@ -342,7 +346,12 @@ def run_testing(
             transform=transform,
             max_depth=cfg.data_cfg.max_depth,
         )        
-    test_loader = Data.DataLoader(dataset=test_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+    
+    if cfg.multi_epoch_dataloader:
+        test_loader = MultiEpochsDataLoader(dataset=test_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+    else:
+        test_loader = Data.DataLoader(dataset=test_data, batch_size=cfg.batch_size, shuffle=True, pin_memory=True, num_workers=cfg.num_workers)
+    
     test_loss = performance(
         cfg, 
         test_loader, 
@@ -446,106 +455,26 @@ def model_train(cfg: TrainCfg) -> None:
 
 
 if __name__ == "__main__":
-    # Arguements
-    cfg_1a: TrainCfg = TrainCfg(
+    # Arguements  
+    matterport_geom: TrainCfg = TrainCfg(
         sem=False,
         cost_map_name="cost_map_geom",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-    ) 
-    # model_train(cfg_1a)
-    # torch.cuda.empty_cache()
-    
-    cfg_1b: TrainCfg = TrainCfg(
-        sem=True,
-        cost_map_name="cost_map_geom",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-    )
-    # model_train(cfg_1b)
-    # torch.cuda.empty_cache()
-    
-    cfg_1c: TrainCfg = TrainCfg(
-        sem=False,
-        cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-    )
-    # model_train(cfg_1c)
-    # torch.cuda.empty_cache()
-    
-    cfg_1d: TrainCfg = TrainCfg(
-        sem=True,
-        cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-        file_name="WeightFilter",
-    )
-    # model_train(cfg_1d)
-    # torch.cuda.empty_cache()
-    
-    cfg_1e: TrainCfg = TrainCfg(
-        sem=True,
-        optimizer="adam",
-        cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-    )
-    # model_train(cfg_1e)
-    # torch.cuda.empty_cache()
-    
-    cfg_2a: TrainCfg = TrainCfg(
-        sem=False,
-        cost_map_name="cost_map_geom",
-        file_name="augment_ldata",
-        weight_samples_difficult=2.0,
     )  
-    # model_train(cfg_2a)
+    # model_train(matterport_geom)
     # torch.cuda.empty_cache()
     
-    cfg_2b: TrainCfg = TrainCfg(
-        sem=True,
-        cost_map_name="cost_map_geom",
-        file_name="augment_ldata",
-        weight_samples_difficult=2.0,
-    )  
-    # model_train(cfg_2b)
-    # torch.cuda.empty_cache()
-    
-    cfg_2c: TrainCfg = TrainCfg(
-        sem=False,
-        cost_map_name="cost_map_sem",
-        test_env_id=1,
-        file_name="augment_ldata",
-        weight_samples_difficult=2.0,
-    )  
-    # model_train(cfg_2c)
-    # torch.cuda.empty_cache()
-
-    cfg_2d: TrainCfg = TrainCfg(
+    matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
-        file_name="augment_ldata",
-        weight_samples_difficult=2.0,
     )  
-    model_train(cfg_2d)
-    # torch.cuda.empty_cache()
-        
-    # cfg_3a: TrainCfg = TrainCfg(
-    #     depth=True,
-    #     sem=True,
-    #     cost_map_name="cost_map_geom",
-    #     env_list=["town01", "town01"],
-    # )  
-    # model_train(cfg_3a)
-    # torch.cuda.empty_cache()
+    model_train(matterport_sem)
+    torch.cuda.empty_cache()
             
-    cfg_3b: TrainCfg = TrainCfg(
+    carla: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
         env_list=["town01", "town01"],
         test_env_id=1,
-        file_name="augment_ldata",
         data_cfg=DataCfg(
             max_goal_distance=10.0,
             max_depth=15,
@@ -553,26 +482,26 @@ if __name__ == "__main__":
         n_visualize=128,
         wb_project="SemNav-Carla"
     )  
-    # model_train(cfg_3b)   
+    # model_train(carla)   
     # torch.cuda.empty_cache() 
 
-    cfg_3c: TrainCfg = TrainCfg(
+    carla_obscost: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
         env_list=["town01", "town01"],
         test_env_id=1,
-        file_name="augment_ldata_obscostheight_05",
+        file_name="_obscostheight_05",
         data_cfg=DataCfg(
             max_goal_distance=10.0,
             max_depth=15,
             obs_cost_height=0.5,
-            ratio_hard=0.3,
-            ratio_easy=0.3,
-            ratio_outside=0.4,
+            ratio_hard=0.5,
+            ratio_easy=0.4,
+            ratio_outside=0.1,
         ),
         n_visualize=400,
         wb_project="SemNav-Carla"
     )      
-    model_train(cfg_3c)
+    model_train(carla_obscost)
 
 # EoF

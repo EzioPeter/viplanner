@@ -59,25 +59,61 @@ class DataCfg:
 class TrainCfg:
     """Config for multi environment training"""
     
+    # high level configurations
+    training: bool = True
+    "the dataset type"
     sem: bool = True 
     "use semantic image"
+    file_name: Optional[str] = None
+    "appendix to the filename if needed"      
+    seed: int = 0
+    "random seed"  
+    gpu_id: int = 0 
+    "GPU id"      
+    
+    # data and dataloader configurations
     cost_map_name: str = "cost_map_sem" # "cost_map_sem" 
     "cost map name"
-    camera_tilt: float = 0.15 
-    "camera tilt angle for visualization only"
-    sensor_offsetX_ANYmal: float = 0.4 
-    "anymal front camera sensor offset in X axis"
-    env_list: List[str] = field(default_factory=lambda: ["2azQ1b91cZZ", "JeFG25nYj2p", "Vvot9Ly1tCj", "ur6pFq6Qu1A", "B6ByNegPMKs", "2n8kARJN3HM"])
+    env_list: List[str] = field(default_factory=lambda: 
+        ["2azQ1b91cZZ",
+         "JeFG25nYj2p",
+         "Vvot9Ly1tCj",
+         "ur6pFq6Qu1A",
+         "B6ByNegPMKs",
+         "2n8kARJN3HM"]
+    )
     test_env_id: int = 5
-    "the test env id in the id list"
-    resume: bool = False
-    "resume training"
+    "the test env id in the id list"    
+    data_cfg: DataCfg = DataCfg()
+    "further data configuration"
+    multi_epoch_dataloader: bool = True
+    "load all samples into RAM s.t. do not have to be reloaded for each epoch"
+    old_plannerdata: bool = False
+    "use old dataloader for testing reasons -> only with depth information and old structure"    
+    num_workers: int = 2 
+    "number of workers for dataloader"    
+    sensor_offsetX_ANYmal: float = 0.4 
+    "anymal front camera sensor offset in X axis"   
+    fear_ahead_dist: float =2.5 
+    "fear lookahead distance"     
+    
+    # network configurations
     img_input_size: Tuple[int, int] = field(default_factory=lambda: [360, 640]) 
-    "image size (will be cropped if larger or resized if smaller)"
+    "image size (will be cropped if larger or resized if smaller)"    
     in_channel: int = 16 
     "goal input channel numbers"
     knodes: int = 5 
-    "number of max waypoints predicted"
+    "number of max waypoints predicted"    
+
+    # training configurations
+    resume: bool = False
+    "resume training"    
+    epochs: int = 200
+    "number of training epochs"    
+    batch_size: int = 64 
+    "number of minibatch size"    
+       
+    # optimizer and scheduler configurations
     lr: float = 2e-3 
     "learning rate"
     factor: float = 0.5 
@@ -85,44 +121,29 @@ class TrainCfg:
     min_lr: float = 1e-6 
     "minimum lr for ReduceLROnPlateau"
     patience: int = 10 
-    "patience of epochs for ReduceLROnPlateau"
-    epochs: int = 200
-    "number of training epochs"
-    batch_size: int = 64 
-    "number of minibatch size"
+    "patience of epochs for ReduceLROnPlateau"    
     optimizer: str = "sgd"  # either adam or sgd
     "optimizer"
     momentum: float = 0.1 
     "momentum of the optimizer"
     w_decay: float = 1e-4 
     "weight decay of the optimizer"
-    num_workers: int = 6 
-    "number of workers for dataloader"
-    gpu_id: int = 0 
-    "GPU id"
-    training: bool = False
-    "the dataset type"
-    fear_ahead_dist: float =2.5 
-    "fear lookahead distance"
-    old_dataloader: bool = False
-    "use old dataloader for testing reasons -> only with depth information and old structure"
-    seed: int = 0
-    "random seed"
-    file_name: Optional[str] = None
-    "appendix to the filename if needed"
-    n_visualize: int = 10
-    "number of trajectories that are visualized"
+    
+    # loss configurations
     weight_samples_difficult: float = 1.0  # start-goal combinations with obstacle inbetween (cost value higher than data_cfg.obs_cost_height)
     weight_samples_high_cost: float = 1.0  # start-goal combinations with either start or end point with higher cost than data_cfg.free_space_cost_height
-    """weighting of samples with special conditions"""
+    """weighting of samples with special conditions"""    
     
-    # logging
+    # visualization configurations
+    camera_tilt: float = 0.15 
+    "camera tilt angle for visualization only"
+    n_visualize: int = 10
+    "number of trajectories that are visualized"
+
+    # logging configurations
     wb_project: str = "SemNav-Matterport"
     wb_entity: str = "semnav"
     wb_api_key: str = "e718d064556efc09b0bd0574a8e458f92dea49fc"
-    
-    # further config class
-    data_cfg: DataCfg = DataCfg()
     
     # functions
     def _get_model_save(self):

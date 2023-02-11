@@ -659,18 +659,20 @@ class PlannerDataGenerator(Dataset):
         depth_img = self._load_depth_image(depth_filename)
         x_nums, y_nums = depth_img.shape
         
-        # compute pixel tensor
-        T = np.zeros([3, x_nums, y_nums])
-        for u in range(x_nums):
-            for v in range(y_nums):
-                T[:, u, v] = np.array([u, v, 1.0])
-        T = T.reshape(3, -1)
-        T_cam = T[[1, 0, 2], :]  # reorder to be in camera frame (z forward, x right, y down)            
+        # get image plane mesh grid
+        pix_u = np.arange(0, y_nums)
+        pix_v = np.arange(0, x_nums)
+        grid = np.meshgrid(pix_u, pix_v)
+        pixels = np.vstack(list(map(np.ravel, grid))).T
+        pixels = np.hstack(
+            [pixels, np.ones((len(pixels), 1))]
+        )  # add ones for 3D coordinates           
         
         # transform to camera frame
         k_inv = np.linalg.inv(K_depth)
-        pix_cam_frame = (k_inv @ T_cam).T
-        return pix_cam_frame[:, [2, 0, 1]]  # reorder to be in "robotics" axis order (x forward, y left, z up)
+        pix_cam_frame = np.matmul(k_inv, pixels.T)
+        # reorder to be in "robotics" axis order (x forward, y left, z up)
+        return pix_cam_frame[[2, 0, 1], :].T  * np.array([1, -1, -1])
     
     def _load_depth_image(self, depth_filename):
         if depth_filename.endswith('.png'):
@@ -700,11 +702,11 @@ class PlannerDataGenerator(Dataset):
         
         # get 3D points of depth image
         rot = tf.Rotation.from_quat(pose_dep[3:]).as_matrix()
-        dep_im_reshaped = np.flipud(depth_img.reshape(-1, 1))  # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
-        points = dep_im_reshaped * (rot.T @ pix_depth_cam_frame.T).T + pose_dep[:3]
+        dep_im_reshaped = depth_img.reshape(-1, 1) # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
+        points = dep_im_reshaped * (rot @ pix_depth_cam_frame.T).T + pose_dep[:3]
         
         # transform points to semantic camera frame
-        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix() @ (points - pose_sem[:3]).T).T
+        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T
         # normalize points
         points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
         # reorder points be camera convention (z-forward)
@@ -715,8 +717,7 @@ class PlannerDataGenerator(Dataset):
         filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_image.shape[0])
         # get semantic annotation
         sem_annotation = np.zeros((pixels.shape[0], 3))
-        sem_annotation[filter_idx] = sem_image[pixels[filter_idx, 1].astype(int)-1, pixels[filter_idx, 0].astype(int)-1]
-        sem_annotation = np.flipud(sem_annotation)
+        sem_annotation[filter_idx] = sem_image[pixels[filter_idx, 1].astype(int), pixels[filter_idx, 0].astype(int)]
         # reshape to image
         
         sem_image_warped = sem_annotation.reshape(depth_img.shape[0], depth_img.shape[1], 3)
@@ -737,4 +738,5 @@ class PlannerDataGenerator(Dataset):
         cv2.imwrite(sem_image_path, sem_image_warped)
         
         return sem_image_path
+
 # EoF

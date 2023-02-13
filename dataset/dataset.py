@@ -107,7 +107,7 @@ class PlannerData(Dataset):
             - depth_image: depth image
             - sem_image: semantic image
             - odom: odometry of the start pose (point and rotation)
-            - goal: goal point
+            - goal: goal point in the camera frame
             - pair_difficulty: bool if the pair is easy or hard
             - pair_outside: bool if either start or goal is outside the free space
             - pair_augment: bool if the pair is augmented (flipped at the y-axis of the image)

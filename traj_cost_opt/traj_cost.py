@@ -55,10 +55,11 @@ class TrajCost:
         ahead_dist: float,
         pair_difficult,
         pair_outside,
-        alpha=0.25,
-        beta=1.0,
-        gamma=1.5,
-        delta=2.0,
+        w_obs=0.25,
+        w_height=1.0,
+        w_motion=1.5,
+        w_goal=4.0,
+        w_length=0.5,
         obstalce_thred=0.75,
         dataset: str = "train",
     ):
@@ -80,7 +81,7 @@ class TrajCost:
             # Terrian Height loss
             height_grid = self.tsdf_map.ground_array.T.expand(batch_size, 1, -1, -1)
             hloss_M = F.grid_sample(height_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
-            hloss_M = torch.abs(waypoints[:, :, 2] - hloss_M).to(torch.float32)
+            hloss_M = torch.abs(waypoints[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # waypoints - odom to have them on the ground to be comparable to the height map
             hloss_M = torch.sum(hloss_M, axis=1)
             hloss_M[pair_difficult] = hloss_M[pair_difficult] * self.weight_difficult  # weighting
             hloss_M[pair_outside] = hloss_M[pair_outside] * self.weight_outside
@@ -98,7 +99,7 @@ class TrajCost:
         gloss = torch.mean(gloss_M_weighted)
         
         # Moving Loss - punish staying 
-        desired_wp = self.opt.TrajGeneratorFromPFreeRot(goal[:, None, 0:3], step=1.0/(num_p-1)) 
+        desired_wp = self.opt.TrajGeneratorFromPFreeRot(goal[:, None, 0:3], step=1.0/(num_p-1), fix_init_m=False) 
         desired_ds = torch.norm(desired_wp[:, 1:num_p, :] - desired_wp[:, 0:num_p-1, :], dim=2)
         wp_ds = torch.norm(waypoints[:, 1:num_p, :] - waypoints[:, 0:num_p-1, :], dim=2)
         mloss = torch.abs(desired_ds - wp_ds)
@@ -107,6 +108,12 @@ class TrajCost:
         mloss[pair_outside] = mloss[pair_outside] * self.weight_outside
         mloss = torch.mean(mloss)
 
+        # Path Length Loss
+        lloss = torch.abs(torch.sum(wp_ds, axis=1) - torch.sum(desired_ds, axis=1)) 
+        lloss[pair_difficult] = lloss[pair_difficult] * self.weight_difficult  # weighting
+        lloss[pair_outside] = lloss[pair_outside] * self.weight_outside
+        lloss = torch.mean(lloss)
+        
         if self.log_data:
             wandb.log({f"gloss_{dataset}_step": gloss}, step=log_step)
             wandb.log({f"mloss_{dataset}_step": mloss}, step=log_step)
@@ -116,7 +123,8 @@ class TrajCost:
         floss_M = torch.clone(oloss_M)[:, 1:]
         floss_M[goal_dists > ahead_dist] = 0.0 
         fear_labels = torch.max(floss_M, 1, keepdim=True)[0]
-        fear_labels = nn.Sigmoid()(fear_labels-obstalce_thred)
-
+        # fear_labels = nn.Sigmoid()(fear_labels-obstalce_thred)
+        fear_labels = fear_labels > obstalce_thred
+        
         # TODO: kinodynamics cost
-        return alpha*oloss + beta*hloss + gamma*mloss + delta*gloss, fear_labels
+        return w_obs*oloss + w_height*hloss + w_motion*mloss + w_goal*gloss + w_length*lloss, fear_labels.float()

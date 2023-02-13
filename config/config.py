@@ -60,7 +60,7 @@ class TrainCfg:
     """Config for multi environment training"""
     
     # high level configurations
-    training: bool = True
+    training: bool = False
     "the dataset type"
     sem: bool = True 
     "use semantic image"
@@ -92,7 +92,7 @@ class TrainCfg:
     "use old dataloader for testing reasons -> only with depth information and old structure"    
     num_workers: int = 2 
     "number of workers for dataloader"    
-    sensor_offsetX_ANYmal: float = 0.4 
+    sensor_offsetX_ANYmal: float = 0.0  # 0.4   # TODO: possible remove, does not make sense to add
     "anymal front camera sensor offset in X axis"   
     fear_ahead_dist: float =2.5 
     "fear lookahead distance"     

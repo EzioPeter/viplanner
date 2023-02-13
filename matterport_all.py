@@ -119,26 +119,26 @@ if __name__ == "__main__":
         env= "ur6pFq6Qu1A",
     )
     reconstruct(config_reconstruct_ur6pFq6Qu1A)
-    config_cost_Vvot9Ly1tCj = CostMapConfig(
+    config_cost_ur6pFq6Qu1A = CostMapConfig(
         visualize=False,
         semantics=True,
         geometry=False,
         map_name="cost_map_sem",
         general=GeneralCostMapConfig(
-            root_path="/home/pascal/SemNav/imperative_learning/data/Vvot9Ly1tCj"
+            root_path="/home/pascal/SemNav/imperative_learning/data/ur6pFq6Qu1A"
         )
     )
-    main(config_cost_Vvot9Ly1tCj, final_viz = False)
-    config_cost_Vvot9Ly1tCj = CostMapConfig(
+    main(config_cost_ur6pFq6Qu1A, final_viz = False)
+    config_cost_ur6pFq6Qu1A = CostMapConfig(
         visualize=False,
         semantics=False,
         geometry=True,
         map_name="cost_map_geom",
         general=GeneralCostMapConfig(
-            root_path="/home/pascal/SemNav/imperative_learning/data/Vvot9Ly1tCj"
+            root_path="/home/pascal/SemNav/imperative_learning/data/ur6pFq6Qu1A"
         )
     )
-    main(config_cost_Vvot9Ly1tCj, final_viz = False)   
+    main(config_cost_ur6pFq6Qu1A, final_viz = False)   
     
     # ENV B6ByNegPMKs
     config_reconstruct_B6ByNegPMKs = ReconstructionCfg(

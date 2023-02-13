@@ -211,18 +211,19 @@ class DepthReconstruction:
             self.K_sem = P[1].reshape(3, 4)[:3, :3]
         else:
             self.K_depth = P.reshape(3, 4)[:3, :3]
+        
+        if self._cfg.high_res_depth:
+            self.K_depth = self.K_depth * self._cfg.res_factor
         return 
 
     def _load_depth_images(self) -> np.ndarray:
         # get path to images
         if self._cfg.high_res_depth:
             dir_path = os.path.join(self._cfg.get_data_path(), "depth_high_res")
-            res_factor = self._cfg.res_factor
         else:
             dir_path = os.path.join(self._cfg.get_data_path(), "depth")
-            res_factor = 1
         # init
-        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K_depth[1, 2])*2*res_factor, int(self.K_depth[0, 2])*2*res_factor))  # assumes camera center in the middle of image plane
+        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K_depth[1, 2])*2, int(self.K_depth[0, 2])*2))  # assumes camera center in the middle of image plane
         # repeat for all further images
         for idx in range(self._start_idx, self._end_idx):
             if os.path.isfile(os.path.join(dir_path, str(idx).zfill(4) + self._cfg.depth_suffix + ".npy")):

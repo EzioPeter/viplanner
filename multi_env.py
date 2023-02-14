@@ -456,19 +456,22 @@ def model_train(cfg: TrainCfg) -> None:
 
 if __name__ == "__main__":
     # Arguements  
-    matterport_geom: TrainCfg = TrainCfg(
-        sem=False,
-        cost_map_name="cost_map_geom",
-    )  
-    # model_train(matterport_geom)
-    # torch.cuda.empty_cache()
+    matterport_overfit: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
+        test_env_id=1
+        file_name="_overfit",
+    )
+    model_train(matterport_overfit)
+    torch.cuda.empty_cache()
     
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
     )  
-    model_train(matterport_sem)
-    torch.cuda.empty_cache()
+    # model_train(matterport_sem)
+    # torch.cuda.empty_cache()
             
     carla: TrainCfg = TrainCfg(
         sem=True,
@@ -502,6 +505,6 @@ if __name__ == "__main__":
         n_visualize=400,
         wb_project="SemNav-Carla"
     )      
-    model_train(carla_obscost)
+    # model_train(carla_obscost)
 
 # EoF

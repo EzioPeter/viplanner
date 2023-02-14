@@ -81,7 +81,7 @@ class TrajCost:
             # Terrian Height loss
             height_grid = self.tsdf_map.ground_array.T.expand(batch_size, 1, -1, -1)
             hloss_M = F.grid_sample(height_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
-            hloss_M = torch.abs(waypoints[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # waypoints - odom to have them on the ground to be comparable to the height map
+            hloss_M = torch.abs(world_ps[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # world_ps - odom to have them on the ground to be comparable to the height map
             hloss_M = torch.sum(hloss_M, axis=1)
             hloss_M[pair_difficult] = hloss_M[pair_difficult] * self.weight_difficult  # weighting
             hloss_M[pair_outside] = hloss_M[pair_outside] * self.weight_outside

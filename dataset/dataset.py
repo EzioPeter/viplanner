@@ -745,23 +745,23 @@ class PlannerDataGenerator(Dataset):
         # select indexes
         max_sample_number = int(self._cfg.max_train_pairs / self._cfg.ratio)
         
-        idx_front       = np.random.choice(idx_front,       int(max_sample_number * self._cfg.ratio_front_samples),       replace=False if len(idx_front)       > int(max_sample_number * self._cfg.ratio_front_samples)       else True)
-        idx_back        = np.random.choice(idx_back,        int(max_sample_number * self._cfg.ratio_back_samples),        replace=False if len(idx_back)        > int(max_sample_number * self._cfg.ratio_back_samples)        else True)
-        idx_fov_easy    = np.random.choice(idx_fov_easy,    int(max_sample_number * self._cfg.ratio_fov_easy_samples),    replace=False if len(idx_fov_easy)    > int(max_sample_number * self._cfg.ratio_fov_easy_samples)    else True)
-        idx_fov_hard    = np.random.choice(idx_fov_hard,    int(max_sample_number * self._cfg.ratio_fov_hard_samples),    replace=False if len(idx_fov_hard)    > int(max_sample_number * self._cfg.ratio_fov_hard_samples)    else True)
-        idx_fov_outside = np.random.choice(idx_fov_outside, int(max_sample_number * self._cfg.ratio_fov_outside_samples), replace=False if len(idx_fov_outside) > int(max_sample_number * self._cfg.ratio_fov_outside_samples) else True)
+        idx_front       = np.random.choice(idx_front,       int(max_sample_number * ratio_front_samples),       replace=False if len(idx_front)       > int(max_sample_number * ratio_front_samples)       else True)
+        idx_back        = np.random.choice(idx_back,        int(max_sample_number * ratio_back_samples),        replace=False if len(idx_back)        > int(max_sample_number * ratio_back_samples)        else True)
+        idx_fov_easy    = np.random.choice(idx_fov_easy,    int(max_sample_number * ratio_fov_easy_samples),    replace=False if len(idx_fov_easy)    > int(max_sample_number * ratio_fov_easy_samples)    else True)
+        idx_fov_hard    = np.random.choice(idx_fov_hard,    int(max_sample_number * ratio_fov_hard_samples),    replace=False if len(idx_fov_hard)    > int(max_sample_number * ratio_fov_hard_samples)    else True)
+        idx_fov_outside = np.random.choice(idx_fov_outside, int(max_sample_number * ratio_fov_outside_samples), replace=False if len(idx_fov_outside) > int(max_sample_number * ratio_fov_outside_samples) else True)
         idx_selected = np.concatenate((idx_front, idx_back, idx_fov_easy, idx_fov_hard, idx_fov_outside))
         
         # print final training mix
         print(f"Generated {self._cfg.max_train_pairs} odom-goal pairs to train and {round(max_sample_number - self._cfg.max_train_pairs)} validation pairs from {self.odom_depth.shape[0]} pairs")
         print(f"Selected data-mix: \n"
-              f"\t front of robot    : \t{len(idx_front)}\t({round(self._cfg.ratio_front_samples*100, 2)} %) \n"
-              f"\t back of robot     : \t{len(idx_back)}\t({round(self._cfg.ratio_back_samples*100, 2)} %) \n"
-              f"\t fov samples       : \t{len(idx_fov_easy)+len(idx_fov_hard)+len(idx_fov_outside)}\t({round(self._cfg.ratio_fov_samples*100, 2)} %) \n"
+              f"\t front of robot    : \t{len(idx_front)}\t({round(ratio_front_samples*100, 2)} %) \n"
+              f"\t back of robot     : \t{len(idx_back)}\t({round(ratio_back_samples*100, 2)} %) \n"
+              f"\t fov samples       : \t{len(idx_fov_easy)+len(idx_fov_hard)+len(idx_fov_outside)}\t({round(ratio_fov_samples*100, 2)} %) \n"
               f"Whereas fov samples are sparated as follows: \n"
-              f"\t easy pairs        : \t{len(idx_fov_easy)}\t({round(self._cfg.ratio_fov_easy_samples*100, 2)} %) \n"
-              f"\t difficult pairs   : \t{len(idx_fov_hard)}\t({round(self._cfg.ratio_fov_hard_samples*100, 2)} %) \n"
-              f"\t outside free space: \t{len(idx_fov_outside)}s\t({round(self._cfg.ratio_fov_outside_samples*100, 2)} %) \n"
+              f"\t easy pairs        : \t{len(idx_fov_easy)}\t({round(ratio_fov_easy_samples*100, 2)} %) \n"
+              f"\t difficult pairs   : \t{len(idx_fov_hard)}\t({round(ratio_fov_hard_samples*100, 2)} %) \n"
+              f"\t outside free space: \t{len(idx_fov_outside)}s\t({round(ratio_fov_outside_samples*100, 2)} %) \n"
               f"from {torch.unique(self.odom_depth, dim=1).shape[0]} different starting points")
 
         # generate split

@@ -730,8 +730,8 @@ class PlannerDataGenerator(Dataset):
         ratio_fov_hard_samples      = ratio_fov_hard_samples if ratio_fov_hard_samples is not None else self._cfg.ratio_fov_hard_samples
         ratio_fov_outside_samples   = ratio_fov_outside_samples if ratio_fov_outside_samples is not None else self._cfg.ratio_fov_outside_samples
         
-        assert ratio_fov_samples + ratio_front_samples + ratio_back_samples == 1.0, f"Sample ratios must sum up to 1.0, currently {ratio_back_samples + ratio_front_samples + ratio_fov_samples}"
-        assert ratio_fov_easy_samples + ratio_fov_hard_samples + ratio_fov_outside_samples == 1.0, f"FOV sample ratios must sum up to 1.0, currently {ratio_fov_easy_samples + ratio_fov_hard_samples + ratio_fov_outside_samples}"
+        assert round(ratio_fov_samples + ratio_front_samples + ratio_back_samples, 2) == 1.0, f"Sample ratios must sum up to 1.0, currently {ratio_back_samples + ratio_front_samples + ratio_fov_samples}"
+        assert round(ratio_fov_easy_samples + ratio_fov_hard_samples + ratio_fov_outside_samples, 2) == 1.0, f"FOV sample ratios must sum up to 1.0, currently {ratio_fov_easy_samples + ratio_fov_hard_samples + ratio_fov_outside_samples}"
         
         # get current idx
         idx = np.arange(self.odom_depth.shape[0])

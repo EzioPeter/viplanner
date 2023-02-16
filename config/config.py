@@ -32,7 +32,7 @@ class ReconstructionCfg:
     # reconstruction parameters
     voxel_size: float = 0.05  # [m]
     start_idx: int = 0  # start index for reconstruction
-    max_images: Optional[int] = 1000  # maximum number of images to reconstruct, if None, all images are used
+    max_images: Optional[int] = 300  # maximum number of images to reconstruct, if None, all images are used
     depth_scale: float = 1000.0  # depth scale factor
     # semantic reconstruction
     semantics: bool = True

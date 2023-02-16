@@ -20,7 +20,7 @@ import multiprocessing as mp
 from functools import partial
 
 # imperative-cost-map
-from config import SemCostMapConfig, GeneralCostMapConfig, CARLA_LOSS, MATTERPORT_LOSS, OBSTACLE_LOSS, CARLA_COLOR_MAPPING
+from config import SemCostMapConfig, GeneralCostMapConfig, OBSTACLE_LOSS, VIPlannerSemMetaHandler
 
 
 class SemCostMap:
@@ -32,6 +32,9 @@ class SemCostMap:
         self._cfg_general = cfg_general
         self._cfg_sem = cfg
         self.visualize = visualize
+        
+        # init VIPlanner Semantic Class Meta Handler
+        self.sem_meta = VIPlannerSemMetaHandler()
         
         # cost map init parameters
         self.pcd: o3d.geometry.PointCloud = None
@@ -61,25 +64,12 @@ class SemCostMap:
     def create_costmap(self) -> Tuple[list, list]:
         assert self._init_done, "cost map not initialized, call pcd_init() first"
         print("COST-MAP CREATION START")
-        
-        # get class idx (=class) of each point in the point cloud
-        if self._cfg_sem.data_source == "matterport":
-            class_idx = self._mapping_matterport()
-            class_loss = list(MATTERPORT_LOSS.values())
-        elif self._cfg_sem.data_source == "carla":
-            class_idx = self._mapping_carla()
-            class_loss = list(CARLA_LOSS.values())
-        else:
-            raise ValueError(f"unknown data source: {self._cfg_sem.data_source}")
-        
-        # update map parameters --> has to be done after mapping because last step where points are removed
-        self._set_map_parameters()
-        
+              
         # get the loss for each grid cell
-        grid_loss = self._get_grid_loss(class_idx=class_idx, class_loss=class_loss)
+        grid_loss = self._get_grid_loss()
         
         # make grid loss differentiable
-        grid_loss = self._dense_grid_loss(grid_loss, class_loss=class_loss)
+        grid_loss = self._dense_grid_loss(grid_loss)
 
         print("COST-MAP CREATION DONE")
         
@@ -133,22 +123,16 @@ class SemCostMap:
         print(f"cost map size set to: {self._num_x} x {self._num_y}")
         return
 
-    def _mapping_matterport(self) -> np.ndarray:
-        """mapping between color and matterport semantic classes"""
+    def _class_mapping(self) -> np.ndarray:
         # get colors
         color = np.asarray(self.pcd_filtered.colors) * 255.0
-        
-        # load defined colors for mpcat40
-        mapping_40 = pd.read_csv(self._cfg_sem.mapping_dir + "/mpcat40.tsv", sep='\t')
-        color_to_id = mapping_40["hex"].to_numpy()
-        self.color_to_id = np.array([(int(color_to_id[i][1:3], 16), int(color_to_id[i][3:5], 16), int(color_to_id[i][5:7], 16)) for i in range(len(color_to_id))])
         
         # pts to class idx array
         pts_class_idx = np.ones(color.shape[0], dtype=int) * -1
 
         # assign each point to a class
         color = color.astype(int)
-        for class_idx, class_color in enumerate(self.color_to_id):
+        for class_idx, class_color in enumerate(self.sem_meta.colors):
             pts_idx_of_class = (color == class_color).all(axis=1).nonzero()[0]
             pts_class_idx[pts_idx_of_class] = class_idx
         
@@ -157,31 +141,7 @@ class SemCostMap:
         self.pcd_filtered = self.pcd_filtered.select_by_index(known_idx)
         print(f"Class of {len(known_idx)} points identified ({len(known_idx) / len(color)} %).")
 
-        return pts_class_idx[known_idx]
-
-    def _mapping_carla(self) -> np.ndarray:
-        """mapping between color and carla semantic classes"""
-        # get colors
-        color = np.asarray(self.pcd_filtered.colors) * 255.0
-        
-        # mapping between color and carla semantic classes        
-        self.color_to_id = CARLA_COLOR_MAPPING
-        
-        # pts to class idx array
-        pts_class_idx = np.ones(color.shape[0], dtype=int) * -1
-
-        # assign each point to a class
-        color = color.astype(int)
-        for class_idx, class_color in enumerate(self.color_to_id.values()):
-            pts_idx_of_class = (color == class_color).all(axis=1).nonzero()[0]
-            pts_class_idx[pts_idx_of_class] = class_idx
-        
-        # identify points with unknown classes --> remove from point cloud
-        known_idx = np.where(pts_class_idx != -1)[0]
-        self.pcd_filtered = self.pcd_filtered.select_by_index(known_idx)
-        print(f"Class of {len(known_idx)} points identified ({len(known_idx) / len(color)} %).")
-
-        return pts_class_idx[known_idx]
+        return pts_class_idx[known_idx]       
         
     @staticmethod
     def _smoother(
@@ -236,16 +196,23 @@ class SemCostMap:
         lock = l
         return
     
-    def _get_grid_loss(self, class_idx: np.ndarray, class_loss: list) -> np.ndarray:
+    def _get_grid_loss(self) -> np.ndarray:
         """convert points to grid"""
+        # get class mapping --> execute first because pcd are filtered
+        class_idx = self._class_mapping()
+        
+        # update map parameters --> has to be done after mapping because last step where points are removed
+        self._set_map_parameters()
+        
         # get points
         pts = np.asarray(self.pcd_filtered.points)
         pts_grid = (pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution
         
         # get loss for each point
+
         pts_loss = np.zeros(class_idx.shape[0])
-        for sem_class in range(len(class_loss)):
-            pts_loss[class_idx == sem_class] = class_loss[sem_class]
+        for sem_class in range(len(self.sem_meta.losses)):
+            pts_loss[class_idx == sem_class] = self.sem_meta.losses[sem_class]
              
         # split task index
         num_tasks = self._cfg_sem.nb_tasks if self._cfg_sem.nb_tasks else mp.cpu_count()
@@ -299,7 +266,7 @@ class SemCostMap:
         
         return grid[loss_level_idx]
                 
-    def _dense_grid_loss(self, smooth_loss: np.ndarray, class_loss: list) -> None:
+    def _dense_grid_loss(self, smooth_loss: np.ndarray) -> None:
         # get grid idx of all classified points
         pts = np.asarray(self.pcd_filtered.points)
         pts_grid_idx = (np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)).astype(int)
@@ -327,7 +294,7 @@ class SemCostMap:
         grid_loss = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_sem.sigma_smooth)        
 
         # get different loss levels
-        loss_levels = np.unique(class_loss)
+        loss_levels = np.unique(self.sem_meta.losses)
         assert round(loss_levels[0], 3) == 0.0, f"Lowest loss level should be 0.0, instead found {loss_levels[0]}."
         assert round(loss_levels[-1], 3) == 1.0, f"Highest loss level should be 1.0, instead found {loss_levels[-1]}."
         

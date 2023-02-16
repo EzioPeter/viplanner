@@ -1,12 +1,11 @@
 # planning
 main_freq:              15
-image_flip:             True
+image_flip:             False
 conv_dist:              0.5
 is_sim:                 True
-# newwork model
-model_save:             models/plannernet_town01_ep200_inputDepSem_costSem_optimSGD_WeightFilter.pt
+# network model
+model_save:             models/model_carla.pt
 crop_size:              [360, 640]
-uint_type:              True
 # images and gaol waypoint topics
 depth_topic:            /depth_camera_front_upper/depth/image_rect_raw
 rgb_topic:              /wide_angle_camera_front/image_raw/compressed
@@ -15,6 +14,7 @@ path_topic:             /path
 image_topic:            /path_image
 camera_tilt:            0.3
 depth_max:              5.0
+depth_uint_type:        True
 # frame ids
 robot_id:               base
 world_id:               odom

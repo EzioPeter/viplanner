@@ -16,6 +16,8 @@ import time
 import numpy as np
 import PIL
 import cv2 
+from typing import Union
+import scipy.spatial.transform as stf
 
 # ROS
 import rospy
@@ -36,33 +38,40 @@ sys.path.append(pack_path)
 from model_src.m2f_inference import Mask2FormerInference
 from utils.rosutil import ROSArgparse
 
+# conversion matrix from ROS camera convention (z-forward, y-down, x-right) to robotics convention (x-forward, y-left, z-up)
+ROS_TO_ROBOTICS_MAT = stf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True).as_matrix()
 
 class VIPlannerNode:
     """VIPlanner ROS Node Class"""
+    
+    debug: bool = False
+    
     def __init__(self, args):
         super(VIPlannerNode, self).__init__()
         # config
         self.main_freq          = args.main_freq
         self.image_flip         = args.image_flip
         self.frame_id           = args.robot_id
+        self.max_depth          = args.max_depth
+        self.depth_uint_type    = args.depth_uint_type
         # ROS topics
         self.sem_topic          = args.sem_topic
         self.rgb_topic          = args.rgb_topic  
         self.depth_topic        = args.depth_topic
         self.depth_info_topic   = args.depth_cam_info_topic
-        self.sem_info_topic     = args.sem_cam_info_topic
+        self.rgb_info_topic     = args.rgb_cam_info_topic
         self.timer_topic        = args.timer_topic
         self.compressed         = args.compressed
         # flags
         self.img_init: bool = False
         self.depth_intrinsics_init: bool = False
-        self.sem_intrinsics_init: bool = False
+        self.rgb_intrinsics_init: bool = False
 
         # init buffers
         self.rgb_img: np.ndarray = None
         self.depth_img: np.ndarray = None
         self.K_depth: np.ndarray = np.zeros((3,3))
-        self.K_sem: np.ndarray = np.zeros((3,3))
+        self.K_rgb: np.ndarray = np.zeros((3,3))
         self.pix_depth_cam_frame: np.ndarray = None
 
         # init transforms
@@ -79,8 +88,11 @@ class VIPlannerNode:
         
         # depth and rgb image message --> time syncronization by message_filters
         img_depth_sub = message_filters.Subscriber(self.depth_topic, Image)
-        img_rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
-        ts = message_filters.TimeSynchronizer([img_depth_sub, img_rgb_sub], 10)
+        if self.compressed:
+            img_rgb_sub = message_filters.Subscriber(self.rgb_topic, CompressedImage)
+        else:
+            img_rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
+        ts = message_filters.TimeSynchronizer([img_depth_sub, img_rgb_sub], 20)
         if self.compressed:
             ts.registerCallback(self.imageCallbackCompressed)
         else:
@@ -88,7 +100,7 @@ class VIPlannerNode:
         
         # camera info subscribers
         rospy.Subscriber(self.depth_info_topic, CameraInfo, callback=self.depthCamInfoCallback)
-        rospy.Subscriber(self.sem_intrinsics_init, CameraInfo, callback=self.semCamInfoCallback)
+        rospy.Subscriber(self.rgb_info_topic, CameraInfo, callback=self.rgbCamInfoCallback)
         
         # planning status topics
         self.sem_pub = rospy.Publisher(self.sem_topic, Image, queue_size=10)
@@ -102,12 +114,13 @@ class VIPlannerNode:
     def spin(self):
         r = rospy.Rate(self.main_freq)
         while not rospy.is_shutdown():
-            if self.img_init and self.depth_intrinsics_init and self.sem_intrinsics_init:
+            if self.img_init and self.depth_intrinsics_init and self.rgb_intrinsics_init:
                 # main planning starts
                 cur_rgb_image = self.rgb_img.copy()
                 cur_depth_image = self.depth_img.copy()
                 cur_depth_pose = self.depth_pose.copy()
                 cur_rgb_pose = self.rgb_pose.copy()
+
                 # crop rgb image
                 start = time.time()
                 if self.pix_depth_cam_frame is None:
@@ -120,48 +133,70 @@ class VIPlannerNode:
                 self.timer_data.data = (time_need) * 1000
                 self.timer_pub.publish(self.timer_data)
                 # publish sem image
-                img_sem = Image()
-                img_sem.data = cur_sem_image
-                img_sem.header.stamp = self.image_time
-                self.sem_pub(img_sem)
+                sem_msg = self.bridge.cv2_to_imgmsg(cur_sem_image)
+                sem_msg.header.stamp = self.image_time
+                self.sem_pub.publish(sem_msg)
             r.sleep()
         rospy.spin()
 
     def initPixArray(self, img_shape: tuple):
-        # init pixel array
-        self.pix_depth_cam_frame = np.zeros((img_shape[0], img_shape[1], 3))
-        for i in range(img_shape[0]):
-            for j in range(img_shape[1]):
-                self.pix_depth_cam_frame[i, j, :] = np.array([i, j, 1])
-        self.pix_depth_cam_frame = self.pix_depth_cam_frame.reshape(-1, 3).T
+        # get image plane mesh grid
+        pix_u = np.arange(0, img_shape[1])
+        pix_v = np.arange(0, img_shape[0])
+        grid = np.meshgrid(pix_u, pix_v)
+        pixels = np.vstack(list(map(np.ravel, grid))).T
+        pixels = np.hstack(
+            [pixels, np.ones((len(pixels), 1))]
+        )  # add ones for 3D coordinates           
+        
+        # transform to camera frame
+        k_inv = np.linalg.inv(self.K_depth)
+        pix_cam_frame = np.matmul(k_inv, pixels.T)  # pixels in ROS camera convention (z forward, x right, y down)
+        
+        # reorder to be in "robotics" axis order (x forward, y left, z up)
+        self.pix_depth_cam_frame = pix_cam_frame[[2, 0, 1], :].T  * np.array([1, -1, -1])
         return
         
     def imageWarp(self, rgb_img: np.ndarray, depth_img: np.ndarray, pose_rgb: np.ndarray, pose_depth: np.ndarray) -> np.ndarray:
         # get 3D points of depth image
-        depth_rot = tf.Rotation.from_quat(pose_depth[3:]).as_matrix()
-        dep_im_reshaped = np.flipud(depth_img.reshape(-1, 1))  # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
+        depth_rot = stf.Rotation.from_quat(pose_depth[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT # convert orientation from ROS camera to robotics=world frame
+        dep_im_reshaped = depth_img.reshape(-1, 1)
         points = dep_im_reshaped * (depth_rot.T @ self.pix_depth_cam_frame.T).T + pose_depth[:3]
         
         # transform points to semantic camera frame
-        points_sem_cam_frame = (tf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ (points - pose_rgb[:3]).T).T
+        points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T @ (points - pose_rgb[:3]).T).T
         # normalize points
         points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
         # reorder points be camera convention (z-forward)
         points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]]  * np.array([-1, -1, 1])
         # transform points to pixel coordinates
-        pixels = (self.K_sem @ points_sem_cam_frame_norm.T).T
+        pixels = (self.K_rgb @ points_sem_cam_frame_norm.T).T
         # filter points outside of image
         filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < rgb_img.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < rgb_img.shape[0])
         # get semantic annotation
-        sem_annotation = np.zeros((pixels.shape[0], 3))
-        sem_annotation[filter_idx] = rgb_img[pixels[filter_idx, 1].astype(int)-1, pixels[filter_idx, 0].astype(int)-1]
-        sem_annotation = np.flipud(sem_annotation)
+        rgb_pixels = np.zeros((pixels.shape[0], 3))
+        rgb_pixels[filter_idx] = rgb_img[pixels[filter_idx, 1].astype(int)-1, pixels[filter_idx, 0].astype(int)-1]
+        rgb_warped = rgb_pixels.reshape(depth_img.shape[0], depth_img.shape[1], 3)
+        
+        # DEBUG
+        if self.debug:
+            import matplotlib.pyplot as plt
+            plt.imshow(rgb_img)
+            plt.figure(2)
+            plt.imshow(depth_img)
+            f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            ax1.imshow(depth_img)
+            ax2.imshow(rgb_warped / 255)
+            ax3.imshow(depth_img)
+            ax3.imshow(rgb_warped / 255, alpha=0.5)
+            plt.show()    
+        
         # reshape to image
-        return sem_annotation.reshape(depth_img.shape[0], depth_img.shape[1], 3)
+        return rgb_warped
 
     def imageCallback(self, depth_msg: Image, rgb_msg: Image):
-        rospy.loginfo("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
-        rospy.loginfo("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))        
+        rospy.logdebug("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
+        rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))        
 
         # image time
         self.image_time = depth_msg.header.stamp
@@ -179,18 +214,19 @@ class VIPlannerNode:
         return        
             
     def imageCallbackCompressed(self, depth_msg: Image, rgb_msg: CompressedImage):
-        rospy.loginfo("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
-        rospy.loginfo("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
+        rospy.logdebug("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
+        rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
 
         # image time
         self.image_time = depth_msg.header.stamp
 
         # RGB Image
         try:
-            rgb_arr = np.fromstring(rgb_msg.data, np.uint8)
-            rgb_img = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
+            rgb_arr = np.frombuffer(rgb_msg.data, np.uint8)
+            self.rgb_img = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
             # rotate image 90 degrees coutner clockwise
-            self.rgb_img = cv2.rotate(rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            if self.image_flip:
+                self.rgb_img = cv2.rotate(self.rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
         except cv_bridge.CvBridgeError as e:
             print(e)
 
@@ -202,20 +238,20 @@ class VIPlannerNode:
         # DEPTH Image
         frame = ros_numpy.numpify(depth_msg)
         frame[~np.isfinite(frame)] = 0
-        if self.uint_type:
+        if self.depth_uint_type:
             frame = frame / 1000.0
-        frame[frame > self.depth_max] = 0.0
+        frame[frame > self.max_depth] = 0.0
         # DEBUG - Visual Image
         # img = PIL.Image.fromarray((frame * 255 / np.max(frame[frame>0])).astype('uint8'))
         # img.show()
         if self.image_flip:
             frame = PIL.Image.fromarray(frame)
-            self.depth_img = np.array(frame.transpose(PIL.Image.ROTATE_180))
+            self.depth_img = np.array(frame.transpose(PIL.Image.Transpose.ROTATE_180))
         else:
             self.depth_img = frame
         return
     
-    def poseCallback(self, rgb_msg: Image, depth_msg: Image):
+    def poseCallback(self, rgb_msg: Union[Image, CompressedImage], depth_msg: Image):
         # get current pose of semantic and depth image
         try:            
             pose = self.tf_listener.lookupTransform(self.frame_id, rgb_msg.header.frame_id, rgb_msg.header.stamp)
@@ -234,14 +270,18 @@ class VIPlannerNode:
 
     def depthCamInfoCallback(self, cam_info_msg: CameraInfo):
         if not self.depth_intrinsics_init:
+            rospy.loginfo("Received depth camera info")
             self.K_depth = cam_info_msg.K
+            self.K_depth = np.array(self.K_depth).reshape(3, 3)
             self.depth_intrinsics_init = True
         return
 
-    def semCamInfoCallback(self, cam_info_msg: CameraInfo):
-        if not self.sem_intrinsics_init:
-            self.K_sem = cam_info_msg.K
-            self.sem_intrinsics_init = True
+    def rgbCamInfoCallback(self, cam_info_msg: CameraInfo):
+        if not self.rgb_intrinsics_init:
+            rospy.loginfo("Received rgb camera info")
+            self.K_rgb = cam_info_msg.K
+            self.K_rgb = np.array(self.K_rgb).reshape(3, 3)
+            self.rgb_intrinsics_init = True
         return
 
 if __name__ == '__main__':
@@ -259,7 +299,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'image_flip',      
         type=bool,   
-        default=True,                       
+        default=False,                       
         help='is the image fliped'
     )
     parser.add_argument(
@@ -267,6 +307,18 @@ if __name__ == '__main__':
         type=str,    
         default='base',                     
         help='robot TF frame id'
+    )
+    parser.add_argument(
+        'max_depth',        
+        type=int,    
+        default=15,                     
+        help='max depth for depth image'
+    )
+    parser.add_argument(
+        'depth_uint_type',       
+        type=bool,   
+        default=False,                      
+        help="image in uint type or not"
     )
 
     # ROS topics
@@ -285,19 +337,19 @@ if __name__ == '__main__':
     parser.add_argument(
         'depth_topic',     
         type=str,    
-        default='/rgbd_camera/depth/image', 
+        default='/depth_camera_front_upper/depth/image_rect_raw', 
         help='depth image ros topic'
     )
     parser.add_argument(
         'rgb_cam_info_topic',       
         type=str,    
-        default='/wide_angle_camera_front/image_raw/camerainfo',
+        default='/wide_angle_camera_front/camera_info',
         help='rgb camera info topic (get intrinsic matrix)'
     )
     parser.add_argument(
         'depth_cam_info_topic',     
         type=str,    
-        default='/rgbd_camera/depth/camerainfo', 
+        default='/depth_camera_front_upper/depth/camera_info', 
         help='depth image info topic (get intrinsic matrix)'
     )
     parser.add_argument(

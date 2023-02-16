@@ -7,22 +7,32 @@
 
 # python
 import time
-import torch
 import numpy as np
 import torchvision.transforms as transforms
 
 from detectron2.config import get_cfg, CfgNode
-from detectron2.data.detection_utils import read_image
 from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.engine.defaults import DefaultPredictor
 
+# ROS
+import rospy
+
+# viplanner-ros
+from .coco_meta import get_class_for_id
+from .viplanner_sem_meta import VIPlannerSemMetaHandler
+
 # mask2former src
-from mask2former import add_maskformer2_config
+from .mask2former.mask2former import add_maskformer2_config
+
+# viplanner src
+from .viplanner.config import TrainCfg
 
 
 class Mask2FormerInference:
     """Run Inference on Mask2Former model to estimate semantic segmentation"""
 
+    debug: bool = False
+    
     def __init__(
         self,
         config_file="configs/coco/panoptic-segmentation/maskformer2_R50_bs16_50ep.yaml",
@@ -35,15 +45,24 @@ class Mask2FormerInference:
         
         # setup config
         self._cfg = self._setup_cfg()
-
+        self._cfg_train = TrainCfg()
+        
         # load model
         self.predictor = DefaultPredictor(self._cfg)
 
         # transforms
         self.transforms = transforms.Compose([
-            transforms.Resize(tuple(self._crop_size)),
+            transforms.Resize(self._cfg_train.img_input_size),
             transforms.ToTensor()]
         )
+        
+        # mapping from coco class id to viplanner class id and corresponding color 
+        viplanner_meta = VIPlannerSemMetaHandler()
+        coco_viplanner_cls_mapping = get_class_for_id()
+        self.coco_viplanner_color_mapping = {}
+        for coco_id, viplanner_cls_name in coco_viplanner_cls_mapping.items():
+            self.coco_viplanner_color_mapping[coco_id] = viplanner_meta.class_color[viplanner_cls_name]
+        
         return
     
     def predict(self, image: np.ndarray) -> np.ndarray:
@@ -58,15 +77,17 @@ class Mask2FormerInference:
         panoptic_seg, seg_infos = predictions['panoptic_seg']
         
         # create output
-        segments = torch.zeros(panoptic_seg.shape).cuda()
+        panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
         for sinfo in seg_infos:
-            segments[panoptic_seg == sinfo['id']] = sinfo['category_id']+1
-        panoptic_mask = 255*torch.ones((panoptic_seg.shape[0], panoptic_seg.shape[1], 3)).cuda()
-        panoptic_mask[..., 2] = segments
-        print("Pred. + vis. time: {:.3f}s".format(time.time() - start))
+            panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping[sinfo['category_id']]
+        rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
         
-        # TODO: colorize panoptic mask 
-        return np.rot90(panoptic_mask.cpu().numpy(), k=3).astype(np.uint8)
+        if self.debug:
+            import matplotlib.pyplot as plt
+            plt.imshow(panoptic_mask)
+            plt.show()
+        
+        return panoptic_mask
         
     """Helper functions"""
     

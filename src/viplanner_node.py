@@ -99,7 +99,7 @@ class VIPlannerNode:
 
         self.frame_id    = args.robot_id
         self.world_id    = args.world_id
-        self.uint_type   = args.uint_type
+        self.depth_uint_type   = args.depth_uint_type
         self.image_flip  = args.image_flip
         self.conv_dist   = args.conv_dist
         self.depth_max   = args.depth_max
@@ -125,10 +125,11 @@ class VIPlannerNode:
                 cur_sem_image = self.sem_img.copy()
                 start = time.time()
                 # Network Planning
-                self.preds, self.waypoints, self.fear, _ = self.vip_algo.plan(cur_depth_image, cur_sem_image, self.goal_rb)
+                self.preds, self.waypoints, self.fear = self.vip_algo.plan(cur_depth_image, cur_sem_image, self.goal_rb)
                 end = time.time()
                 self.timer_data.data = (end - start) * 1000
                 self.timer_pub.publish(self.timer_data)
+                print(self.preds)
                 # check goal less than converage range
                 if (np.sqrt(self.goal_rb[0][0]**2 + self.goal_rb[0][1]**2) < self.conv_dist) and self.is_goal_processed and (not self.is_smartjoy):
                     self.ready_for_planning = False
@@ -245,7 +246,7 @@ class VIPlannerNode:
         # convert depth image to numpy array
         frame = ros_numpy.numpify(depth_msg)
         frame[~np.isfinite(frame)] = 0
-        if self.uint_type:
+        if self.depth_uint_type:
             frame = frame / 1000.0
         frame[frame > self.depth_max] = 0.0
         # DEBUG - Visual Image
@@ -298,7 +299,7 @@ if __name__ == '__main__':
         help="frequency of path planner"
     )
     parser.add_argument(
-        'uint_type',       
+        'depth_uint_type',       
         type=bool,   
         default=False,                      
         help="image in uint type or not"
@@ -394,7 +395,7 @@ if __name__ == '__main__':
     parser.add_argument(
         'model_save',      
         type=str,    
-        default='models/plannernet_town01_ep200_inputDepSem_costSem_optimSGD_WeightFilter.pt',    
+        default='models/model_carla.pt',    
         help="read model"
     )
     parser.add_argument(
@@ -414,12 +415,6 @@ if __name__ == '__main__':
         type=float,  
         default=0.0,                        
         help='sensor offset Y'
-    )
-    parser.add_argument(
-        'semantics',       
-        type=bool,   
-        default=False,                      
-        help='use semantics or not'
     )
     
     args = parser.parse_args()

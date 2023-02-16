@@ -18,7 +18,7 @@ from typing import Optional
 import torchvision.transforms as transforms
 
 # viplanner src
-from .viplanner.plannernet.autoencoder import AutoEncoder, DualAutoEncoder
+from .viplanner.plannernet.autoencoder import DualAutoEncoder
 from .viplanner.traj_cost_opt.traj_opt import TrajOpt
 
 torch.set_default_dtype(torch.float32)
@@ -122,7 +122,7 @@ class VIPlannerInference:
             keypoints[..., 1] += self._sensor_offset_y
         
         # generate trajectory
-        traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1)
+        traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1, fix_init_m=False)
 
         return keypoints, traj, fear
 

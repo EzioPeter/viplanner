@@ -16,6 +16,7 @@ import numpy as np
 import pypose as pp
 import PIL
 import copy
+import time
 from PIL import Image
 from random import sample
 from torch.utils.data import Dataset
@@ -177,11 +178,13 @@ class PlannerDataGenerator(Dataset):
         self.pair_outside: np.ndarray = None
         self.pair_difficult: np.ndarray = None
         self.pair_augment: np.ndarray = None
+        self.pair_within_fov: np.ndarray = None
+        self.pair_front_of_robot: np.ndarray = None
         self.odom_array_sem: pp.LieTensor = None
         self.odom_array_depth: pp.LieTensor = None
         
         self.odom_used: int = 0
-        self.odom_no_goal_in_fov_counter: int = 0
+        self.odom_no_suitable_goals: int = 0
 
         # set parameters
         self._device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -295,43 +298,46 @@ class PlannerDataGenerator(Dataset):
         self.get_mesh()
         # get pairs
         self.get_pairs()
-        # get all pairs with obstacles inbetween               
-        self.get_goal_difficulty()
         
         # free up memory
         self.mesh_wp = None
         self.odom_array_depth = self.odom_array_sem = None
         
         # if percentage of hard or outside samples too small, enable augmentation or repeat them
-        ratio_easy, ratio_hard, ratio_outside = self.compute_ratios()
+        ratio_fov, ratio_front, ratio_back, ratio_easy, ratio_hard, ratio_outside = self.compute_ratios()
         self.pair_augment = np.zeros(self.odom_depth.shape[0], dtype=bool)
         
-        if ratio_hard > 0.0 and ratio_hard < self._cfg.ratio_hard:
+        if ratio_hard > 0.0 and ratio_hard < self._cfg.ratio_fov_hard_samples_max:
             print(f"ratio of hard samples too small ({round(ratio_hard*100, 2)} %), augmenting hard samples")
             
             # expand by all hard samples and activate their mirroring when loaded, mirror goal position
             idx = np.where(self.pair_difficult)[0]
-            self.depth_filename = self.depth_filename + [self.depth_filename[i] for i in idx.tolist()]
-            self.sem_filename   = self.sem_filename   + [self.sem_filename[i] for i in idx.tolist()] if self.semantics else None
-            self.odom_depth     = torch.vstack([self.odom_depth, self.odom_depth[idx]])
-            self.goal           = torch.vstack([self.goal, self.goal[idx] * torch.tensor([1, -1, 1, 1, 1, 1, 1])])  # include mirror along y axis of the image 
-            self.pair_difficult = np.hstack([self.pair_difficult, self.pair_difficult[idx]])
-            self.pair_outside   = np.hstack([self.pair_outside, self.pair_outside[idx]])
-            self.pair_augment   = np.hstack([self.pair_augment, np.ones(idx.shape[0], dtype=bool)])
+            self.depth_filename         = self.depth_filename + [self.depth_filename[i] for i in idx.tolist()]
+            self.sem_filename           = self.sem_filename   + [self.sem_filename[i] for i in idx.tolist()] if self.semantics else None
+            self.odom_depth             = torch.vstack([self.odom_depth, self.odom_depth[idx]])
+            self.goal                   = torch.vstack([self.goal, self.goal[idx] * torch.tensor([1, -1, 1, 1, 1, 1, 1])])  # include mirror along y axis of the image 
+            self.pair_difficult         = np.hstack([self.pair_difficult, self.pair_difficult[idx]])
+            self.pair_outside           = np.hstack([self.pair_outside, self.pair_outside[idx]])
+            self.pair_augment           = np.hstack([self.pair_augment, np.ones(idx.shape[0], dtype=bool)])
+            self.pair_front_of_robot    = np.hstack([self.pair_front_of_robot, self.pair_front_of_robot[idx]])
             
             # calculate new ratios
-            ratio_easy, ratio_hard, ratio_outside = self.compute_ratios()
+            ratio_fov, ratio_front, ratio_back, ratio_easy, ratio_hard, ratio_outside = self.compute_ratios()
             print(f"ratio of hard samples increased to ({round(ratio_hard*100, 2)} %)")
             
         # print data mix
-        num_easy = self.odom_depth.shape[0] - self.pair_difficult.sum().item() - sum(self.pair_outside)
+        num_easy = sum(self.pair_within_fov) - sum(self.pair_difficult) - sum(self.pair_outside)
         print(
             f"datamix containing {self.odom_depth.shape[0]} suitable odom-goal pairs: \n"
-            f"\t easy pairs        : \t{num_easy}\t({round(ratio_easy*100, 2)} %) \n"
-            f"\t difficult pairs   : \t{self.pair_difficult.sum().item()} ({round(ratio_hard*100, 2)} %) \n"
-            f"\t outside free space: \t{sum(self.pair_outside)} ({round(ratio_outside*100, 2)} %) %) \n"
+            f"\t fov               : \t{sum(self.pair_within_fov)} ({round(ratio_fov*100, 2)} %) \n"
+            f"\t front of robot    : \t{sum(self.pair_front_of_robot)} ({round(ratio_front*100, 2)} %) \n"
+            f"\t back of robot     : \t{self.odom_depth.shape[0] - sum(self.pair_within_fov) - sum(self.pair_front_of_robot)} ({round(ratio_back*100, 2)} %) \n"
+            f"whereas the fov pairs are distributed as follows: \n"
+            f"\t easy pairs        : \t{num_easy} ({round(ratio_easy*100, 2)} %) \n"
+            f"\t difficult pairs   : \t{sum(self.pair_difficult)} ({round(ratio_hard*100, 2)} %) \n"
+            f"\t outside free space: \t{sum(self.pair_outside)} ({round(ratio_outside*100, 2)} %) \n"
             f"from {self.odom_used} ({round(self.odom_used/self.nb_odom_points*100, 2)} %) different starting points where \n"
-            f"\t non-traversable fov filtering: {self.odom_no_goal_in_fov_counter} ({round(self.odom_no_goal_in_fov_counter/self.nb_odom_points*100, 2)} %)"
+            f"\t non-suitable filter: {self.odom_no_suitable_goals} ({round(self.odom_no_suitable_goals/self.nb_odom_points*100, 2)} %)"
         )
 
         if self.debug:
@@ -358,11 +364,18 @@ class PlannerDataGenerator(Dataset):
         return
     
     def compute_ratios(self) -> Tuple[float, float, float]:
-        num_easy      = self.odom_depth.shape[0] - self.pair_difficult.sum().item() - self.pair_outside.sum().item()
-        ratio_easy    = num_easy/self.odom_depth.shape[0]
-        ratio_hard    = self.pair_difficult.sum().item()/self.odom_depth.shape[0]
-        ratio_outside = self.pair_outside.sum().item()/self.odom_depth.shape[0]
-        return ratio_easy, ratio_hard, ratio_outside
+        # ratio of general samples distribution
+        num_within_fov  = self.odom_depth[self.pair_within_fov].shape[0]
+        ratio_fov       = num_within_fov/self.odom_depth.shape[0]
+        ratio_front     = np.sum(self.pair_front_of_robot)/self.odom_depth.shape[0]
+        ratio_back      = (1 - ratio_front - ratio_fov)
+        
+        # samples ratios within fov samples
+        num_easy        = num_within_fov - self.pair_difficult[self.pair_within_fov].sum().item() - self.pair_outside[self.pair_within_fov].sum().item()
+        ratio_easy      = num_easy/num_within_fov
+        ratio_hard      = self.pair_difficult[self.pair_within_fov].sum().item()/num_within_fov
+        ratio_outside   = self.pair_outside[self.pair_within_fov].sum().item()/num_within_fov
+        return ratio_fov, ratio_front, ratio_back, ratio_easy, ratio_hard, ratio_outside
     
     def get_intrinscs_and_fov(self) -> None:
         # load intrinsics
@@ -402,13 +415,16 @@ class PlannerDataGenerator(Dataset):
         sem_filename_list = self.load_images(self.root, "semantics") if self.semantics else None 
 
         # iterate over all odom points and find goal points
-        self.odom_no_goal_in_fov_counter = 0
+        self.odom_no_suitable_goals = 0
         self.odom_used = 0
         
         # init buffer lists
         odom_list_dep = []
         goal_list = []
         pair_outside = []
+        pair_within_fov = []
+        pair_front_of_robot = []
+        pair_difficult = []
         
         # init semantic warp parameters
         if self.semantics:
@@ -422,157 +438,274 @@ class PlannerDataGenerator(Dataset):
         # iterate over all odom points
         for odom_idx in tqdm(range(self.nb_odom_points), desc="odom points"):
             odom = self.odom_array_depth[odom_idx]
-
-            # check if odom is suitable, i.e. not a wall in front of it
-            max_distance = self.check_odom_suitable(odom)
             
             # find goal in robot fov
-            goals, outside_free_space_cost = self.find_goal(odom, max_distance)  # returns goals in odom frame
+            goals, outside_free_space_cost, within_fov, front_of_robot = self.find_goal(odom)  # returns goals in odom frame
             if len(goals) == 0:
-                self.odom_no_goal_in_fov_counter += 1
+                self.odom_no_suitable_goals += 1
                 continue
             self.odom_used += 1
             
-            # process found goals
-            for idx, goal in enumerate(goals):
-                # check if both odom and goal are in area with loss over free_space_cost_height -> remove odom-goal pair
-                if outside_free_space_cost[idx] and self.points_outside_free_space_cost[odom_idx]:
-                    continue
-                elif outside_free_space_cost[idx] or self.points_outside_free_space_cost[odom_idx]:
-                    pair_outside.append(True)
-                else:
-                    pair_outside.append(False)
+            # evaluate goal difficulty for odom-goal paris within the fov
+            pair_difficult_current = torch.zeros(len(goals), dtype=torch.bool)
+            pair_difficult_current[within_fov] = self.get_goal_difficulty(odom, goals[within_fov])
+            
+            # reduce number of goals behind the robot
+            behind_robot = ~front_of_robot.clone()
+            behind_robot[within_fov] = False
+            idx_behind = self.reduce_pairs(behind_robot)
+
+            # reduce number of goals in front of the robot but outside fov
+            idx_front = self.reduce_pairs(front_of_robot)
+            
+            # reduce easy samples within fov but keep all hard ones
+            fov_non_difficult = within_fov.clone()
+            fov_non_difficult[pair_difficult_current] = False
+            idx_difficult = self.reduce_pairs(pair_difficult_current)
+            idx_fov = self.reduce_pairs(fov_non_difficult)
                 
-                self.depth_filename.append(depth_filename_list[odom_idx])
-                if self.semantics:
-                    # semantic warp
-                    sem_img_new_path = self._get_overlay_semantics(
-                        depth_filename=depth_filename_list[odom_idx],
-                        sem_filename=sem_filename_list[odom_idx],
-                        K_sem=K_sem,
-                        pose_dep=odom,
-                        pose_sem=self.odom_array_sem[odom_idx],
-                        pix_depth_cam_frame=pix_depth_cam_frame
-                    )
-                    self.sem_filename.append(sem_img_new_path)
-                odom_list_dep.append(odom)
-                goal_list.append(goal)
-        
+            # combine reduction indices
+            idx_all = torch.hstack((idx_behind, idx_front, idx_difficult, idx_fov))            
+            goals = goals[idx_all]
+            outside_free_space_cost = outside_free_space_cost[idx_all]
+            within_fov = within_fov[idx_all]
+            front_of_robot = front_of_robot[idx_all]
+            pair_difficult_current = pair_difficult_current[idx_all]
+            
+            # process found categroies of odom-goal pairs
+            pair_within_fov.append(within_fov.numpy())
+            pair_front_of_robot.append(front_of_robot.numpy())
+            pair_difficult.append(pair_difficult_current.numpy())
+            pair_outside.append(torch.any(
+                torch.vstack((outside_free_space_cost, self.points_outside_free_space_cost[odom_idx].repeat(outside_free_space_cost.shape[0]))), dim=0
+            ).numpy())
+            # process odom and goal
+            odom_list_dep.append(odom.repeat(len(goals), 1))
+            goal_list.append(goals)
+            # process depth and semantic images
+            self.depth_filename += [depth_filename_list[odom_idx]] * len(goals)
+            if self.semantics:
+                # semantic warp
+                sem_img_new_path = self._get_overlay_semantics(
+                    depth_filename=depth_filename_list[odom_idx],
+                    sem_filename=sem_filename_list[odom_idx],
+                    K_sem=K_sem,
+                    pose_dep=odom,
+                    pose_sem=self.odom_array_sem[odom_idx],
+                    pix_depth_cam_frame=pix_depth_cam_frame
+                )
+                self.sem_filename += [sem_img_new_path] * len(goals)
+            
+            # DEBUG
+            if self.debug:
+                # plot odom
+                small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
+                odom_vis_list = []
+                goal_odom = odom @ goals
+                hit_pcd = (goal_odom).cpu().numpy()[:, :3]
+                for idx, pts in enumerate(hit_pcd):
+                    if within_fov[idx]:
+                        small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+                    elif front_of_robot[idx]:
+                        small_sphere.paint_uniform_color([0.0, 0.5, 0.5])
+                    else:
+                        small_sphere.paint_uniform_color([0.0, 0.1, 1.0])
+                    odom_vis_list.append(copy.deepcopy(small_sphere).translate((pts[0], pts[1], pts[2])))
+                
+                # mesh viz
+                cost_mesh = o3d.io.read_triangle_mesh(os.path.join(self.root, "cost_mesh.ply"))
+                cost_mesh.compute_vertex_normals()
+                cost_mesh.paint_uniform_color([0.4, 0.4, 0.4])
+                odom_vis_list.append(cost_mesh)
+                
+                # field of view visualization 
+                fov_vis_length = 0.75  # length of the fov visualization plane in meters
+                fov_vis_pt_right = odom @ pp.SE3([fov_vis_length * np.cos(self.alpha_fov/2), fov_vis_length * np.sin(self.alpha_fov/2), 0, 0, 0, 0, 1])
+                fov_vis_pt_left = odom @ pp.SE3([fov_vis_length * np.cos(self.alpha_fov/2), -fov_vis_length * np.sin(self.alpha_fov/2), 0, 0, 0, 0, 1])
+                fov_vis_pt_right = fov_vis_pt_right.numpy()[:3]
+                fov_vis_pt_left = fov_vis_pt_left.numpy()[:3]
+                fov_mesh = o3d.geometry.TriangleMesh(
+                    vertices=o3d.utility.Vector3dVector(np.array([odom.data.cpu().numpy()[:3], fov_vis_pt_right, fov_vis_pt_left])),
+                    triangles=o3d.utility.Vector3iVector(np.array([[2, 1, 0]]))
+                )
+                fov_mesh.paint_uniform_color([1.0, 0.5, 0.0])
+                odom_vis_list.append(fov_mesh)
+                
+                # odom viz
+                small_sphere.paint_uniform_color([1.0, 0.0, 0.0])            
+                odom_vis_list.append(copy.deepcopy(small_sphere).translate((odom.data[0].item(), odom.data[1].item(), odom.data[2].item())))
+
+                # plot goal
+                o3d.visualization.draw_geometries(odom_vis_list)
+                
         # transform lists to entire tensors and arrays
-        self.odom_depth = torch.vstack(odom_list_dep).data
-        self.goal = torch.vstack(goal_list).data
-        self.pair_outside = np.asarray(pair_outside)
+        self.odom_depth             = torch.vstack(odom_list_dep).data
+        self.goal                   = torch.vstack(goal_list).data
+        self.pair_outside           = np.hstack(pair_outside)
+        self.pair_within_fov        = np.hstack(pair_within_fov)
+        self.pair_front_of_robot    = np.hstack(pair_front_of_robot)
+        self.pair_difficult         = np.hstack(pair_difficult)
+        
         return
 
-    def get_goal_difficulty(self) -> torch.Tensor:
-        """evaluate if goals hard to reach"""
-        print("Evaluating goal difficulty...")
+    def reduce_pairs(self, decision_tensor) -> torch.Tensor:
+        # indicies to keep
+        indices = torch.randperm(torch.sum(decision_tensor))
+        if len(indices) > self._cfg.max_goal_per_odom:
+            indices = indices[:self._cfg.max_goal_per_odom] 
+        return torch.nonzero(decision_tensor).flatten()[indices]
+        
+    def get_goal_difficulty(self, odom: pp.LieTensor, goals: pp.LieTensor):
+        """evaluate if goals within the fov are hard to reach (goals outside fov are always hard to reach)"""
         # filter odom-goal pairs in free space
-        idx_free = [idx for idx in range(self.odom_depth.shape[0]) if not self.pair_outside[idx]]
-        odom_free = self.odom_depth[idx_free, :]
-        goal_free = self.goal[idx_free, :]
         
         # get start and end of ray if both are in free space (i.e. not with a cost value over cfg.free_space_cost_height)
-        ray_sta = odom_free[:, :3].to(self.tsdf_map.device)
-        ray_end = torch.vstack(
-            [(pp.SE3(odom_free[idx]) @ pp.SE3(goal_single)).data for idx, goal_single in enumerate(goal_free)]
-        ).to(self.tsdf_map.device)[:, :3]
+        ray_sta = odom[:3].data.to(self.tsdf_map.device)
+        ray_end = (odom @ goals).data.to(self.tsdf_map.device)[:, :3]
         
         # get ray direction (normalize it), it's maximum length and assign the z values of the rays
         ray_dir = ray_end - ray_sta
         ray_dir[:, 2] = 0
-        ray_sta[:, 2] = self._cfg.obs_cost_height
+        ray_sta[2] = self._cfg.obs_cost_height
         ray_len = torch.norm(ray_dir, dim=1)
         ray_dir = ray_dir / ray_len[:, None]
         
         # raycast -> check if obstacle between start and end
         _, ray_hit_depth = _raycast(
             self.mesh_wp,
-            ray_starts_world=ray_sta,
+            ray_starts_world=ray_sta.repeat(ray_dir.shape[0], 1),
             ray_directions_world=ray_dir,
             max_depth=ray_len,
         )
         
-        # bool tensor
-        pair_difficult = torch.zeros(self.odom_depth.shape[0], dtype=bool, device=self.tsdf_map.device)
-        pair_difficult[idx_free] = torch.isfinite(ray_hit_depth)
-        
-        self.pair_difficult = pair_difficult.cpu().numpy()
-        return
+        return torch.isfinite(ray_hit_depth).cpu()
             
-    def find_goal(self, odom, max_goal_distance: float):
+    def find_goal(self, odom):
         """
         Make sure that the goal is in the robot's fov, otherwise find a new goal, maximum iterate over max_iter points
         """
         # get all odom point within current odom frame
         goal_odom_frame = (pp.Inv(odom) @ self.odom_array_depth)
         
-        # check that goal in robot fov
-        within_fov = abs(torch.atan2(goal_odom_frame[:, 1], goal_odom_frame[:, 0])) < self.alpha_fov/2 * self._cfg.fov_scale
-        goal_within_fov = goal_odom_frame[within_fov]
-        outside_free_space_cost = self.points_outside_free_space_cost[within_fov]
-        
         # max distance between goal and odom
-        goal_cam_sqrt = torch.sqrt(torch.sum((goal_within_fov**2)[:, :2], dim=1))
-        idx_max = goal_cam_sqrt < max_goal_distance
+        goal_cam_sqrt = torch.sqrt(torch.sum((goal_odom_frame**2)[:, :2], dim=1))
+        idx_max = goal_cam_sqrt < self._cfg.max_goal_distance
         idx_min = goal_cam_sqrt > self._cfg.min_goal_distance
         within_distance = torch.all(torch.stack([idx_max, idx_min]), dim=0)
-        goal_within_distance = goal_within_fov[within_distance]
-        outside_free_space_cost = outside_free_space_cost[within_distance]
+        goal_within_distance = goal_odom_frame[within_distance]
+        outside_free_space_cost = self.points_outside_free_space_cost[within_distance]
         
-        # check for each goal if there is a wall blocking the fov
-        goal_world_frame = self.odom_array_depth[within_fov]
-        goal_world_frame = goal_world_frame[within_distance]
-        without_wall = torch.ones(goal_world_frame.shape[0], dtype=bool)
+        # check for each goal if there is a wall blocking the way between odom and goal
+        goal_world_frame = self.odom_array_depth[within_distance]
         orientations = goal_world_frame.data[:, :3] - odom[:3]
         norms = torch.norm(orientations, dim=1)
-        for idx in range(goal_world_frame.shape[0]):
-            distance = self.check_odom_suitable(odom, (orientations[idx]/norms[idx]).numpy())
-            without_wall[idx] = distance > norms[idx]
+        without_wall = self.check_for_wall(odom, orientations/norms[:, None], norms)
         goal_without_wall = goal_within_distance[without_wall]
         outside_free_space_cost = outside_free_space_cost[without_wall]
-        
-        if goal_without_wall.shape[0] < self._cfg.max_goal_per_odom:
-            return goal_without_wall, outside_free_space_cost
-        else:
-            indices = torch.randperm(goal_without_wall.shape[0])[:self._cfg.max_goal_per_odom]
-            return goal_without_wall[indices], outside_free_space_cost[indices]
 
-    def check_odom_suitable(self, odom, origin_orientation: Optional[np.ndarray] = None) -> float:
+        # get if odom-goal is within fov or outside the fov but still in front of the robot
+        goal_angle = abs(torch.atan2(goal_without_wall.data[:, 1], goal_without_wall.data[:, 0]))
+        within_fov = goal_angle < self.alpha_fov/2 * self._cfg.fov_scale
+        front_of_robot = goal_angle < torch.pi/2
+        front_of_robot[within_fov] = False
+        
+        if self.debug:
+            # plot odom
+            small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
+            odom_vis_list = []
+            within_distance_odom = self.odom_array_depth.data[within_distance, :3]
+            without_wall_odom = within_distance_odom[without_wall]
+            hit_pcd = (without_wall_odom).cpu().numpy()
+            for idx, pts in enumerate(hit_pcd):
+                if within_fov[idx]:
+                    small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+                elif front_of_robot[idx]:
+                    small_sphere.paint_uniform_color([0.0, 0.5, 0.5])
+                else:
+                    small_sphere.paint_uniform_color([0.0, 0.1, 1.0])
+                odom_vis_list.append(copy.deepcopy(small_sphere).translate((pts[0], pts[1], pts[2])))
+            
+            # mesh viz
+            cost_mesh = o3d.io.read_triangle_mesh(os.path.join(self.root, "cost_mesh.ply"))
+            cost_mesh.compute_vertex_normals()
+            cost_mesh.paint_uniform_color([0.4, 0.4, 0.4])
+            odom_vis_list.append(cost_mesh)
+            
+            # field of view visualization 
+            fov_vis_length = 0.75  # length of the fov visualization plane in meters
+            fov_vis_pt_right = odom @ pp.SE3([fov_vis_length * np.cos(self.alpha_fov/2), fov_vis_length * np.sin(self.alpha_fov/2), 0, 0, 0, 0, 1])
+            fov_vis_pt_left = odom @ pp.SE3([fov_vis_length * np.cos(self.alpha_fov/2), -fov_vis_length * np.sin(self.alpha_fov/2), 0, 0, 0, 0, 1])
+            fov_vis_pt_right = fov_vis_pt_right.numpy()[:3]
+            fov_vis_pt_left = fov_vis_pt_left.numpy()[:3]
+            fov_mesh = o3d.geometry.TriangleMesh(
+                vertices=o3d.utility.Vector3dVector(np.array([odom.data.cpu().numpy()[:3], fov_vis_pt_right, fov_vis_pt_left])),
+                triangles=o3d.utility.Vector3iVector(np.array([[2, 1, 0]]))
+            )
+            fov_mesh.paint_uniform_color([1.0, 0.5, 0.0])
+            odom_vis_list.append(fov_mesh)
+            
+            # odom viz
+            small_sphere.paint_uniform_color([1.0, 0.0, 0.0])            
+            odom_vis_list.append(copy.deepcopy(small_sphere).translate((odom.data[0].item(), odom.data[1].item(), odom.data[2].item())))
+
+            # plot goal
+            o3d.visualization.draw_geometries(odom_vis_list)
+        
+        return goal_without_wall, outside_free_space_cost, within_fov, front_of_robot
+
+    def check_for_wall(self, odom, orientations, goal_distances) -> float:
         """ Determine if there is a wall blocking the whole fov between the start and goal point, if goal, give minumum distance to wall"""
         angles = np.linspace(-self.alpha_fov/2, self.alpha_fov/2, self._cfg.n_rays_check)
-        if origin_orientation is None:
-            origin_orientation = tf.Rotation.from_quat(odom[3:]).as_matrix() @ np.array([1, 0, 0])
-        ray_directions = torch.tensor(tf.Rotation.from_euler('z', angles, degrees=False).as_matrix() @ origin_orientation, device=self._device, dtype=torch.float32)
+        ray_directions = np.zeros((self._cfg.n_rays_check * orientations.shape[0], 3))
+        ray_distances = torch.zeros(self._cfg.n_rays_check * orientations.shape[0], device=self.tsdf_map.device, dtype=torch.float32)
+        for i in range(orientations.shape[0]):
+            ray_directions[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check, :] = tf.Rotation.from_euler('z', angles, degrees=False).as_matrix() @ orientations[i].numpy()
+            ray_distances[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check] = goal_distances[i]
         ray_directions[:, -1] = 0  # tilt of camera not regarded to avoid recognizing bottom as obstacles
-        ray_origin = odom.data[:3].repeat(self._cfg.n_rays_check, 1).to(self.tsdf_map.device)
-        # ray_origin[:, -1] = self._cfg.obs_cost_height
+        ray_directions = torch.tensor(ray_directions, device=self.tsdf_map.device, dtype=torch.float32)
+        ray_origin = odom.data[:3].repeat(ray_directions.shape[0], 1).to(self.tsdf_map.device)
         
         _, ray_hit_depth = _raycast(
             self.mesh_wp,
             ray_starts_world=ray_origin,
             ray_directions_world=ray_directions,
-            max_depth=self._cfg.max_goal_distance,
+            max_depth=ray_distances,
         )
-        ray_hit_depth[~torch.isfinite(ray_hit_depth)] = self._cfg.max_goal_distance
         
-        if False:  # self.debug:
-            # plot odom
-            small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
-            small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
-            odom_vis_list = []
-            hit_pcd = (ray_origin + ray_hit_depth[:, None] * ray_directions).cpu().numpy()
-            for pts in hit_pcd:
-                odom_vis_list.append(copy.deepcopy(small_sphere).translate((pts[0], pts[1], pts[2])))
-            odom_vis_list.append(self.tsdf_map.pcd_tsdf)
-            
-            # plot goal
-            o3d.visualization.draw_geometries(odom_vis_list)
-        
-        if torch.sum(ray_hit_depth < self._cfg.max_goal_distance)/self._cfg.n_rays_check > self._cfg.ray_obs_ratio:
-            return torch.mean(ray_hit_depth).item()
-        else:
-            return self._cfg.max_goal_distance
+        without_wall = torch.zeros(orientations.shape[0], dtype=torch.bool)
+        for i in range(orientations.shape[0]):
+            without_wall[i] = torch.sum(torch.isfinite(ray_hit_depth[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check]))/self._cfg.n_rays_check < self._cfg.ray_obs_ratio
+    
+            if self.debug:
+                # plot odom
+                small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
+                small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+                odom_vis_list = []
+                hit_pcd = (ray_origin[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check] + ray_hit_depth[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check, None] * ray_directions[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check]).cpu().numpy()
+                hit_pcd = hit_pcd[~np.any(np.isnan(hit_pcd), axis=1)]
+                
+                for pts in hit_pcd:
+                    odom_vis_list.append(copy.deepcopy(small_sphere).translate((pts[0], pts[1], pts[2])))
+
+                # mesh viz            
+                cost_mesh = o3d.io.read_triangle_mesh(os.path.join(self.root, "cost_mesh.ply"))
+                cost_mesh.compute_vertex_normals()
+                cost_mesh.paint_uniform_color([0.4, 0.4, 0.4])
+                odom_vis_list.append(cost_mesh)
+                
+                # odom viz
+                small_sphere.paint_uniform_color([1.0, 0.0, 0.0])
+                odom_vis_list.append(copy.deepcopy(small_sphere).translate((odom.data.cpu().numpy()[0], odom.data.cpu().numpy()[1], odom.data.cpu().numpy()[2])))
+
+                # goal viz
+                goal = odom.data[:3] + goal_distances[i] * orientations[i]
+                small_sphere.paint_uniform_color([0.0, 0.0, 1.0])
+                odom_vis_list.append(copy.deepcopy(small_sphere).translate((goal.data.cpu().numpy()[0], goal.data.cpu().numpy()[1], goal.data.cpu().numpy()[2])))
+                
+                # plot goal
+                o3d.visualization.draw_geometries(odom_vis_list)
+
+        return without_wall
     
     """SPLIT HELPER FUNCTIONS"""
 
@@ -581,38 +714,55 @@ class PlannerDataGenerator(Dataset):
         test_dataset: PlannerData,
         train_dataset: Optional[PlannerData] = None,
         generate_split: bool = False,
+        ratio_fov_samples: Optional[float] = None,
+        ratio_front_samples: Optional[float] = None,
+        ratio_back_samples: Optional[float] = None,
+        ratio_fov_hard_samples: Optional[float] = None,
+        ratio_fov_easy_samples: Optional[float] = None,
+        ratio_fov_outside_samples: Optional[float] = None,
     ) -> None:
+        
+        # checkk if ratios are given or defaults are used 
+        ratio_fov_samples           = ratio_fov_samples if ratio_fov_samples is not None else self._cfg.ratio_fov_samples
+        ratio_front_samples         = ratio_front_samples if ratio_front_samples is not None else self._cfg.ratio_front_samples
+        ratio_back_samples          = ratio_back_samples if ratio_back_samples is not None else self._cfg.ratio_back_samples
+        ratio_fov_easy_samples      = ratio_fov_easy_samples if ratio_fov_easy_samples is not None else self._cfg.ratio_fov_easy_samples
+        ratio_fov_hard_samples      = ratio_fov_hard_samples if ratio_fov_hard_samples is not None else self._cfg.ratio_fov_hard_samples
+        ratio_fov_outside_samples   = ratio_fov_outside_samples if ratio_fov_outside_samples is not None else self._cfg.ratio_fov_outside_samples
+        
+        assert ratio_fov_samples + ratio_front_samples + ratio_back_samples == 1.0, f"Sample ratios must sum up to 1.0, currently {ratio_back_samples + ratio_front_samples + ratio_fov_samples}"
+        assert ratio_fov_easy_samples + ratio_fov_hard_samples + ratio_fov_outside_samples == 1.0, f"FOV sample ratios must sum up to 1.0, currently {ratio_fov_easy_samples + ratio_fov_hard_samples + ratio_fov_outside_samples}"
         
         # get current idx
         idx = np.arange(self.odom_depth.shape[0])
-        idx_hard = idx[self.pair_difficult]
-        idx_outside = idx[self.pair_outside]
-        idx_easy = np.delete(idx, np.concatenate((idx_hard, idx_outside)))
+        idx_fov = idx[self.pair_within_fov]
+        idx_front = idx[self.pair_front_of_robot]
+        idx_back = np.delete(idx, np.concatenate((idx_fov, idx_front)))
+        idx_fov_hard = idx[self.pair_difficult]
+        idx_fov_outside = idx[self.pair_outside]
+        idx_fov_easy = np.delete(idx, np.concatenate((idx_back, idx_front, idx_fov_hard, idx_fov_outside)))
 
         # select indexes
         max_sample_number = int(self._cfg.max_train_pairs / self._cfg.ratio)
-        _, ratio_hard, _ = self.compute_ratios()
-        if (ratio_hard < self._cfg.ratio_hard) or self.odom_depth.shape[0] > max_sample_number:
-            
-            if ratio_hard < self._cfg.ratio_hard:
-                print(f"Not enough hard pairs to reach ratio of {self._cfg.ratio_hard}! Only {ratio_hard} available --> will enforce defined sample structure")
-            else:
-                print(f"Number of pairs {self.odom_depth.shape[0]} exceeds {max_sample_number} --> will reduce overall number and enforce defined sample structure") 
-            
-            idx_easy    = np.random.choice(idx_easy,    int(max_sample_number * self._cfg.ratio_easy),    replace=False if len(idx_easy)    > int(max_sample_number * self._cfg.ratio_easy)    else True)
-            idx_hard    = np.random.choice(idx_hard,    int(max_sample_number * self._cfg.ratio_hard),    replace=False if len(idx_hard)    > int(max_sample_number * self._cfg.ratio_hard)    else True)
-            idx_outside = np.random.choice(idx_outside, int(max_sample_number * self._cfg.ratio_outside), replace=False if len(idx_outside) > int(max_sample_number * self._cfg.ratio_outside) else True)
-            idx_selected = np.concatenate((idx_easy, idx_hard, idx_outside))
-            
-            # print final training mix
-            print(f"Generated {self._cfg.max_train_pairs} odom-goal pairs to train and {round(max_sample_number - self._cfg.max_train_pairs)} validation pairs from {self.odom_depth.shape[0]} pairs")
-            print(f"selected data-mix: \n"
-                    f"\t easy pairs        : \t{len(idx_easy)}\t({round(self._cfg.ratio_easy*100, 2)} %) \n"
-                    f"\t difficult pairs   : \t{len(idx_hard)}\t({round(self._cfg.ratio_hard*100, 2)} %) \n"
-                    f"\t outside free space: \t{len(idx_outside)}s\t({round(self._cfg.ratio_outside*100, 2)} %) \n"
-                    f"from {torch.unique(self.odom_depth, dim=1).shape[0]} different starting points")
-        else:
-            idx_selected = idx
+        
+        idx_front       = np.random.choice(idx_front,       int(max_sample_number * self._cfg.ratio_front_samples),       replace=False if len(idx_front)       > int(max_sample_number * self._cfg.ratio_front_samples)       else True)
+        idx_back        = np.random.choice(idx_back,        int(max_sample_number * self._cfg.ratio_back_samples),        replace=False if len(idx_back)        > int(max_sample_number * self._cfg.ratio_back_samples)        else True)
+        idx_fov_easy    = np.random.choice(idx_fov_easy,    int(max_sample_number * self._cfg.ratio_fov_easy_samples),    replace=False if len(idx_fov_easy)    > int(max_sample_number * self._cfg.ratio_fov_easy_samples)    else True)
+        idx_fov_hard    = np.random.choice(idx_fov_hard,    int(max_sample_number * self._cfg.ratio_fov_hard_samples),    replace=False if len(idx_fov_hard)    > int(max_sample_number * self._cfg.ratio_fov_hard_samples)    else True)
+        idx_fov_outside = np.random.choice(idx_fov_outside, int(max_sample_number * self._cfg.ratio_fov_outside_samples), replace=False if len(idx_fov_outside) > int(max_sample_number * self._cfg.ratio_fov_outside_samples) else True)
+        idx_selected = np.concatenate((idx_front, idx_back, idx_fov_easy, idx_fov_hard, idx_fov_outside))
+        
+        # print final training mix
+        print(f"Generated {self._cfg.max_train_pairs} odom-goal pairs to train and {round(max_sample_number - self._cfg.max_train_pairs)} validation pairs from {self.odom_depth.shape[0]} pairs")
+        print(f"Selected data-mix: \n"
+              f"\t front of robot    : \t{len(idx_front)}\t({round(self._cfg.ratio_front_samples*100, 2)} %) \n"
+              f"\t back of robot     : \t{len(idx_back)}\t({round(self._cfg.ratio_back_samples*100, 2)} %) \n"
+              f"\t fov samples       : \t{len(idx_fov_easy)+len(idx_fov_hard)+len(idx_fov_outside)}\t({round(self._cfg.ratio_fov_samples*100, 2)} %) \n"
+              f"Whereas fov samples are sparated as follows: \n"
+              f"\t easy pairs        : \t{len(idx_fov_easy)}\t({round(self._cfg.ratio_fov_easy_samples*100, 2)} %) \n"
+              f"\t difficult pairs   : \t{len(idx_fov_hard)}\t({round(self._cfg.ratio_fov_hard_samples*100, 2)} %) \n"
+              f"\t outside free space: \t{len(idx_fov_outside)}s\t({round(self._cfg.ratio_fov_outside_samples*100, 2)} %) \n"
+              f"from {torch.unique(self.odom_depth, dim=1).shape[0]} different starting points")
 
         # generate split
         if generate_split:

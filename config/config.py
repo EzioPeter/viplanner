@@ -29,12 +29,12 @@ class DataCfg:
     "maximum number of goals per odom (=start) point"
 
     # odom (=start) point selection
-    max_goal_distance: float = 10.0
+    max_goal_distance: float = max_depth + 2.5
     "maximum distance between odom and goal"
-    min_goal_distance: float = 1.0
+    min_goal_distance: float = 3.0
     "minimum distance between odom and goal"
     n_rays_check: int = 15
-    ray_obs_ratio: float = 0.8
+    ray_obs_ratio: float = 0.85
     "number of rays to check for obstacles between odom and goal -> if over ray_obs_ratio, odom is discarded"
     obs_cost_height: float = 0.01
     "all odom points with cost of more than obs_cost_height are discarded"
@@ -50,10 +50,16 @@ class DataCfg:
     "ratio between train and val dataset"
     max_train_pairs: int = 10000  # difficult samples for sure included
     "maximum number of train pairs (can be used to limit training time)"
-    ratio_hard: float = 0.5
-    ratio_easy: float = 0.5
-    ratio_outside: float = 0.0
-
+    ratio_fov_samples: float = 1.0
+    ratio_front_samples: float = 0.0
+    ratio_back_samples: float = 0.0
+    "samples distrubution -> either within the robots fov, in front of the robot but outside the fov or behind the robot"
+    ratio_fov_hard_samples: float = 0.5
+    ratio_fov_easy_samples: float = 0.5
+    ratio_fov_outside_samples: float = 0.0
+    "samples distrubution within the robots fov -> either hard, easy or outside the fov"
+    ratio_fov_hard_samples_max: float = 0.5
+    "maximum used ratio of hard samples in the fov -> decision if augmentation is done to increase number of hard samples"
 
 @dataclass
 class TrainCfg:
@@ -87,9 +93,7 @@ class TrainCfg:
     data_cfg: DataCfg = DataCfg()
     "further data configuration"
     multi_epoch_dataloader: bool = True
-    "load all samples into RAM s.t. do not have to be reloaded for each epoch"
-    old_plannerdata: bool = False
-    "use old dataloader for testing reasons -> only with depth information and old structure"    
+    "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
     num_workers: int = 2 
     "number of workers for dataloader"    
     sensor_offsetX_ANYmal: float = 0.0  # 0.4   # TODO: possible remove, does not make sense to add
@@ -112,7 +116,10 @@ class TrainCfg:
     "number of training epochs"    
     batch_size: int = 64 
     "number of minibatch size"    
-       
+    hierarchical: bool = True
+    hierarchical_step: int = 30
+    "hierarchical training with an adjusted data structure"
+    
     # optimizer and scheduler configurations
     lr: float = 2e-3 
     "learning rate"

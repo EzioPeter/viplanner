@@ -59,7 +59,7 @@ class TrajCost:
         w_height=1.0,
         w_motion=1.5,
         w_goal=4.0,
-        w_length=0.5,
+        w_length=0,
         obstalce_thred=0.75,
         dataset: str = "train",
     ):

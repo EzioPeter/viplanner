@@ -112,7 +112,7 @@ class Trainer:
         
         return
     
-    def test(self) -> None:
+    def test(self, step: int = 0) -> None:
         print('START TESTING')
         # set random seed for reproducibility
         torch.manual_seed(self._cfg.seed)
@@ -121,13 +121,13 @@ class Trainer:
         self._load_model(resume=True)
         # get dataloader for training
         self._load_data(train=False)
-        test_loader = self._get_dataloader(train=False)
+        _, test_loader = self._get_dataloader(train=False, step=step)
         
         self.test_loss = self._test_epoch(
             test_loader[0], 
             env_id=0, 
             is_visual = False if os.getenv('EXPERIMENT_DIRECTORY') else True, 
-            fov_angle=test_loader[0].fov_angle,
+            fov_angle=self.data_generators[0].alpha_fov,
             dataset="test",
         )
         return 
@@ -270,7 +270,7 @@ class Trainer:
                 train_data = None
                          
             # split data in train and validation with given sample ratios
-            if train and self._cfg.hierarchical:
+            if train:
                 generator.split_samples(
                     train_dataset=train_data,
                     test_dataset=val_data,
@@ -284,6 +284,9 @@ class Trainer:
                     train_dataset=train_data,
                     test_dataset=val_data,
                     generate_split=train,
+                    ratio_back_samples=0.025 * step,
+                    ratio_front_samples=0.05 * step,
+                    ratio_fov_samples=1.0 - 0.075 * step
                 )
 
             if self._cfg.multi_epoch_dataloader:

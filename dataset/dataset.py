@@ -16,13 +16,14 @@ import numpy as np
 import pypose as pp
 import PIL
 import copy
-import time
+import networkx as nx
 from PIL import Image
 from random import sample
 from torch.utils.data import Dataset
 from pathlib import Path
 from typing import Optional, Tuple, List
 from tqdm import tqdm
+from scipy.spatial.kdtree import KDTree
 import cv2
 import scipy.spatial.transform as tf
 import open3d as o3d
@@ -296,6 +297,8 @@ class PlannerDataGenerator(Dataset):
         self.get_intrinscs_and_fov()
         # get mesh for raycast check
         self.get_mesh()
+        # construct graph
+        self.get_graph()
         # get pairs
         self.get_pairs()
         
@@ -408,6 +411,61 @@ class PlannerDataGenerator(Dataset):
         print("Done.")
         return
 
+    def get_graph(self) -> None:
+        num_connections = 3
+        num_intermediate = 3
+        
+        # get occpuancy map from tsdf map
+        cost_array = self.tsdf_map.tsdf_array.cpu().numpy()
+        occupancy_map = (cost_array > self._cfg.obs_cost_height).astype(np.uint8)
+        
+        # construct kdtree to find nearest neighbors of points
+        odom_points = self.odom_array_depth.data[:, :2].data.cpu().numpy()
+        kdtree = KDTree(odom_points)
+        _, nearest_neighbors_idx = kdtree.query(odom_points, k=num_connections+1, workers=-1)
+        # remove first neighbor as it is the point itself
+        nearest_neighbors_idx = nearest_neighbors_idx[:, 1:]
+        
+        # define origin and neighbor points
+        origin_point = np.repeat(odom_points, repeats=num_connections, axis=0)
+        neighbor_points = odom_points[nearest_neighbors_idx, :].reshape(-1, 2)
+        # interpolate points between origin and neighbor points
+        x_interp = origin_point[:, None, 0] + (neighbor_points[:, 0] - origin_point[:, 0])[:, None] * np.linspace(0, 1, num=num_intermediate+1, endpoint=False)[1:]
+        y_interp = origin_point[:, None, 1] + (neighbor_points[:, 1] - origin_point[:, 1])[:, None] * np.linspace(0, 1, num=num_intermediate+1, endpoint=False)[1:]
+        inter_points = np.stack((x_interp.reshape(-1), y_interp.reshape(-1)), axis=1)
+        # get the indicies of the interpolated points in the occupancy map
+        occupancy_idx = (inter_points - np.array([self.tsdf_map.start_x, self.tsdf_map.start_y])) / self.tsdf_map.voxel_size
+        
+        # check occupancy for collisions at the interpolated points
+        collision = occupancy_map[occupancy_idx[:, 0].astype(np.int), occupancy_idx[:, 1].astype(np.int)]
+        collision = np.any(collision.reshape(-1, num_intermediate), axis=1)
+        
+        # get edge indices
+        idx_edge_start = np.repeat(np.arange(odom_points.shape[0]), repeats=num_connections, axis=0)
+        idx_edge_end = nearest_neighbors_idx.reshape(-1)
+        
+        # filter collision edges
+        idx_edge_end = idx_edge_end[~collision]
+        idx_edge_start = idx_edge_start[~collision]
+        
+        # init graph
+        self.graph = nx.Graph()
+        # add nodes with position attributes
+        self.graph.add_nodes_from(list(range(odom_points.shape[0])))
+        pos_attr = {i: {'pos': odom_points[i]} for i in range(odom_points.shape[0])}
+        nx.set_node_attributes(self.graph, pos_attr)
+        # add edges with distance attributes
+        self.graph.add_edges_from(list(map(tuple, np.stack((idx_edge_start, idx_edge_end), axis=1))))
+        distance_attr = {(i, j): {'distance': np.linalg.norm(odom_points[i] - odom_points[j])} for i, j in zip(idx_edge_start, idx_edge_end)}
+        nx.set_edge_attributes(self.graph, distance_attr)
+        
+        # DEBUG
+        if self.debug:
+            import matplotlib.pyplot as plt
+            nx.draw_networkx(self.graph, nx.get_node_attributes(self.graph,'pos'), node_size=10, with_labels=False)
+            plt.show()
+        return
+    
     def get_pairs(self):
         print("Generating pairs of start and end points ...")
         # load depth image files as name list
@@ -434,13 +492,16 @@ class PlannerDataGenerator(Dataset):
             pix_depth_cam_frame = self._compute_pixel_tensor(K_depth, depth_filename=depth_filename_list[0])
             # make dir
             os.makedirs(os.path.join(self.root, "semantics_warp"), exist_ok=True)
-            
-        # iterate over all odom points
+        
+        # get distances between odom and goal points
+        odom_goal_distances = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=self._cfg.max_goal_distance, weight='distance'))
+
+        # iterate over all odom points        
         for odom_idx in tqdm(range(self.nb_odom_points), desc="odom points"):
             odom = self.odom_array_depth[odom_idx]
             
             # find goal in robot fov
-            goals, outside_free_space_cost, within_fov, front_of_robot = self.find_goal(odom)  # returns goals in odom frame
+            goals, outside_free_space_cost, within_fov, front_of_robot = self.find_goal(odom, odom_goal_distances[odom_idx])  # returns goals in odom frame
             if len(goals) == 0:
                 self.odom_no_suitable_goals += 1
                 continue
@@ -560,7 +621,7 @@ class PlannerDataGenerator(Dataset):
         # filter odom-goal pairs in free space
         
         # get start and end of ray if both are in free space (i.e. not with a cost value over cfg.free_space_cost_height)
-        ray_sta = odom[:3].data.to(self.tsdf_map.device)
+        ray_sta = odom.data[:3].to(self.tsdf_map.device)
         ray_end = (odom @ goals).data.to(self.tsdf_map.device)[:, :3]
         
         # get ray direction (normalize it), it's maximum length and assign the z values of the rays
@@ -580,31 +641,21 @@ class PlannerDataGenerator(Dataset):
         
         return torch.isfinite(ray_hit_depth).cpu()
             
-    def find_goal(self, odom):
+    def find_goal(self, odom: pp.LieTensor, odom_distances: dict):
         """
         Make sure that the goal is in the robot's fov, otherwise find a new goal, maximum iterate over max_iter points
         """
         # get all odom point within current odom frame
         goal_odom_frame = (pp.Inv(odom) @ self.odom_array_depth)
         
-        # max distance between goal and odom
-        goal_cam_sqrt = torch.sqrt(torch.sum((goal_odom_frame**2)[:, :2], dim=1))
-        idx_max = goal_cam_sqrt < self._cfg.max_goal_distance
-        idx_min = goal_cam_sqrt > self._cfg.min_goal_distance
-        within_distance = torch.all(torch.stack([idx_max, idx_min]), dim=0)
-        goal_within_distance = goal_odom_frame[within_distance]
-        outside_free_space_cost = self.points_outside_free_space_cost[within_distance]
+        # max distance enforced odom_distances, here enforce min distance
+        greater_min_distance = torch.tensor(list(odom_distances.values())) > self._cfg.min_goal_distance
+        within_distances_idx = torch.tensor(list(odom_distances.keys()))[greater_min_distance]
+        goal_within_distance = goal_odom_frame[within_distances_idx]
+        outside_free_space_cost = self.points_outside_free_space_cost[within_distances_idx]
         
-        # check for each goal if there is a wall blocking the way between odom and goal
-        goal_world_frame = self.odom_array_depth[within_distance]
-        orientations = goal_world_frame.data[:, :3] - odom[:3]
-        norms = torch.norm(orientations, dim=1)
-        without_wall = self.check_for_wall(odom, orientations/norms[:, None], norms)
-        goal_without_wall = goal_within_distance[without_wall]
-        outside_free_space_cost = outside_free_space_cost[without_wall]
-
         # get if odom-goal is within fov or outside the fov but still in front of the robot
-        goal_angle = abs(torch.atan2(goal_without_wall.data[:, 1], goal_without_wall.data[:, 0]))
+        goal_angle = abs(torch.atan2(goal_within_distance.data[:, 1], goal_within_distance.data[:, 0]))
         within_fov = goal_angle < self.alpha_fov/2 * self._cfg.fov_scale
         front_of_robot = goal_angle < torch.pi/2
         front_of_robot[within_fov] = False
@@ -613,9 +664,8 @@ class PlannerDataGenerator(Dataset):
             # plot odom
             small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
             odom_vis_list = []
-            within_distance_odom = self.odom_array_depth.data[within_distance, :3]
-            without_wall_odom = within_distance_odom[without_wall]
-            hit_pcd = (without_wall_odom).cpu().numpy()
+            within_distance_odom = self.odom_array_depth.data[within_distances_idx, :3]
+            hit_pcd = (within_distance_odom).cpu().numpy()
             for idx, pts in enumerate(hit_pcd):
                 if within_fov[idx]:
                     small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
@@ -651,61 +701,7 @@ class PlannerDataGenerator(Dataset):
             # plot goal
             o3d.visualization.draw_geometries(odom_vis_list)
         
-        return goal_without_wall, outside_free_space_cost, within_fov, front_of_robot
-
-    def check_for_wall(self, odom, orientations, goal_distances) -> float:
-        """ Determine if there is a wall blocking the whole fov between the start and goal point, if goal, give minumum distance to wall"""
-        angles = np.linspace(-self.alpha_fov/2, self.alpha_fov/2, self._cfg.n_rays_check)
-        ray_directions = np.zeros((self._cfg.n_rays_check * orientations.shape[0], 3))
-        ray_distances = torch.zeros(self._cfg.n_rays_check * orientations.shape[0], device=self.tsdf_map.device, dtype=torch.float32)
-        for i in range(orientations.shape[0]):
-            ray_directions[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check, :] = tf.Rotation.from_euler('z', angles, degrees=False).as_matrix() @ orientations[i].numpy()
-            ray_distances[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check] = goal_distances[i]
-        ray_directions[:, -1] = 0  # tilt of camera not regarded to avoid recognizing bottom as obstacles
-        ray_directions = torch.tensor(ray_directions, device=self.tsdf_map.device, dtype=torch.float32)
-        ray_origin = odom.data[:3].repeat(ray_directions.shape[0], 1).to(self.tsdf_map.device)
-        
-        _, ray_hit_depth = _raycast(
-            self.mesh_wp,
-            ray_starts_world=ray_origin,
-            ray_directions_world=ray_directions,
-            max_depth=ray_distances,
-        )
-        
-        without_wall = torch.zeros(orientations.shape[0], dtype=torch.bool)
-        for i in range(orientations.shape[0]):
-            without_wall[i] = torch.sum(torch.isfinite(ray_hit_depth[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check]))/self._cfg.n_rays_check < self._cfg.ray_obs_ratio
-    
-            if self.debug:
-                # plot odom
-                small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
-                small_sphere.paint_uniform_color([0.4, 1.0, 0.1])
-                odom_vis_list = []
-                hit_pcd = (ray_origin[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check] + ray_hit_depth[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check, None] * ray_directions[i*self._cfg.n_rays_check:(i+1)*self._cfg.n_rays_check]).cpu().numpy()
-                hit_pcd = hit_pcd[~np.any(np.isnan(hit_pcd), axis=1)]
-                
-                for pts in hit_pcd:
-                    odom_vis_list.append(copy.deepcopy(small_sphere).translate((pts[0], pts[1], pts[2])))
-
-                # mesh viz            
-                cost_mesh = o3d.io.read_triangle_mesh(os.path.join(self.root, "cost_mesh.ply"))
-                cost_mesh.compute_vertex_normals()
-                cost_mesh.paint_uniform_color([0.4, 0.4, 0.4])
-                odom_vis_list.append(cost_mesh)
-                
-                # odom viz
-                small_sphere.paint_uniform_color([1.0, 0.0, 0.0])
-                odom_vis_list.append(copy.deepcopy(small_sphere).translate((odom.data.cpu().numpy()[0], odom.data.cpu().numpy()[1], odom.data.cpu().numpy()[2])))
-
-                # goal viz
-                goal = odom.data[:3] + goal_distances[i] * orientations[i]
-                small_sphere.paint_uniform_color([0.0, 0.0, 1.0])
-                odom_vis_list.append(copy.deepcopy(small_sphere).translate((goal.data.cpu().numpy()[0], goal.data.cpu().numpy()[1], goal.data.cpu().numpy()[2])))
-                
-                # plot goal
-                o3d.visualization.draw_geometries(odom_vis_list)
-
-        return without_wall
+        return goal_within_distance, outside_free_space_cost, within_fov, front_of_robot
     
     """SPLIT HELPER FUNCTIONS"""
 

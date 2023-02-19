@@ -36,7 +36,7 @@ class DataCfg:
     n_rays_check: int = 15
     ray_obs_ratio: float = 0.85
     "number of rays to check for obstacles between odom and goal -> if over ray_obs_ratio, odom is discarded"
-    obs_cost_height: float = 0.01
+    obs_cost_height: float = 0.2
     "all odom points with cost of more than obs_cost_height are discarded"
     free_space_cost_height: float = 0.01
     """odom points after all filtering with cost heigher can be weighted in the neural network cost"""

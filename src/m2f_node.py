@@ -183,6 +183,7 @@ class VIPlannerNode:
             import matplotlib.pyplot as plt
             plt.imshow(rgb_img)
             plt.figure(2)
+            print(depth_img)
             plt.imshow(depth_img)
             f, (ax1, ax2, ax3) = plt.subplots(1, 3)
             ax1.imshow(depth_img)
@@ -204,8 +205,9 @@ class VIPlannerNode:
         # RGB image
         try:
             rgb_img = self.bridge.imgmsg_to_cv2(rgb_msg, "bgr8")
-            # rotate image 90 degrees coutner clockwise
-            self.rgb_img = cv2.rotate(rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            if not self.image_flip:
+                # rotate image 90 degrees coutner clockwise
+                self.rgb_img = cv2.rotate(rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
         except cv_bridge.CvBridgeError as e:
             print(e)
 
@@ -225,7 +227,7 @@ class VIPlannerNode:
             rgb_arr = np.frombuffer(rgb_msg.data, np.uint8)
             self.rgb_img = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
             # rotate image 90 degrees coutner clockwise
-            if self.image_flip:
+            if not self.image_flip:
                 self.rgb_img = cv2.rotate(self.rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
         except cv_bridge.CvBridgeError as e:
             print(e)

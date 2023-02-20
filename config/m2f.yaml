@@ -1,6 +1,6 @@
 # General Configurations
 main_freq:            15
-image_flip:           False
+image_flip:           True
 robot_id:             base
 # ROS topics
 sem_topic:            /m2f_sem

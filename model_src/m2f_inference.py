@@ -79,7 +79,11 @@ class Mask2FormerInference:
         # create output
         panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
         for sinfo in seg_infos:
-            panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping[sinfo['category_id']]
+            try:
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping[sinfo['category_id']]
+            except KeyError:
+                rospy.loginfo(f"Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping['static']
         rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
         
         if self.debug:

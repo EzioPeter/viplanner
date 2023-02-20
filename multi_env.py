@@ -27,22 +27,42 @@ if __name__ == "__main__":
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
         file_name="_overfit_test",
+        hierarchical=False,
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.70,
+            ratio_back_samples=0.10,
+            ratio_front_samples=0.20,
+        )
     )
     trainer = Trainer(matterport_overfit)
     trainer.train()
     trainer.test()
     trainer.save_config()
     torch.cuda.empty_cache()
-    
+
+    matterport_overfit_hierarch: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
+        test_env_id=1,
+        file_name="_overfit_test",
+        hierarchical=True,
+    )
+    trainer = Trainer(matterport_overfit_hierarch)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+        
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
     )  
-    # trainer = Trainer(matterport_sem)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
             
     carla: TrainCfg = TrainCfg(
         sem=True,

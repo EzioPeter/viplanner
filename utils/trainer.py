@@ -16,6 +16,7 @@ import torch.optim as optim
 import torch.utils.data as Data
 import torchvision.transforms as transforms
 import wandb  # logging
+import matplotlib.pyplot as plt
 from typing import Tuple, List
 
 torch.set_default_dtype(torch.float32)
@@ -37,10 +38,14 @@ class Trainer:
         self._cfg = cfg
         
         # set model save/load path
-        model_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models")
+        model_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg._get_model_save())
         os.makedirs(model_dir, exist_ok=True)
-        self.model_path = os.path.join(model_dir, self._cfg._get_model_save())
-        
+        self.model_path = os.path.join(model_dir, "model.pt")
+        if self._cfg.hierarchical:
+            self.model_dir_hierarch = os.path.join(model_dir, "hierarchical")
+            os.makedirs(self.model_dir_hierarch, exist_ok=True)
+            self.hierach_losses = {}
+            
         # set data root directory  --> to make it work on euler cluster
         self.data_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "data")
         
@@ -53,6 +58,9 @@ class Trainer:
         self.data_generators: List[PlannerDataGenerator] = []
         self.data_traj_cost: List[TrajCost] = []
         self.data_traj_viz: List[TrajViz] = []
+        self.fov_ratio: float = 1.0
+        self.front_ratio: float = 0.0
+        self.back_ratio: float = 0.0
         
         # inti buffers MODEL
         self.best_loss = float('inf')
@@ -104,10 +112,11 @@ class Trainer:
                 break    
             
             if self._cfg.hierarchical and (epoch+1) % self._cfg.hierarchical_step == 0:
-                torch.save((self.net.state_dict(), val_loss), self.model_path[:-3] + f"_step{step_counter}.pt")
+                torch.save((self.net.state_dict(), self.best_loss), os.path.join(self.model_dir_hierarch, f"model_ep{epoch}_fov{round(self.fov_ratio, 3)}_front{round(self.front_ratio, 3)}_back{round(self.back_ratio, 3)}.pt"))
                 step_counter += 1
                 train_loader_list, val_loader_list = self._get_dataloader(step=step_counter)
-        
+                self.hierach_losses[epoch] = self.best_loss
+                
         torch.cuda.empty_cache()
         
         return
@@ -148,6 +157,17 @@ class Trainer:
 
         # logging
         wandb.finish() 
+        
+        # plot hierarchical losses
+        if self._cfg.hierarchical:
+            plt.figure(figsize=(10, 10))
+            plt.plot(list(self.hierach_losses.keys()), list(self.hierach_losses.values()))
+            plt.xlabel("Epoch")
+            plt.ylabel("Validation Loss")
+            plt.title("Hierarchical Losses")
+            plt.savefig(os.path.join(self.model_dir_hierarch, "hierarchical_losses.png"))
+            plt.close()
+        
         return
            
     """PRIVATE METHODS"""
@@ -159,7 +179,7 @@ class Trainer:
                 continue
             
             data_path = os.path.join(self.data_dir, env_name)
-            traj_cost, traj_viz = self._get_cost_and_viz(data_path)
+            traj_cost, traj_viz = self._get_cost_and_viz(data_path, train)
             
             generator = PlannerDataGenerator(
                 cfg=self._cfg.data_cfg,
@@ -176,7 +196,7 @@ class Trainer:
         print('LOADED ALL DATA')
         return
     
-    def _get_cost_and_viz(self, data_path: str) -> Tuple[TrajCost, TrajViz]:
+    def _get_cost_and_viz(self, data_path: str, train: bool) -> Tuple[TrajCost, TrajViz]:
         """Get trajectory cost and visualization for the different datasets""" 
             
         # Load Map and Trajectory Class
@@ -185,7 +205,7 @@ class Trainer:
             sensorOffsetX=self._cfg.sensor_offsetX_ANYmal,
             weight_difficult=self._cfg.weight_samples_difficult,
             weight_outside=self._cfg.weight_samples_high_cost,
-            log_data=self._cfg.training
+            log_data=train
         )
         traj_cost.SetMap(
             data_path,
@@ -204,7 +224,7 @@ class Trainer:
     def _init_logging(self) -> None:
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
-        os.environ["WANDB_MODE"] = "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
+        os.environ["WANDB_MODE"] = "online"  # "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
         dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
         os.makedirs(dir_path, exist_ok=True)
         
@@ -251,6 +271,10 @@ class Trainer:
         train_loader_list: List[Data.DataLoader] = []
         val_loader_list: List[Data.DataLoader] = []
         
+        self.fov_ratio = 1.0 - 0.075 * step
+        self.front_ratio = 0.05 * step
+        self.back_ratio = 0.025 * step
+        
         for generator in self.data_generators:
             # init data classes
 
@@ -275,18 +299,18 @@ class Trainer:
                     train_dataset=train_data,
                     test_dataset=val_data,
                     generate_split=train,
-                    ratio_back_samples=0.025 * step,
-                    ratio_front_samples=0.05 * step,
-                    ratio_fov_samples=1.0 - 0.075 * step
+                    ratio_back_samples=self.back_ratio,
+                    ratio_front_samples=self.front_ratio,
+                    ratio_fov_samples=self.fov_ratio
                 )
             else:
                 generator.split_samples(
                     train_dataset=train_data,
                     test_dataset=val_data,
                     generate_split=train,
-                    ratio_back_samples=0.025 * step,
-                    ratio_front_samples=0.05 * step,
-                    ratio_fov_samples=1.0 - 0.075 * step
+                    ratio_back_samples=self.back_ratio,
+                    ratio_front_samples=self.front_ratio,
+                    ratio_fov_samples=self.fov_ratio
                 )
 
             if self._cfg.multi_epoch_dataloader:

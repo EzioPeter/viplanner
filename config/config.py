@@ -36,9 +36,9 @@ class DataCfg:
     n_rays_check: int = 15
     ray_obs_ratio: float = 0.85
     "number of rays to check for obstacles between odom and goal -> if over ray_obs_ratio, odom is discarded"
-    obs_cost_height: float = 0.2
+    obs_cost_height: float = 0.1
     "all odom points with cost of more than obs_cost_height are discarded"
-    free_space_cost_height: float = 0.01
+    free_space_cost_height: float = 0.1
     """odom points after all filtering with cost heigher can be weighted in the neural network cost"""
     fov_scale: float = 1.0
     "scaling of the field of view (only goals within fov are considered)"
@@ -66,8 +66,6 @@ class TrainCfg:
     """Config for multi environment training"""
     
     # high level configurations
-    training: bool = False
-    "the dataset type"
     sem: bool = True 
     "use semantic image"
     file_name: Optional[str] = None
@@ -116,8 +114,8 @@ class TrainCfg:
     "number of training epochs"    
     batch_size: int = 64 
     "number of minibatch size"    
-    hierarchical: bool = True
-    hierarchical_step: int = 30
+    hierarchical: bool = False
+    hierarchical_step: int = 40
     "hierarchical training with an adjusted data structure"
     
     # optimizer and scheduler configurations
@@ -153,11 +151,13 @@ class TrainCfg:
     wb_api_key: str = "e718d064556efc09b0bd0574a8e458f92dea49fc"
     
     # functions
-    def _get_model_save(self):
+    def _get_model_save(self, epoch: Optional[int] = None):
         input_domain = "DepSem" if self.sem else "Dep"
         cost_name = "Geom" if self.cost_map_name == "cost_map_geom" else "Sem"
         optim = "SGD" if self.optimizer == "sgd" else "Adam"
         name = f"_{self.file_name}" if self.file_name is not None else ""
-        return f"plannernet_{self.env_list[0]}_ep{self.epochs}_input{input_domain}_cost{cost_name}_optim{optim}{name}.pt"
+        epoch = epoch if epoch is not None else self.epochs
+        hierarch = f"_hierarch" if self.hierarchical else ""
+        return f"plannernet_env{self.env_list[0]}_ep{epoch}_input{input_domain}_cost{cost_name}_optim{optim}{hierarch}{name}"
 # EoF
     

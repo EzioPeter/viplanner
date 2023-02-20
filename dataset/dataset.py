@@ -437,7 +437,7 @@ class PlannerDataGenerator(Dataset):
         occupancy_idx = (inter_points - np.array([self.tsdf_map.start_x, self.tsdf_map.start_y])) / self.tsdf_map.voxel_size
         
         # check occupancy for collisions at the interpolated points
-        collision = occupancy_map[occupancy_idx[:, 0].astype(np.int), occupancy_idx[:, 1].astype(np.int)]
+        collision = occupancy_map[occupancy_idx[:, 0].astype(np.int64), occupancy_idx[:, 1].astype(np.int64)]
         collision = np.any(collision.reshape(-1, num_intermediate), axis=1)
         
         # get edge indices

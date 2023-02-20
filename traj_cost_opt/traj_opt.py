@@ -20,11 +20,9 @@ class CubicSplineTorch:
             ], dtype=t.dtype, device=t.device)
         return A @ tt
 
-    def interp(self, x, y, xs, fix_init_m=True):
+    def interp(self, x, y, xs):
         m = (y[:, 1:, :] - y[:, :-1, :]) / torch.unsqueeze(x[:, 1:] - x[:, :-1], 2)
         m = torch.cat([m[:, None, 0], (m[:, 1:] + m[:, :-1]) / 2, m[:, None, -1]], 1)
-        if fix_init_m:
-            m[:, 0] = self.init_m.to(m.device)
         idxs = torch.searchsorted(x[0, 1:], xs[0, :])
         dx = x[:, idxs + 1] - x[:, idxs]
         hh = self.h_poly((xs - x[:, idxs]) / dx)
@@ -42,7 +40,7 @@ class TrajOpt:
     def __init__(self):
         self.cs_interp = CubicSplineTorch()
 
-    def TrajGeneratorFromPFreeRot(self, preds, step, fix_init_m=True): 
+    def TrajGeneratorFromPFreeRot(self, preds, step): 
         # Points is in se3
         batch_size, num_p, dims = preds.shape
         points_preds = torch.cat((torch.zeros(batch_size, 1, dims, device=preds.device, requires_grad=preds.requires_grad), preds), axis=1)
@@ -51,7 +49,7 @@ class TrajOpt:
         xs = xs.repeat(batch_size, 1)
         x  = torch.arange(num_p, device=preds.device, dtype=preds.dtype)
         x  = x.repeat(batch_size, 1)
-        waypoints = self.cs_interp.interp(x, points_preds, xs, fix_init_m)
+        waypoints = self.cs_interp.interp(x, points_preds, xs)
         
         if self.debug:
             import matplotlib.pyplot as plt # for plotting

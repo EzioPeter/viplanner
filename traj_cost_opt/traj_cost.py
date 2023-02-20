@@ -99,7 +99,7 @@ class TrajCost:
         gloss = torch.mean(gloss_M_weighted)
         
         # Moving Loss - punish staying 
-        desired_wp = self.opt.TrajGeneratorFromPFreeRot(goal[:, None, 0:3], step=1.0/(num_p-1), fix_init_m=False) 
+        desired_wp = self.opt.TrajGeneratorFromPFreeRot(goal[:, None, 0:3], step=1.0/(num_p-1)) 
         desired_ds = torch.norm(desired_wp[:, 1:num_p, :] - desired_wp[:, 0:num_p-1, :], dim=2)
         wp_ds = torch.norm(waypoints[:, 1:num_p, :] - waypoints[:, 0:num_p-1, :], dim=2)
         mloss = torch.abs(desired_ds - wp_ds)

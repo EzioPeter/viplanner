@@ -84,8 +84,11 @@ class Trainer:
 
         # get dataloader for training
         self._load_data(train=True)
-        step_counter = 0
-        train_loader_list, val_loader_list = self._get_dataloader(step=step_counter)
+        if self._cfg.hierarchical:
+            step_counter = 0
+            train_loader_list, val_loader_list = self._get_dataloader(step=step_counter)
+        else: 
+            train_loader_list, val_loader_list = self._get_dataloader()
 
         wandb.watch(self.net)
         
@@ -275,7 +278,7 @@ class Trainer:
         train_loader_list: List[Data.DataLoader] = []
         val_loader_list: List[Data.DataLoader] = []
         
-        if step:
+        if step is not None:
             self.fov_ratio   = 1.0 - (self._cfg.hierarchical_front_step_ratio + self._cfg.hierarchical_back_step_ratio) * step
             self.front_ratio = self._cfg.hierarchical_front_step_ratio * step
             self.back_ratio  = self._cfg.hierarchical_back_step_ratio * step

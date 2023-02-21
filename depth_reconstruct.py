@@ -213,7 +213,7 @@ class DepthReconstruction:
             self.K_depth = P.reshape(3, 4)[:3, :3]
         
         if self._cfg.high_res_depth:
-            self.K_depth = self.K_depth * self._cfg.res_factor
+            self.K_depth[:2, :] = self.K_depth[:2, :] * self._cfg.res_factor
         return 
 
     def _load_depth_images(self) -> np.ndarray:

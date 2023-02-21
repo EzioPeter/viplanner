@@ -1,17 +1,7 @@
 #!/usr/bin/env python3
 
 # python
-import os
-import yaml
-import tqdm
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.utils.data as Data
-import torchvision.transforms as transforms
-import wandb  # logging
-from typing import Tuple, List
-
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
@@ -26,12 +16,12 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="_overfit_test",
+        file_name="overfit_ratio0.15",
         hierarchical=False,
         data_cfg=DataCfg(
-            ratio_fov_samples=0.70,
-            ratio_back_samples=0.10,
-            ratio_front_samples=0.20,
+            ratio_fov_samples=0.775,
+            ratio_back_samples=0.075,
+            ratio_front_samples=0.15,
         )
     )
     trainer = Trainer(matterport_overfit)
@@ -45,7 +35,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="_overfit_test",
+        file_name="overfit_ratio0.15",
         hierarchical=True,
     )
     trainer = Trainer(matterport_overfit_hierarch)
@@ -58,11 +48,11 @@ if __name__ == "__main__":
         sem=True,
         cost_map_name="cost_map_sem",
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
             
     carla: TrainCfg = TrainCfg(
         sem=True,

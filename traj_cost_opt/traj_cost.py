@@ -58,7 +58,7 @@ class TrajCost:
         w_obs=0.25,
         w_height=1.0,
         w_motion=1.5,
-        w_goal=4.0,
+        w_goal=2.0,
         w_length=0,
         obstalce_thred=0.75,
         dataset: str = "train",
@@ -117,6 +117,7 @@ class TrajCost:
         if self.log_data:
             wandb.log({f"gloss_{dataset}_step": gloss}, step=log_step)
             wandb.log({f"mloss_{dataset}_step": mloss}, step=log_step)
+            wandb.log({f"lloss_{dataset}_step": lloss}, step=log_step)
 
         # Fear labels
         goal_dists = torch.cumsum(wp_ds, dim=1, dtype=wp_ds.dtype)

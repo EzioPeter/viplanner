@@ -17,15 +17,15 @@ import torch.utils.data as Data
 import torchvision.transforms as transforms
 import wandb  # logging
 import matplotlib.pyplot as plt
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
-from config import TrainCfg, DataCfg
+from config import TrainCfg
 from plannernet import AutoEncoder, DualAutoEncoder
 from utils.torchutil import EarlyStopScheduler, count_parameters
-from dataset import PlannerData, PlannerDataGenerator, PlannerDataOld, MultiEpochsDataLoader
+from dataset import PlannerData, PlannerDataGenerator, MultiEpochsDataLoader
 from traj_cost_opt import TrajCost, TrajViz
 
 
@@ -38,11 +38,11 @@ class Trainer:
         self._cfg = cfg
         
         # set model save/load path
-        model_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg._get_model_save())
-        os.makedirs(model_dir, exist_ok=True)
-        self.model_path = os.path.join(model_dir, "model.pt")
+        self.model_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg._get_model_save())
+        os.makedirs(self.model_dir, exist_ok=True)
+        self.model_path = os.path.join(self.model_dir, "model.pt")
         if self._cfg.hierarchical:
-            self.model_dir_hierarch = os.path.join(model_dir, "hierarchical")
+            self.model_dir_hierarch = os.path.join(self.model_dir, "hierarchical")
             os.makedirs(self.model_dir_hierarch, exist_ok=True)
             self.hierach_losses = {}
             
@@ -58,9 +58,9 @@ class Trainer:
         self.data_generators: List[PlannerDataGenerator] = []
         self.data_traj_cost: List[TrajCost] = []
         self.data_traj_viz: List[TrajViz] = []
-        self.fov_ratio: float = 1.0
-        self.front_ratio: float = 0.0
-        self.back_ratio: float = 0.0
+        self.fov_ratio: float = None
+        self.front_ratio: float = None
+        self.back_ratio: float = None
         
         # inti buffers MODEL
         self.best_loss = float('inf')
@@ -121,10 +121,14 @@ class Trainer:
         
         return
     
-    def test(self, step: int = 0) -> None:
+    def test(self, step: Optional[int] = None) -> None:
         print('START TESTING')
         # set random seed for reproducibility
         torch.manual_seed(self._cfg.seed)
+        
+        # define step
+        if step is None and self._cfg.hierarchical:
+            step = int(self._cfg.epochs / self._cfg.hierarchical_step)
         
         # load model
         self._load_model(resume=True)
@@ -224,7 +228,7 @@ class Trainer:
     def _init_logging(self) -> None:
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
-        os.environ["WANDB_MODE"] = "online"  # "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
+        os.environ["WANDB_MODE"] = "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
         dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
         os.makedirs(dir_path, exist_ok=True)
         
@@ -267,13 +271,14 @@ class Trainer:
         print('OPTIMIZER AND SCHEDULER CONFIGURED')
         return 
     
-    def _get_dataloader(self, step: int = 0, train: bool = True) -> None:
+    def _get_dataloader(self, train: bool = True, step: Optional[int] = None) -> None:
         train_loader_list: List[Data.DataLoader] = []
         val_loader_list: List[Data.DataLoader] = []
         
-        self.fov_ratio = 1.0 - 0.075 * step
-        self.front_ratio = 0.05 * step
-        self.back_ratio = 0.025 * step
+        if step:
+            self.fov_ratio   = 1.0 - (self._cfg.hierarchical_front_step_ratio + self._cfg.hierarchical_back_step_ratio) * step
+            self.front_ratio = self._cfg.hierarchical_front_step_ratio * step
+            self.back_ratio  = self._cfg.hierarchical_back_step_ratio * step
         
         for generator in self.data_generators:
             # init data classes

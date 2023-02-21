@@ -115,7 +115,9 @@ class TrainCfg:
     batch_size: int = 64 
     "number of minibatch size"    
     hierarchical: bool = False
-    hierarchical_step: int = 40
+    hierarchical_step: int = 50
+    hierarchical_front_step_ratio: float = 0.05
+    hierarchical_back_step_ratio: float = 0.025
     "hierarchical training with an adjusted data structure"
     
     # optimizer and scheduler configurations

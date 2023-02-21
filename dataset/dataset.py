@@ -741,11 +741,11 @@ class PlannerDataGenerator(Dataset):
         # select indexes
         max_sample_number = int(self._cfg.max_train_pairs / self._cfg.ratio)
         
-        idx_front       = np.random.choice(idx_front,       int(max_sample_number * ratio_front_samples),       replace=False if len(idx_front)       > int(max_sample_number * ratio_front_samples)       else True)
-        idx_back        = np.random.choice(idx_back,        int(max_sample_number * ratio_back_samples),        replace=False if len(idx_back)        > int(max_sample_number * ratio_back_samples)        else True)
-        idx_fov_easy    = np.random.choice(idx_fov_easy,    int(max_sample_number * ratio_fov_easy_samples),    replace=False if len(idx_fov_easy)    > int(max_sample_number * ratio_fov_easy_samples)    else True)
-        idx_fov_hard    = np.random.choice(idx_fov_hard,    int(max_sample_number * ratio_fov_hard_samples),    replace=False if len(idx_fov_hard)    > int(max_sample_number * ratio_fov_hard_samples)    else True)
-        idx_fov_outside = np.random.choice(idx_fov_outside, int(max_sample_number * ratio_fov_outside_samples), replace=False if len(idx_fov_outside) > int(max_sample_number * ratio_fov_outside_samples) else True)
+        idx_front       = np.random.choice(idx_front,       int(max_sample_number * ratio_front_samples),                           replace=False if len(idx_front)       > int(max_sample_number * ratio_front_samples)                            else True)
+        idx_back        = np.random.choice(idx_back,        int(max_sample_number * ratio_back_samples),                            replace=False if len(idx_back)        > int(max_sample_number * ratio_back_samples)                             else True)
+        idx_fov_easy    = np.random.choice(idx_fov_easy,    int(max_sample_number * ratio_fov_samples * ratio_fov_easy_samples),    replace=False if len(idx_fov_easy)    > int(max_sample_number * ratio_fov_samples * ratio_fov_easy_samples)     else True)
+        idx_fov_hard    = np.random.choice(idx_fov_hard,    int(max_sample_number * ratio_fov_samples * ratio_fov_hard_samples),    replace=False if len(idx_fov_hard)    > int(max_sample_number * ratio_fov_samples * ratio_fov_hard_samples)     else True)
+        idx_fov_outside = np.random.choice(idx_fov_outside, int(max_sample_number * ratio_fov_samples * ratio_fov_outside_samples), replace=False if len(idx_fov_outside) > int(max_sample_number * ratio_fov_samples * ratio_fov_outside_samples)  else True)
         idx_selected = np.concatenate((idx_front, idx_back, idx_fov_easy, idx_fov_hard, idx_fov_outside))
         
         # print final training mix

@@ -16,7 +16,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.15_oloss0.25",
+        file_name="overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35",
         hierarchical=False,
         data_cfg=DataCfg(
             ratio_fov_samples=0.775,
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.15_oloss0.25",
+        file_name="overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35",
         hierarchical=True,
     )
     trainer = Trainer(matterport_overfit_hierarch)

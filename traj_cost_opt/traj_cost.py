@@ -55,7 +55,7 @@ class TrajCost:
         ahead_dist: float,
         pair_difficult,
         pair_outside,
-        w_obs=0.25,
+        w_obs=0.35,
         w_height=1.0,
         w_motion=1.5,
         w_goal=2.0,

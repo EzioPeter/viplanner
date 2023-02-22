@@ -30,10 +30,11 @@ class DataCfg:
     "maximum number of goals per odom (=start) point"
 
     # odom (=start) point selection
-    max_goal_distance: float = max_depth + 2.5
-    "maximum distance between odom and goal"
-    min_goal_distance: float = 3.0
-    "minimum distance between odom and goal"
+    max_goal_distance: float = max_depth
+    min_goal_distance: float = 1.0
+    "maximium and minimum distance between odom and goal"
+    fov_distance_scheme: dict = field(default_factory=lambda: {3: 1, 5: 2, 10: 1, 15: 1})
+    "select goal points for the samples within the fov according to the scheme: {distance: number of points}, distances have to be increasing and max distance has to be equal to max_goal_distance"
     n_rays_check: int = 15
     ray_obs_ratio: float = 0.85
     "number of rays to check for obstacles between odom and goal -> if over ray_obs_ratio, odom is discarded"

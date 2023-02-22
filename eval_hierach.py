@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # imperative-planning-learning
-from config import TrainCfg, DataCfg
+from config import TrainCfg
 from utils.trainer import Trainer
 
 
@@ -17,7 +17,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="_overfit_test",
+        file_name="overfit_test",
         hierarchical=True,
     )
     trainer = Trainer(matterport_overfit)
@@ -59,13 +59,36 @@ if __name__ == "__main__":
             dataset="test",
         )
     
+    # check for model without hierarchical training setup
+    input_domain = "DepSem" if trainer._cfg.sem else "Dep"
+    cost_name = "Geom" if trainer._cfg.cost_map_name == "cost_map_geom" else "Sem"
+    optim = "SGD" if trainer._cfg.optimizer == "sgd" else "Adam"
+    name = f"_{trainer._cfg.file_name}" if trainer._cfg.file_name is not None else ""
+    if os.path.isdir(os.path.join("/home/pascal/SemNav/imperative_learning", "models", f"plannernet_env{trainer._cfg.env_list[0]}_ep{trainer._cfg.epochs}_input{input_domain}_cost{cost_name}_optim{optim}{name}")):
+        model_path = os.path.join("/home/pascal/SemNav/imperative_learning", "models", f"plannernet_env{trainer._cfg.env_list[0]}_ep{trainer._cfg.epochs}_input{input_domain}_cost{cost_name}_optim{optim}{name}", "model_ep{}.pt".format(trainer._cfg.epochs))
+        model_state_dict, best_loss = torch.load(model_path)
+        trainer.net.load_state_dict(model_state_dict)
+        print("Resume train from {} with loss {}".format(model_path, best_loss))    
+        
+        test_loss_non_hierarch = trainer._test_epoch(
+            test_loader[0], 
+            env_id=0, 
+            is_visual=True, 
+            fov_angle=trainer.data_generators[0].alpha_fov,
+            dataset="test",
+        )
+    else:
+        test_loss_non_hierarch = None
+    
     # plot test loss 
     plt.figure(figsize=(10, 10))
-    plt.plot(test_loss[:, 0], test_loss[:, 1])
+    plt.plot(test_loss[:, 0], test_loss[:, 1], label="Hierarchical", color="blue")
+    if test_loss_non_hierarch is not None:
+        plt.plot(trainer._cfg.epochs, test_loss_non_hierarch, label="Non-Hierarchical", color="red")
     plt.xlabel("Epoch")
     plt.ylabel("Validation Loss")
     plt.title("Hierarchical Losses")
-    plt.savefig(os.path.join(trainer.model_dir, "hierarchical", "hierarchical_test_losses.png"))
+    plt.savefig(os.path.join(trainer.model_dir_hierarch, "hierarchical_test_losses.png"))
     plt.show()
             
 # EoF

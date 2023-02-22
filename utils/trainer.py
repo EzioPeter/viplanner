@@ -323,12 +323,12 @@ class Trainer:
 
             if self._cfg.multi_epoch_dataloader:
                 if train:
-                    train_loader = MultiEpochsDataLoader(train_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
-                val_loader = MultiEpochsDataLoader(val_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
+                    train_loader = MultiEpochsDataLoader(train_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
+                val_loader = MultiEpochsDataLoader(val_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
             else:
                 if train:
-                    train_loader = Data.DataLoader(dataset=train_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
-                val_loader = Data.DataLoader(dataset=val_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
+                    train_loader = Data.DataLoader(dataset=train_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
+                val_loader = Data.DataLoader(dataset=val_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
 
             if train:
                 train_loader_list.append(train_loader)

@@ -16,7 +16,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.15",
+        file_name="overfit_ratio0.15_oloss0.25",
         hierarchical=False,
         data_cfg=DataCfg(
             ratio_fov_samples=0.775,
@@ -35,7 +35,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.15",
+        file_name="overfit_ratio0.15_oloss0.25",
         hierarchical=True,
     )
     trainer = Trainer(matterport_overfit_hierarch)
@@ -82,9 +82,9 @@ if __name__ == "__main__":
             max_goal_distance=10.0,
             max_depth=15,
             obs_cost_height=0.5,
-            ratio_hard=0.5,
-            ratio_easy=0.4,
-            ratio_outside=0.1,
+            ratio_fov_hard_samples=0.5,
+            ratio_fov_easy_samples=0.4,
+            ratio_fov_outside_samples=0.1,
         ),
         n_visualize=400,
         wb_project="SemNav-Carla"

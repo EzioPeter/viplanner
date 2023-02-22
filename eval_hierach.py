@@ -12,28 +12,24 @@ from utils.trainer import Trainer
 
 
 if __name__ == "__main__":
-    matterport_overfit: TrainCfg = TrainCfg(
-        sem=True,
-        cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-        file_name="overfit_test",
-        hierarchical=True,
-    )
-    trainer = Trainer(matterport_overfit)
+    # load config
+    cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_env2n8kARJN3HM_ep200_inputDepSem_costSem_optimSGD_hierarch_overfit_ratio0.15"
+    train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(cfg_dir, "model.yaml"))
+
+    # load trainer and data
+    trainer = Trainer(train_config)
     # set random seed for reproducibility
     torch.manual_seed(trainer._cfg.seed)
+    # load data and model
+    trainer._load_data(train=False)
+    trainer._load_model()
     
     # get max steps
     if trainer._cfg.hierarchical:
         step = int(trainer._cfg.epochs / trainer._cfg.hierarchical_step)
 
     # get dataloader for training
-    trainer._load_data(train=False)
     _, test_loader = trainer._get_dataloader(train=False, step=step)    
-
-    # init model
-    trainer._load_model()
     
     # test loss buffer
     test_loss = np.zeros((step, 2))
@@ -90,5 +86,5 @@ if __name__ == "__main__":
     plt.title("Hierarchical Losses")
     plt.savefig(os.path.join(trainer.model_dir_hierarch, "hierarchical_test_losses.png"))
     plt.show()
-            
+     
 # EoF

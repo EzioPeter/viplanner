@@ -9,6 +9,7 @@
 # python
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional
+import yaml
 
 
 @dataclass
@@ -161,5 +162,20 @@ class TrainCfg:
         epoch = epoch if epoch is not None else self.epochs
         hierarch = f"_hierarch" if self.hierarchical else ""
         return f"plannernet_env{self.env_list[0]}_ep{epoch}_input{input_domain}_cost{cost_name}_optim{optim}{hierarch}{name}"
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str):
+        # define own loader class to include DataCfg
+        class Loader(yaml.SafeLoader):
+            pass
+        def construct_datacfg(loader, node):
+            return DataCfg(loader.construct_mapping(node))
+        Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
+        
+        # open yaml file and load config
+        with open(yaml_path, "r") as f:
+            cfg_dict = yaml.load(f, Loader=Loader)
+        
+        return cls(**cfg_dict["config"])
 # EoF
     

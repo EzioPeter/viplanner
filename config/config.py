@@ -38,7 +38,7 @@ class DataCfg:
     n_rays_check: int = 15
     ray_obs_ratio: float = 0.85
     "number of rays to check for obstacles between odom and goal -> if over ray_obs_ratio, odom is discarded"
-    obs_cost_height: float = 0.1
+    obs_cost_height: float = 0.3
     "all odom points with cost of more than obs_cost_height are discarded"
     free_space_cost_height: float = 0.1
     """odom points after all filtering with cost heigher can be weighted in the neural network cost"""
@@ -118,8 +118,8 @@ class TrainCfg:
     "number of minibatch size"    
     hierarchical: bool = False
     hierarchical_step: int = 50
-    hierarchical_front_step_ratio: float = 0.05
-    hierarchical_back_step_ratio: float = 0.025
+    hierarchical_front_step_ratio: float = 0.02
+    hierarchical_back_step_ratio: float = 0.01
     "hierarchical training with an adjusted data structure"
     
     # optimizer and scheduler configurations

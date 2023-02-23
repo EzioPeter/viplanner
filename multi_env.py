@@ -11,17 +11,31 @@ from utils.trainer import Trainer
 
 if __name__ == "__main__":
     # Arguements  
+    matterport_overfit_hierarch: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
+        test_env_id=1,
+        file_name="overfit_ratio0.09_oloss0.35_dataDistanceScheme",
+        hierarchical=True,
+    )
+    trainer = Trainer(matterport_overfit_hierarch)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+    
     matterport_overfit: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35",
+        file_name="overfit_ratio0.09_oloss0.35_dataDistanceScheme",
         hierarchical=False,
         data_cfg=DataCfg(
-            ratio_fov_samples=0.775,
-            ratio_back_samples=0.075,
-            ratio_front_samples=0.15,
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
         )
     )
     trainer = Trainer(matterport_overfit)
@@ -30,20 +44,6 @@ if __name__ == "__main__":
     trainer.save_config()
     torch.cuda.empty_cache()
 
-    matterport_overfit_hierarch: TrainCfg = TrainCfg(
-        sem=True,
-        cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-        file_name="overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35",
-        hierarchical=True,
-    )
-    trainer = Trainer(matterport_overfit_hierarch)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
-        
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",

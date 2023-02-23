@@ -40,6 +40,7 @@ from utils.rosutil import ROSArgparse
 
 # conversion matrix from ROS camera convention (z-forward, y-down, x-right) to robotics convention (x-forward, y-left, z-up)
 ROS_TO_ROBOTICS_MAT = stf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True).as_matrix()
+CAMERA_FLIP_MAT = stf.Rotation.from_euler("XYZ", [180, 0, 0], degrees=True).as_matrix()
 
 class VIPlannerNode:
     """VIPlanner ROS Node Class"""
@@ -161,10 +162,13 @@ class VIPlannerNode:
         # get 3D points of depth image
         depth_rot = stf.Rotation.from_quat(pose_depth[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT # convert orientation from ROS camera to robotics=world frame
         dep_im_reshaped = depth_img.reshape(-1, 1)
-        points = dep_im_reshaped * (depth_rot.T @ self.pix_depth_cam_frame.T).T + pose_depth[:3]
+        points = dep_im_reshaped * (depth_rot @ self.pix_depth_cam_frame.T).T + pose_depth[:3]
         
         # transform points to semantic camera frame
-        points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T @ (points - pose_rgb[:3]).T).T
+        if self.image_flip:
+            points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T @ (points - pose_rgb[:3]).T).T
+        else:
+            points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T @ (points - pose_rgb[:3]).T).T
         # normalize points
         points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
         # reorder points be camera convention (z-forward)
@@ -181,15 +185,12 @@ class VIPlannerNode:
         # DEBUG
         if self.debug:
             import matplotlib.pyplot as plt
-            plt.imshow(rgb_img)
-            plt.figure(2)
-            print(depth_img)
-            plt.imshow(depth_img)
-            f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
             ax1.imshow(depth_img)
-            ax2.imshow(rgb_warped / 255)
-            ax3.imshow(depth_img)
-            ax3.imshow(rgb_warped / 255, alpha=0.5)
+            ax2.imshow(rgb_img)
+            ax3.imshow(rgb_warped / 255)
+            ax4.imshow(depth_img)
+            ax4.imshow(rgb_warped / 255, alpha=0.5)
             plt.show()    
         
         # reshape to image

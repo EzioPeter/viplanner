@@ -21,18 +21,17 @@ class ReconstructionCfg:
     # directory where the environment with the depth (and semantic) images is located
     data_dir: str = "/home/pascal/SemNav/imperative_learning/data"
     # environment name
-    env: str = "2n8kARJN3HM"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ  town01 town01_2 JeFG25nYj2p 
+    env: str = "town01"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM  town01_2 JeFG25nYj2p 
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"
-    # higher resolution depth images available for reconstruction
-    high_res_depth: bool = False
-    res_factor: int = 2  # resolution factor for high resolution depth images
+    # higher resolution depth images available for reconstruction  (meaning that the depth images are also taked by the semantic camera)
+    high_res_depth: bool = True
     
     # reconstruction parameters
     voxel_size: float = 0.05  # [m]
     start_idx: int = 0  # start index for reconstruction
-    max_images: Optional[int] = 300  # maximum number of images to reconstruct, if None, all images are used
+    max_images: Optional[int] = 1000  # maximum number of images to reconstruct, if None, all images are used
     depth_scale: float = 1000.0  # depth scale factor
     # semantic reconstruction
     semantics: bool = True
@@ -58,9 +57,6 @@ class SemCostMapConfig:
     nb_neighbors: int = 100
     std_ratio: float = 2.0  # keep high, otherwise ground will be removed
     downsample: bool = False
-    # color mapping
-    data_source: str = "matterport"  # "matterport" or "carla"
-    mapping_dir: str = "/home/pascal/SemNav/orbit/source/extensions/omni.isaac.matterport/data/mappings"  # only needed for matterport
     # smooting
     nb_neigh: int = 15
     change_decimal: int = 3
@@ -69,7 +65,7 @@ class SemCostMapConfig:
     sigma_smooth: float = 2.0
     max_iterations: int = 1
     # obstacle threshold
-    obstacle_threshold: float = 0.3
+    obstacle_threshold: float = 0.5  # 0.5 for matterport, 0.7 for carla
     # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
     round_decimal_traversable: int = 2
 

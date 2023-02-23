@@ -117,7 +117,13 @@ class DepthReconstruction:
             
             points_final = points[non_zero_idx] + extrinsics[:3]       
                  
-            if self._cfg.semantics:
+            if self._cfg.semantics and self._cfg.high_res_depth:
+                img_path = os.path.join(self._cfg.get_data_path(), "semantics", str(self._start_idx + img_idx).zfill(4) + self._cfg.sem_suffix + ".png")
+                sem_image = cv2.imread(img_path)
+                sem_points = sem_image.reshape(-1, 3)[non_zero_idx]
+                self._points.append(points_final)
+                self._sem_mapping.append(sem_points)
+            elif self._cfg.semantics:
                 sem_annotation, filter_idx = self._get_semantic_image(points_final, img_idx)
                 self._points.append(points_final[filter_idx])
                 self._sem_mapping.append(sem_annotation)
@@ -195,11 +201,15 @@ class DepthReconstruction:
         return
     
     def _read_extrinsic(self) -> None:
-        extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic" + self._cfg.depth_suffix + ".txt")
-        self.extrinsics_depth = np.loadtxt(extrinsic_path, delimiter=',')
         if self._cfg.semantics:
             extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic" + self._cfg.sem_suffix + ".txt")
-            self.extrinsics_sem = np.loadtxt(extrinsic_path, delimiter=',')        
+            self.extrinsics_sem = np.loadtxt(extrinsic_path, delimiter=',')  
+        if self._cfg.high_res_depth:
+            assert self._cfg.semantics, "high res depth requires semantic images since depth should be recorded with semantic camera"
+            self.extrinsics_depth = self.extrinsics_sem
+        else:
+            extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic" + self._cfg.depth_suffix + ".txt")
+            self.extrinsics_depth = np.loadtxt(extrinsic_path, delimiter=',')      
         return 
 
     def _read_intrinsic(self) -> None:
@@ -213,7 +223,7 @@ class DepthReconstruction:
             self.K_depth = P.reshape(3, 4)[:3, :3]
         
         if self._cfg.high_res_depth:
-            self.K_depth[:2, :] = self.K_depth[:2, :] * self._cfg.res_factor
+            self.K_depth = self.K_sem
         return 
 
     def _load_depth_images(self) -> np.ndarray:

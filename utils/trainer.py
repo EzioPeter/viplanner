@@ -209,9 +209,6 @@ class Trainer:
         # Load Map and Trajectory Class
         traj_cost = TrajCost(
             self._cfg.gpu_id,
-            sensorOffsetX=self._cfg.sensor_offsetX_ANYmal,
-            weight_difficult=self._cfg.weight_samples_difficult,
-            weight_outside=self._cfg.weight_samples_high_cost,
             log_data=train
         )
         traj_cost.SetMap(
@@ -323,12 +320,12 @@ class Trainer:
 
             if self._cfg.multi_epoch_dataloader:
                 if train:
-                    train_loader = MultiEpochsDataLoader(train_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
-                val_loader = MultiEpochsDataLoader(val_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
+                    train_loader = MultiEpochsDataLoader(train_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
+                val_loader = MultiEpochsDataLoader(val_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
             else:
                 if train:
-                    train_loader = Data.DataLoader(dataset=train_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
-                val_loader = Data.DataLoader(dataset=val_data, batch_size=self._cfg.batch_size, shuffle=train, pin_memory=True, num_workers=self._cfg.num_workers)
+                    train_loader = Data.DataLoader(dataset=train_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
+                val_loader = Data.DataLoader(dataset=val_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)
 
             if train:
                 train_loader_list.append(train_loader)
@@ -361,12 +358,12 @@ class Trainer:
 
             # flip y axis for augmented samples  (clone necessary due to inplace operation that otherwise leads to error in backprop)
             preds_flip = torch.clone(preds)
-            preds_flip[inputs[6], :, 1] = preds_flip[inputs[6], :, 1] * -1
+            preds_flip[inputs[4], :, 1] = preds_flip[inputs[4], :, 1] * -1
             goal_flip = torch.clone(goal)
-            goal_flip[inputs[6], 1] = goal_flip[inputs[6], 1] * -1
+            goal_flip[inputs[4], 1] = goal_flip[inputs[4], 1] * -1
                 
             log_step = batch_idx + epoch*batches
-            loss, _ = self._loss(preds_flip, fear, self.data_traj_cost[env_id], odom, goal_flip, pair_difficult=inputs[4], pair_outside=inputs[5], log_step=log_step)
+            loss, _ = self._loss(preds_flip, fear, self.data_traj_cost[env_id], odom, goal_flip, log_step=log_step)
             wandb.log({"train_loss_step": loss}, step=log_step)
 
             loss.backward()
@@ -403,8 +400,8 @@ class Trainer:
                     preds, fear = self.net(image, goal)
 
                 # flip y axis for augmented samples
-                preds[inputs[6], :, 1] = preds[inputs[6], :, 1] * -1
-                goal[inputs[6], 1] = goal[inputs[6], 1] * -1
+                preds[inputs[4], :, 1] = preds[inputs[4], :, 1] * -1
+                goal[inputs[4], 1] = goal[inputs[4], 1] * -1
                 
                 log_step = epoch * num_batches + batch_idx
                 loss, waypoints = self._loss(
@@ -414,8 +411,6 @@ class Trainer:
                     odom,
                     goal,
                     log_step=log_step,
-                    pair_difficult=inputs[4],
-                    pair_outside=inputs[5],
                     dataset=dataset
                 )
                 
@@ -430,13 +425,13 @@ class Trainer:
                         odom_viz = odom
                         goal_viz = goal
                         fear_viz = fear
-                        augment_viz = inputs[6]
+                        augment_viz = inputs[4]
                     else:
                         image_viz   = torch.cat((image_viz, image), dim=0)
                         odom_viz    = torch.cat((odom_viz, odom),   dim=0)
                         goal_viz    = torch.cat((goal_viz, goal),   dim=0)
                         fear_viz    = torch.cat((fear_viz, fear),   dim=0)
-                        augment_viz = torch.cat((augment_viz, inputs[6]), dim=0)
+                        augment_viz = torch.cat((augment_viz, inputs[4]), dim=0)
                     preds_viz.extend(preds.tolist())
                     wp_viz.extend(waypoints.tolist())
 
@@ -462,8 +457,6 @@ class Trainer:
         odom: torch.Tensor,
         goal: torch.Tensor,
         log_step: int,
-        pair_difficult: List[bool] = [False],
-        pair_outside: List[bool] = [False],
         step: float = 0.1,
         dataset: str = "train",
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -475,8 +468,6 @@ class Trainer:
             goal,
             log_step,
             ahead_dist=self._cfg.fear_ahead_dist,
-            pair_difficult=pair_difficult,
-            pair_outside=pair_outside,
             dataset=dataset,
         )
         loss2 = nn.BCELoss()(fear, fear_labels)

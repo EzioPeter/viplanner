@@ -10,6 +10,30 @@ from utils.trainer import Trainer
 
 
 if __name__ == "__main__":
+    # Test
+    test: TrainCfg = TrainCfg(
+        sem=False,
+        cost_map_name="cost_map_sem",
+        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
+        test_env_id=1,
+        epochs=100,
+        file_name="test",
+        hierarchical=False,
+        n_visualize=15,
+        data_cfg=DataCfg(
+            max_goal_distance=10,
+            ratio_fov_samples=0.90,
+            ratio_front_samples=0.05,
+            ratio_back_samples=0.05,
+            max_train_pairs=4000, 
+        )
+    )
+    trainer = Trainer(test)
+    # trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()    
+    
     # Arguements  
     matterport_overfit_hierarch: TrainCfg = TrainCfg(
         sem=True,

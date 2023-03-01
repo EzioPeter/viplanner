@@ -31,13 +31,10 @@ class DataCfg:
 
     # odom (=start) point selection
     max_goal_distance: float = max_depth
-    min_goal_distance: float = 1.0
+    min_goal_distance: float = 0.5
     "maximium and minimum distance between odom and goal"
-    fov_distance_scheme: dict = field(default_factory=lambda: {3: 1, 5: 2, 10: 1, 15: 1})
-    "select goal points for the samples within the fov according to the scheme: {distance: number of points}, distances have to be increasing and max distance has to be equal to max_goal_distance"
-    n_rays_check: int = 15
-    ray_obs_ratio: float = 0.85
-    "number of rays to check for obstacles between odom and goal -> if over ray_obs_ratio, odom is discarded"
+    distance_scheme: dict = field(default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05})
+    "select goal points for the samples according to the scheme: {distance: percentage of goals}, distances have to be increasing and max distance has to be equal to max_goal_distance"
     obs_cost_height: float = 0.3
     "all odom points with cost of more than obs_cost_height are discarded"
     free_space_cost_height: float = 0.1
@@ -50,18 +47,12 @@ class DataCfg:
     # train val split
     ratio: float = 0.9
     "ratio between train and val dataset"
-    max_train_pairs: int = 10000  # difficult samples for sure included
+    max_train_pairs: int = 10000
     "maximum number of train pairs (can be used to limit training time)"
     ratio_fov_samples: float = 1.0
     ratio_front_samples: float = 0.0
     ratio_back_samples: float = 0.0
     "samples distrubution -> either within the robots fov, in front of the robot but outside the fov or behind the robot"
-    ratio_fov_hard_samples: float = 0.5
-    ratio_fov_easy_samples: float = 0.5
-    ratio_fov_outside_samples: float = 0.0
-    "samples distrubution within the robots fov -> either hard, easy or outside the fov"
-    ratio_fov_hard_samples_max: float = 0.5
-    "maximum used ratio of hard samples in the fov -> decision if augmentation is done to increase number of hard samples"
 
 @dataclass
 class TrainCfg:
@@ -138,11 +129,6 @@ class TrainCfg:
     w_decay: float = 1e-4 
     "weight decay of the optimizer"
     
-    # loss configurations
-    weight_samples_difficult: float = 1.0  # start-goal combinations with obstacle inbetween (cost value higher than data_cfg.obs_cost_height)
-    weight_samples_high_cost: float = 1.0  # start-goal combinations with either start or end point with higher cost than data_cfg.free_space_cost_height
-    """weighting of samples with special conditions"""    
-    
     # visualization configurations
     camera_tilt: float = 0.15 
     "camera tilt angle for visualization only"
@@ -170,7 +156,13 @@ class TrainCfg:
         class Loader(yaml.SafeLoader):
             pass
         def construct_datacfg(loader, node):
-            return DataCfg(loader.construct_mapping(node))
+            add_dicts = {}
+            for node_entry in node.value:
+                if isinstance(node_entry[1], yaml.MappingNode):
+                    add_dicts[node_entry[0].value] = loader.construct_mapping(node_entry[1])
+                    node.value.remove(node_entry)
+                    
+            return DataCfg(**loader.construct_mapping(node), **add_dicts)
         Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
         
         # open yaml file and load config

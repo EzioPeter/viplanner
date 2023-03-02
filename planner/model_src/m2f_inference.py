@@ -26,7 +26,7 @@ from viplanner.config.coco_meta import get_class_for_id
 from viplanner.config.viplanner_sem_meta import VIPlannerSemMetaHandler
 
 # mask2former src
-from .mask2former.mask2former import add_maskformer2_config
+from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 
 
 class Predictor:

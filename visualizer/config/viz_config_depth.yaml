@@ -1,12 +1,14 @@
 # general cfg
-image_flip:             True
+image_flip:             False
 max_depth:              15
 domain:                 depth
 
 # ros topics
 vizTopic:               /viz_path_depth
-imgTopic:               /depth_camera_front_upper/depth/image_rect_raw
-infoTopic:              /depth_camera_front_upper/depth/camera_info
+# imgTopic:               /depth_camera_front_upper/depth/image_rect_raw
+# infoTopic:              /depth_camera_front_upper/depth/camera_info
+imgTopic:            /depth_camera_front/depth/image_rect_raw
+infoTopic:       /depth_camera_front/depth/camera_info
 goalTopic:              /mp_waypoint
 pathTopic:              /path
 

@@ -54,7 +54,7 @@ CAMERA_FLIP_MAT     = stf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True
 class VIPlannerNode:
     """VIPlanner ROS Node Class"""
 
-    debug: bool = False
+    debug: bool = True
 
     def __init__(self, cfg):
         super(VIPlannerNode, self).__init__()
@@ -159,6 +159,9 @@ class VIPlannerNode:
                 crop_image, overlap_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
                 time_warp = time.time() - start
 
+                # for anymal c
+                crop_image = cur_rgb_image
+
                 if overlap_ratio < self.cfg.overlap_ratio_thres:
                     rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}")
                     self.pubPath(np.zeros((51, 3)), self.is_goal_init)
@@ -234,16 +237,27 @@ class VIPlannerNode:
     def imageWarp(self, rgb_img: np.ndarray, depth_img: np.ndarray, pose_rgb: np.ndarray, pose_depth: np.ndarray) -> np.ndarray:
         # get 3D points of depth image
         depth_rot = stf.Rotation.from_quat(pose_depth[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT # convert orientation from ROS camera to robotics=world frame
+        if True:  # for anymal c where depth is not flipped 
+            depth_rot = depth_rot @ CAMERA_FLIP_MAT
+            
+        print("depth_rot", stf.Rotation.from_matrix(depth_rot).as_euler("xyz", degrees=True))
         dep_im_reshaped = depth_img.reshape(-1, 1)
         points = dep_im_reshaped * (depth_rot @ self.pix_depth_cam_frame.T).T + pose_depth[:3]
         
-        # transform points to semantic camera frame
-        if self.cfg.image_flip:
-            points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T @ (points - pose_rgb[:3]).T).T
-        else:
-            points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T @ (points - pose_rgb[:3]).T).T
+        # # transform points to semantic camera frame
+        # if self.cfg.image_flip:
+        #     points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T @ (points - pose_rgb[:3]).T).T
+        #     rgb_rot = (stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T
+        #     print("rgb_rot", stf.Rotation.from_matrix(rgb_rot).as_euler("xyz", degrees=True))
+        # else:
+        #     points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T @ (points - pose_rgb[:3]).T).T
+        #     rgb_rot = (stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T
+        #     print("rgb_rot", stf.Rotation.from_matrix(rgb_rot).as_euler("xyz", degrees=True))        
+        
         # normalize points
-        points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
+        # points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
+        points_sem_cam_frame_norm = points / points[:, 0][:, np.newaxis]
+       
         # reorder points be camera convention (z-forward)
         points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]]  * np.array([-1, -1, 1])
         # transform points to pixel coordinates
@@ -266,7 +280,9 @@ class VIPlannerNode:
             ax3.imshow(rgb_warped / 255)
             ax4.imshow(depth_img)
             ax4.imshow(rgb_warped / 255, alpha=0.5)
-            plt.show()    
+            plt.savefig("/root/git/viplanner_ros/planner/depth_sem_warp.png")
+            # plt.show()  
+            plt.close()  
         
         # reshape to image
         return rgb_warped, overlap_ratio
@@ -447,11 +463,12 @@ class VIPlannerNode:
         if self.cfg.depth_uint_type:
             image = image / 1000.0
         image[image > self.cfg.max_depth] = 0.0
-        if self.cfg.image_flip:
-            image = PIL.Image.fromarray(image)
-            self.depth_img = np.array(image.transpose(PIL.Image.Transpose.ROTATE_180))
-        else:
-            self.depth_img = image
+        # if self.cfg.image_flip:
+        #     image = PIL.Image.fromarray(image)
+        #     self.depth_img = np.array(image.transpose(PIL.Image.Transpose.ROTATE_180))
+        # else:
+        #     self.depth_img = image
+        self.depth_img = image
         
         # transform goal into robot frame
         if self.is_goal_init:
@@ -468,6 +485,9 @@ class VIPlannerNode:
             tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, self.cfg.robot_id)
             self.cam_offset = tf_robot_depth[0:3]
             self.cam_rot = stf.Rotation.from_quat(tf_robot_depth[3:7]).as_matrix() @ ROS_TO_ROBOTICS_MAT
+            # for anymal c
+            self.cam_rot = self.cam_rot @ CAMERA_FLIP_MAT
+            print("CAM ROT", stf.Rotation.from_matrix(self.cam_rot).as_euler("xyz", degrees=True))
             goal_robot_frame = np.array([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z])
             goal_cam_frame = self.cam_rot.T @ (goal_robot_frame - self.cam_offset).T
             self.goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]

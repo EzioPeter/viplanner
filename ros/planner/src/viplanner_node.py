@@ -171,7 +171,7 @@ class VIPlannerNode:
 
                     # warp rgb image
                     # print(self.rgb_header.frame_id, self.depth_header.frame_id)
-                    if self.rgb_header.frame_id != self.depth_header.frame_id:
+                    if False:  # self.rgb_header.frame_id != self.depth_header.frame_id:
                         start = time.time()
                         if self.pix_depth_cam_frame is None:
                             self.initPixArray(cur_depth_image.shape)
@@ -393,7 +393,6 @@ class VIPlannerNode:
                 pose = PoseStamped()
                 pose.pose.position.x = p[0]
                 pose.pose.position.y = p[1]
-                pose.pose.position.z = p[2]
                 poses.append(pose)
 
         # Wait for the transform from base frame to odom frame
@@ -516,15 +515,19 @@ class VIPlannerNode:
     def poseCallback(self, frame_id: str, img_stamp, target_frame_id: Optional[str] = None) -> Tuple[bool, np.ndarray]:
         target_frame_id = target_frame_id if target_frame_id else self.cfg.world_id
         try:            
-            # Wait for the transform to become available
-            transform = self.tf_buffer.lookup_transform(target_frame_id, frame_id, img_stamp, rospy.Duration(4.0))
+            if self.cfg.mount_cam_frame is None:
+                # Wait for the transform to become available
+                transform = self.tf_buffer.lookup_transform(target_frame_id, frame_id, img_stamp, rospy.Duration(4.0))
+            else:
+                frame_id = self.cfg.mount_cam_frame
+                transform = self.tf_buffer.lookup_transform(target_frame_id, self.cfg.mount_cam_frame, img_stamp, rospy.Duration(4.0))
             # Extract the translation and rotation from the transform
             translation = transform.transform.translation
             rotation = transform.transform.rotation
             pose = np.array([translation.x, translation.y, translation.z, rotation.x, rotation.y, rotation.z, rotation.w])            
             return True, pose
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-            rospy.logerr(f"Fail to transfer {frame_id} into {target_frame_id} frame.")
+            rospy.logerr(f"Pose Fail to transfer {frame_id} into {target_frame_id} frame.")
             return False, np.zeros(7)
             
     def imageCallback(self, rgb_msg: Image):
@@ -648,8 +651,12 @@ class VIPlannerNode:
             
             # get static transform and cam offset
             if self.init_goal_trans:
-                # get transform from robot frame to depth camera frame
-                success, tf_robot_depth = self.poseCallback(self.depth_header.frame_id, self.depth_header.stamp, self.cfg.robot_id)
+                if self.cfg.mount_cam_frame is None:
+                    # get transform from robot frame to depth camera frame
+                    success, tf_robot_depth = self.poseCallback(self.depth_header.frame_id, self.depth_header.stamp, self.cfg.robot_id)
+                else:
+                    success, tf_robot_depth = self.poseCallback(self.cfg.mount_cam_frame, self.depth_header.stamp, self.cfg.robot_id)
+
                 if not success:
                     return
                 self.cam_offset = tf_robot_depth[0:3]
@@ -747,6 +754,10 @@ if __name__ == '__main__':
     parser.add_argument('compressed',      type=bool,   default=True, 
         help='If compressed rgb topic is used'
     )
+    parser.add_argument('mount_cam_frame', type=str,    default=None, 
+        help='When cam is mounted, which frame to take for pose compute'
+    )
+        
 
     # frame_ids
     parser.add_argument('robot_id',        type=str,     default='base',                     

@@ -88,6 +88,10 @@ class DepthReconstruction:
             self._start_idx = 0
             self._end_idx = N
         
+        if self._cfg.point_cloud_batch_size > self._end_idx - self._start_idx:
+            print(f"[WARNING] batch size must be smaller or equal than number of images to reconstruct, now set to max value {self._end_idx - self._start_idx}")
+            self._cfg.point_cloud_batch_size = self._end_idx - self._start_idx
+        
         print(f"total number of images for reconstruction: {int(self._end_idx - self._start_idx)}")
         
         # get pixel tensor for reprojection
@@ -215,7 +219,7 @@ class DepthReconstruction:
             self.extrinsics_depth = self.extrinsics_sem
         else:
             extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic" + self._cfg.depth_suffix + ".txt")
-            self.extrinsics_depth = np.loadtxt(extrinsic_path, delimiter=',')      
+            self.extrinsics_depth = np.loadtxt(extrinsic_path, delimiter=',')    
         return 
 
     def _read_intrinsic(self) -> None:

@@ -54,8 +54,32 @@ class TrajOpt:
         if self.debug:
             import matplotlib.pyplot as plt # for plotting
             plt.scatter(points_preds[0, :, 0].cpu().numpy(), points_preds[0, :, 1].cpu().numpy(), label='Samples', color='purple')
-            plt.plot(waypoints[0, :, 0].cpu().numpy(), waypoints[0, :, 1].cpu().numpy(), label='Interpolated curve')
+            plt.plot(waypoints[0, :, 0].cpu().numpy(), waypoints[0, :, 1].cpu().numpy(), label='Interpolated curve', color='blue')
             plt.legend()
             plt.show()
             
         return waypoints  # R3
+    
+    def interpolate_waypoints(self, preds):
+        shape = list(preds.shape)
+        out_shape = [50, shape[2]]
+        waypoints = torch.nn.functional.interpolate(preds.unsqueeze(1), size=tuple(out_shape), mode='bilinear', align_corners=True)
+        waypoints = waypoints.squeeze(1)
+        
+        if self.debug:
+            import matplotlib.pyplot as plt # for plotting
+            plt.scatter(preds[0, :, 0].detach().cpu().numpy(), preds[0, :, 1].detach().cpu().numpy(), label='Samples', color='purple')
+            plt.plot(waypoints[0, :, 0].detach().cpu().numpy(), waypoints[0, :, 1].detach().cpu().numpy(), label='Interpolated curve', color='blue')
+            plt.legend()
+            plt.show()
+                        
+        return waypoints
+
+
+if __name__ == "__main__":
+    traj_opt = TrajOpt()
+    traj_opt.debug = True
+    preds = torch.tensor([[[0, 0, 1], [1, 2, 1], [3, 3, 1], [4, 6, 1], [7, 7, 1], [10, 8, 1]]], dtype=torch.float32)
+    step = 0.1
+    # traj_opt.TrajGeneratorFromPFreeRot(preds, step)
+    traj_opt.interpolate_waypoints(preds)

@@ -12,14 +12,12 @@ from utils.trainer import Trainer
 if __name__ == "__main__":
     # Test
     test: TrainCfg = TrainCfg(
-        sem=False,
+        sem=True,
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        epochs=100,
-        file_name="test",
-        hierarchical=False,
-        n_visualize=15,
+        epochs=40,
+        file_name="test_sem_real_data_structure",
         data_cfg=DataCfg(
             max_goal_distance=10,
             ratio_fov_samples=0.90,
@@ -28,11 +26,11 @@ if __name__ == "__main__":
             max_train_pairs=4000, 
         )
     )
-    trainer = Trainer(test)
+    # trainer = Trainer(test)
     # trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()    
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()    
     
     # Arguements  
     matterport_overfit_hierarch: TrainCfg = TrainCfg(
@@ -40,7 +38,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.09_oloss0.35_dataDistanceScheme",
+        file_name="overfit_ratio09",
         hierarchical=True,
     )
     trainer = Trainer(matterport_overfit_hierarch)
@@ -54,7 +52,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio0.09_oloss0.35_dataDistanceScheme",
+        file_name="overfit_ratio09",
         hierarchical=False,
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,
@@ -72,11 +70,11 @@ if __name__ == "__main__":
         sem=True,
         cost_map_name="cost_map_sem",
     )  
-    # trainer = Trainer(matterport_sem)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
             
     carla: TrainCfg = TrainCfg(
         sem=True,

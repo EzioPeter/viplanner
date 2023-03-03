@@ -26,8 +26,6 @@ class DataCfg:
     # data processing
     max_depth: float = 15.0
     "maximum depth for depth image"
-    max_goal_per_odom: int = 5
-    "maximum number of goals per odom (=start) point"
 
     # odom (=start) point selection
     max_goal_distance: float = max_depth
@@ -37,8 +35,6 @@ class DataCfg:
     "select goal points for the samples according to the scheme: {distance: percentage of goals}, distances have to be increasing and max distance has to be equal to max_goal_distance"
     obs_cost_height: float = 0.3
     "all odom points with cost of more than obs_cost_height are discarded"
-    free_space_cost_height: float = 0.1
-    """odom points after all filtering with cost heigher can be weighted in the neural network cost"""
     fov_scale: float = 1.0
     "scaling of the field of view (only goals within fov are considered)"
     depth_scale: float = 1000.0
@@ -47,7 +43,7 @@ class DataCfg:
     # train val split
     ratio: float = 0.9
     "ratio between train and val dataset"
-    max_train_pairs: int = 10000
+    max_train_pairs: int = 6000
     "maximum number of train pairs (can be used to limit training time)"
     ratio_fov_samples: float = 1.0
     ratio_front_samples: float = 0.0
@@ -103,7 +99,7 @@ class TrainCfg:
     # training configurations
     resume: bool = False
     "resume training"    
-    epochs: int = 200
+    epochs: int = 100
     "number of training epochs"    
     batch_size: int = 64 
     "number of minibatch size"    
@@ -118,9 +114,9 @@ class TrainCfg:
     "learning rate"
     factor: float = 0.5 
     "ReduceLROnPlateau factor"
-    min_lr: float = 1e-6 
+    min_lr: float = 1e-5
     "minimum lr for ReduceLROnPlateau"
-    patience: int = 10 
+    patience: int = 3 
     "patience of epochs for ReduceLROnPlateau"    
     optimizer: str = "sgd"  # either adam or sgd
     "optimizer"
@@ -132,7 +128,7 @@ class TrainCfg:
     # visualization configurations
     camera_tilt: float = 0.15 
     "camera tilt angle for visualization only"
-    n_visualize: int = 10
+    n_visualize: int = 15
     "number of trajectories that are visualized"
 
     # logging configurations

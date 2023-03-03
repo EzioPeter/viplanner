@@ -244,8 +244,8 @@ class PlannerDataGenerator(Dataset):
         self.semantics = semantics 
         
         # init list for final odom, goal and img mapping
-        self.depth_filename = []
-        self.sem_filename = []
+        self.depth_filename_list = []
+        self.sem_filename_list = []
         self.odom_depth: torch.Tensor = None
         self.goal: torch.Tensor = None
         self.pair_outside: np.ndarray = None
@@ -329,10 +329,6 @@ class PlannerDataGenerator(Dataset):
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32).to("cpu")
         points_free_space = oloss_M < self._cfg.obs_cost_height
-        
-        # identify possible start points which have a higher loss value then the one of the intended traversable area
-        self.points_outside_free_space_cost = oloss_M > self._cfg.free_space_cost_height
-        self.points_outside_free_space_cost = self.points_outside_free_space_cost[points_free_space]
 
         if self.debug:
             # plot odom
@@ -355,8 +351,14 @@ class PlannerDataGenerator(Dataset):
         self.odom_array_depth = self.odom_array_depth[points_free_space.squeeze()]
         self.nb_odom_points = self.odom_array_depth.shape[0]
         
+        # load depth image files as name list
+        depth_filename_list = self.load_images(self.root, "depth")
+        self.depth_filename_list = [depth_filename_list[i] for i in range(len(depth_filename_list)) if points_free_space[i]]
+        
         if self.semantics:
             self.odom_array_sem = self.odom_array_sem[points_free_space.squeeze()]
+            sem_filename_list = self.load_images(self.root, "semantics")
+            self.sem_filename_list = [sem_filename_list[i] for i in range(len(sem_filename_list)) if points_free_space[i]]
 
         print(f"odom points outside obs inflation : \t{self.nb_odom_points} ({round(self.nb_odom_points/nb_odom_point_prev*100, 2)} %)")
         
@@ -457,20 +459,14 @@ class PlannerDataGenerator(Dataset):
     
     def get_pairs(self):
         print("Generating pairs of start and end points ...")
-        # load depth image files as name list
-        depth_filename_list = self.load_images(self.root, "depth")
-        sem_filename_list = self.load_images(self.root, "semantics") if self.semantics else None 
-
         # iterate over all odom points and find goal points
         self.odom_no_suitable_goals = 0
         self.odom_used = 0
         
         # init semantic warp parameters
         if self.semantics:
-            # get intrinsics of both cameras
-            K_depth, K_sem = self._get_intrinsics()
             # compute pixel tensor
-            pix_depth_cam_frame = self._compute_pixel_tensor(K_depth, depth_filename=depth_filename_list[0])
+            self.pix_depth_cam_frame = self._compute_pixel_tensor()
             # make dir
             os.makedirs(os.path.join(self.root, "semantics_warp"), exist_ok=True)
         
@@ -500,21 +496,14 @@ class PlannerDataGenerator(Dataset):
             
             if self.semantics:
                 # semantic warp
-                sem_img_new_path = self._get_overlay_semantics(
-                    depth_filename=depth_filename_list[odom_idx],
-                    sem_filename=sem_filename_list[odom_idx],
-                    K_sem=K_sem,
-                    pose_dep=odom,
-                    pose_sem=self.odom_array_sem[odom_idx],
-                    pix_depth_cam_frame=pix_depth_cam_frame
-                )
+                sem_img_new_path = self._get_overlay_semantics(odom_idx)
             else:
                 sem_img_new_path = None
             
             # get pair according to distance scheme for each category 
-            self.reduce_pairs(odom, goals, within_fov,     odom_goal_distances[odom_idx], depth_filename_list[odom_idx], sem_img_new_path, within_fov=True) 
-            self.reduce_pairs(odom, goals, behind_robot,   odom_goal_distances[odom_idx], depth_filename_list[odom_idx], sem_img_new_path, behind_robot=True)
-            self.reduce_pairs(odom, goals, front_of_robot, odom_goal_distances[odom_idx], depth_filename_list[odom_idx], sem_img_new_path, front_of_robot=True)
+            self.reduce_pairs(odom_idx, goals, within_fov,     odom_goal_distances[odom_idx], sem_img_new_path, within_fov=True) 
+            self.reduce_pairs(odom_idx, goals, behind_robot,   odom_goal_distances[odom_idx], sem_img_new_path, behind_robot=True)
+            self.reduce_pairs(odom_idx, goals, front_of_robot, odom_goal_distances[odom_idx], sem_img_new_path, front_of_robot=True)
             
             # DEBUG
             if self.debug:
@@ -562,11 +551,10 @@ class PlannerDataGenerator(Dataset):
 
     def reduce_pairs(
         self,
-        odom,
-        goals,
+        odom_idx: int,
+        goals: pp.LieTensor,
         decision_tensor: torch.Tensor,
         odom_distances: dict,
-        depth_img_path: str,
         sem_img_path: Optional[str],
         within_fov: bool = False,
         behind_robot: bool = False,
@@ -598,12 +586,12 @@ class PlannerDataGenerator(Dataset):
             goal_idx = goal_idx[~within_curr_distance_idx]
 
             self.category_scheme_pairs[distance].update_buffers(
-                odom=odom, 
+                odom=self.odom_array_depth[odom_idx], 
                 goal=goals[selected_idx.item()],
                 within_fov=within_fov,
                 front_of_robot=front_of_robot,
                 behind_robot=behind_robot,
-                depth_filename=depth_img_path,
+                depth_filename=self.depth_filename_list[odom_idx],
                 sem_filename=sem_img_path
             )   
         return
@@ -713,8 +701,9 @@ class PlannerDataGenerator(Dataset):
     
     """ Warp semantic on depth image helper functions"""
         
-    def _compute_pixel_tensor(self, K_depth, depth_filename) -> None:
+    def _compute_pixel_tensor(self) -> None:
         # get shape of depth images
+        depth_filename = self.depth_filename_list[0]
         depth_img = self._load_depth_image(depth_filename)
         x_nums, y_nums = depth_img.shape
         
@@ -728,7 +717,7 @@ class PlannerDataGenerator(Dataset):
         )  # add ones for 3D coordinates           
         
         # transform to camera frame
-        k_inv = np.linalg.inv(K_depth)
+        k_inv = np.linalg.inv(self.K_depth)
         pix_cam_frame = np.matmul(k_inv, pixels.T)
         # reorder to be in "robotics" axis order (x forward, y left, z up)
         return pix_cam_frame[[2, 0, 1], :].T  * np.array([1, -1, -1])
@@ -748,7 +737,11 @@ class PlannerDataGenerator(Dataset):
         depth_image[depth_image > self._cfg.max_depth] = 0.0
         return depth_image
     
-    def _get_overlay_semantics(self, depth_filename, sem_filename, K_sem, pose_sem, pose_dep, pix_depth_cam_frame):
+    def _get_overlay_semantics(self, odom_idx):
+        # get corresponding filenames
+        depth_filename = self.depth_filename_list[odom_idx]
+        sem_filename   = self.sem_filename_list[odom_idx]
+        
         # load semantic and depth image and get their poses
         depth_img = self._load_depth_image(depth_filename)
         sem_image = Image.open(sem_filename)
@@ -756,13 +749,13 @@ class PlannerDataGenerator(Dataset):
             sem_image = np.array(sem_image.transpose(PIL.Image.ROTATE_180))
         else:
             sem_image = np.array(sem_image)
-        pose_dep = pose_dep.data.cpu().numpy()
-        pose_sem = pose_sem.data.cpu().numpy()
+        pose_dep = self.odom_array_depth[odom_idx].data.cpu().numpy()
+        pose_sem = self.odom_array_sem[odom_idx].data.cpu().numpy()
         
         # get 3D points of depth image
         rot = tf.Rotation.from_quat(pose_dep[3:]).as_matrix()
         dep_im_reshaped = depth_img.reshape(-1, 1) # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
-        points = dep_im_reshaped * (rot @ pix_depth_cam_frame.T).T + pose_dep[:3]
+        points = dep_im_reshaped * (rot @ self.pix_depth_cam_frame.T).T + pose_dep[:3]
         
         # transform points to semantic camera frame
         points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T
@@ -771,7 +764,7 @@ class PlannerDataGenerator(Dataset):
         # reorder points be camera convention (z-forward)
         points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]]  * np.array([-1, -1, 1])
         # transform points to pixel coordinates
-        pixels = (K_sem @ points_sem_cam_frame_norm.T).T
+        pixels = (self.K_sem @ points_sem_cam_frame_norm.T).T
         # filter points outside of image
         filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_image.shape[0])
         # get semantic annotation

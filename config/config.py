@@ -21,12 +21,12 @@ class ReconstructionCfg:
     # directory where the environment with the depth (and semantic) images is located
     data_dir: str = "/home/pascal/SemNav/imperative_learning/data"
     # environment name
-    env: str = "town01"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM  town01_2 JeFG25nYj2p 
+    env: str = "2n8kARJN3HM"  # Vvot9Ly1tCj ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ  town01 town01_2 JeFG25nYj2p 
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"
     # higher resolution depth images available for reconstruction  (meaning that the depth images are also taked by the semantic camera)
-    high_res_depth: bool = True
+    high_res_depth: bool = False
     
     # reconstruction parameters
     voxel_size: float = 0.05  # [m]

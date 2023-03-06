@@ -20,8 +20,6 @@ from tqdm import tqdm
 
 # imperative-cost-map
 from config import ReconstructionCfg
-from third_party.ip_basic.ip_basic.depth_map_utils import fill_in_multiscale
-
 
 class DepthReconstruction:
     """

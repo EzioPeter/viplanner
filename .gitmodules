@@ -1,3 +1,0 @@
-[submodule "third_party/ip_basic"]
-	path = third_party/ip_basic
-	url = git@github.com:kujason/ip_basic.git

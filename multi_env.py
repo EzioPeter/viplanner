@@ -10,28 +10,6 @@ from utils.trainer import Trainer
 
 
 if __name__ == "__main__":
-    # Test
-    test: TrainCfg = TrainCfg(
-        sem=True,
-        cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
-        test_env_id=1,
-        epochs=40,
-        file_name="test_sem_real_data_structure",
-        data_cfg=DataCfg(
-            max_goal_distance=10,
-            ratio_fov_samples=0.90,
-            ratio_front_samples=0.05,
-            ratio_back_samples=0.05,
-            max_train_pairs=4000, 
-        )
-    )
-    # trainer = Trainer(test)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()    
-    
     # Arguements  
     matterport_overfit_hierarch: TrainCfg = TrainCfg(
         sem=True,
@@ -41,11 +19,11 @@ if __name__ == "__main__":
         file_name="overfit_ratio09",
         hierarchical=True,
     )
-    trainer = Trainer(matterport_overfit_hierarch)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_overfit_hierarch)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
     
     matterport_overfit: TrainCfg = TrainCfg(
         sem=True,
@@ -60,22 +38,44 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
         )
     )
-    trainer = Trainer(matterport_overfit)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_overfit)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+        )
     )  
     trainer = Trainer(matterport_sem)
     trainer.train()
     trainer.test()
     trainer.save_config()
     torch.cuda.empty_cache()
-            
+
+    matterport_sem_harder: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.80_back0.07_front0.13",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.80,
+            ratio_back_samples=0.07,
+            ratio_front_samples=0.13,
+        )
+    )  
+    trainer = Trainer(matterport_sem_harder)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+               
     carla: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",

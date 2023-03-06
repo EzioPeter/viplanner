@@ -166,4 +166,108 @@ if __name__ == "__main__":
     )
     main(config_cost_B6ByNegPMKs, final_viz = False)   
 
+    # ENV 8WUmhLawc2A
+    config_reconstruct_8WUmhLawc2A = ReconstructionCfg(
+        env= "8WUmhLawc2A",
+    )
+    reconstruct(config_reconstruct_8WUmhLawc2A)
+    config_cost_8WUmhLawc2A = CostMapConfig(
+        visualize=False,
+        semantics=True,
+        geometry=False,
+        map_name="cost_map_sem",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/8WUmhLawc2A"
+        )
+    )
+    main(config_cost_8WUmhLawc2A, final_viz = False)
+    config_cost_8WUmhLawc2A = CostMapConfig(
+        visualize=False,
+        semantics=False,
+        geometry=True,
+        map_name="cost_map_geom",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/8WUmhLawc2A"
+        )
+    )
+    main(config_cost_8WUmhLawc2A, final_viz = False)
+    
+    # ENV E9uDoFAP3SH
+    config_reconstruct_E9uDoFAP3SH = ReconstructionCfg(
+        env= "E9uDoFAP3SH",
+    )
+    reconstruct(config_reconstruct_E9uDoFAP3SH)
+    config_cost_E9uDoFAP3SH = CostMapConfig(
+        visualize=False,
+        semantics=True,
+        geometry=False,
+        map_name="cost_map_sem",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/E9uDoFAP3SH"
+        )
+    )
+    main(config_cost_E9uDoFAP3SH, final_viz = False)
+    config_cost_E9uDoFAP3SH = CostMapConfig(
+        visualize=False,
+        semantics=False,
+        geometry=True,
+        map_name="cost_map_geom",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/E9uDoFAP3SH"
+        )
+    )
+    main(config_cost_E9uDoFAP3SH, final_viz = False)   
+    
+    # ENV QUCTc6BB5sX
+    config_reconstruct_QUCTc6BB5sX = ReconstructionCfg(
+        env= "QUCTc6BB5sX",
+    )
+    reconstruct(config_reconstruct_QUCTc6BB5sX)
+    config_cost_QUCTc6BB5sX = CostMapConfig(
+        visualize=False,
+        semantics=True,
+        geometry=False,
+        map_name="cost_map_sem",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/QUCTc6BB5sX"
+        )
+    )
+    main(config_cost_QUCTc6BB5sX, final_viz = False)
+    config_cost_QUCTc6BB5sX = CostMapConfig(
+        visualize=False,
+        semantics=False,
+        geometry=True,
+        map_name="cost_map_geom",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/QUCTc6BB5sX"
+        )
+    )
+    main(config_cost_QUCTc6BB5sX, final_viz = False)   
+    
+    # ENV YFuZgdQ5vWj
+    config_reconstruct_YFuZgdQ5vWj = ReconstructionCfg(
+        env= "YFuZgdQ5vWj",
+    )
+    reconstruct(config_reconstruct_YFuZgdQ5vWj)
+    config_cost_YFuZgdQ5vWj = CostMapConfig(
+        visualize=False,
+        semantics=True,
+        geometry=False,
+        map_name="cost_map_sem",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/YFuZgdQ5vWj"
+        )
+    )
+    main(config_cost_YFuZgdQ5vWj, final_viz = False)
+    config_cost_YFuZgdQ5vWj = CostMapConfig(
+        visualize=False,
+        semantics=False,
+        geometry=True,
+        map_name="cost_map_geom",
+        general=GeneralCostMapConfig(
+            root_path="/home/pascal/SemNav/imperative_learning/data/YFuZgdQ5vWj"
+        )
+    )
+    main(config_cost_YFuZgdQ5vWj, final_viz = False)      
+
 # EoF

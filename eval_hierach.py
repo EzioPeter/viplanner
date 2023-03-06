@@ -16,9 +16,6 @@ if __name__ == "__main__":
     # cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_env2n8kARJN3HM_ep200_inputDepSem_costSem_optimSGD_hierarch_overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35"
     cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_env2n8kARJN3HM_ep40_inputDepSem_costSem_optimSGD_test"
     train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(cfg_dir, "model.yaml"))
-    train_config.data_cfg.ratio_fov_hard_samples = 1.0
-    train_config.data_cfg.ratio_fov_easy_samples = 0.0
-    train_config.data_cfg.max_train_pairs = 1000
     
     # load trainer and data
     trainer = Trainer(train_config)

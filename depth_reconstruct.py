@@ -73,7 +73,6 @@ class DepthReconstruction:
         self._is_constructed =  False
         
         # variables
-        self._points: np.ndarray = None
         self._pcd: o3d.geometry.PointCloud = None
         
         print("Ready to read depth data.")
@@ -90,24 +89,25 @@ class DepthReconstruction:
             self._start_idx = 0
             self._end_idx = N
         
-        # load images
-        self.depth_img = self._load_depth_images()
+        print(f"total number of images for reconstruction: {int(self._end_idx - self._start_idx)}")
         
-        # if semantic images are used, adjust images (only use the pixels present in both images)
-        # if self._cfg.semantics:        
-        #     self._compute_overlay_pixel()
-        print(f"total number of images for reconstruction: {self.depth_img.shape[0]}")
-            
+        # get pixel tensor for reprojection
         pixels = self._computePixelTensor()
         
+        # init point-cloud
+        self._pcd = o3d.geometry.PointCloud() # point size (n, 3)
+        first_batch = True
+        img_counter = 0
+        
         # init lists
-        self._points = []
+        points_all = []
         if self._cfg.semantics:
-            self._sem_mapping = []
+            sem_map_all = []
             
-        for img_idx in tqdm(range(self.depth_img.shape[0]), desc="Reconstructing 3D Points"):
-            im = self.depth_img[img_idx]
+        for img_idx in tqdm(range(self._end_idx - self._start_idx), desc="Reconstructing 3D Points"):
+            im = self._load_depth_image(img_idx)
             extrinsics = self.extrinsics_depth[img_idx+self._start_idx]
+            img_counter += 1
             
             # project points in world frame
             rot = tf.Rotation.from_quat(extrinsics[3:]).as_matrix()
@@ -121,21 +121,56 @@ class DepthReconstruction:
                 img_path = os.path.join(self._cfg.get_data_path(), "semantics", str(self._start_idx + img_idx).zfill(4) + self._cfg.sem_suffix + ".png")
                 sem_image = cv2.imread(img_path)
                 sem_points = sem_image.reshape(-1, 3)[non_zero_idx]
-                self._points.append(points_final)
-                self._sem_mapping.append(sem_points)
+                points_all.append(points_final)
+                sem_map_all.append(sem_points)
             elif self._cfg.semantics:
                 sem_annotation, filter_idx = self._get_semantic_image(points_final, img_idx)
-                self._points.append(points_final[filter_idx])
-                self._sem_mapping.append(sem_annotation)
+                points_all.append(points_final[filter_idx])
+                sem_map_all.append(sem_annotation)
             else:
-                self._points.append(points_final)
-
-        T = T_z = im_reshape = im = points = points_final = None  # free up memory
-        self.depth_img = None
-        self.semantic_img = None
+                points_all.append(points_final)
+            
+            # update point cloud
+            if img_counter % self._cfg.point_cloud_batch_size == 0:
+                print(f"updating open3d geometry point cloud with {self._cfg.point_cloud_batch_size} images ...")
+                
+                if first_batch:
+                    self._pcd.points = o3d.utility.Vector3dVector(np.vstack(points_all))
+                    if self._cfg.semantics:
+                        self._pcd.colors = o3d.utility.Vector3dVector(np.vstack(sem_map_all) / 255.0)
+                    first_batch = False
+                        
+                else:
+                     self._pcd.points.extend(np.vstack(points_all))
+                     if self._cfg.semantics:
+                         self._pcd.colors.extend(np.vstack(sem_map_all) / 255.0)
+                
+                # reset buffer lists
+                points_all = []
+                if self._cfg.semantics:
+                    sem_map_all = []
+                    
+                # apply downsampling
+                print(f"downsampling point cloud with voxel size {self._cfg.voxel_size} ...")
+                self._pcd = self._pcd.voxel_down_sample(self._cfg.voxel_size)
+                
+        # add last batch
+        if len(points_all) > 0:
+            print(f"updating open3d geometry point cloud with last images ...")
+            self._pcd.points.extend(np.vstack(points_all))
+            points_all = None
+            if self._cfg.semantics:
+                self._pcd.colors.extend(np.vstack(sem_map_all) / 255.0)
+                sem_map_all = None
+            
+            # apply downsampling
+            print(f"downsampling point cloud with voxel size {self._cfg.voxel_size} ...")
+            self._pcd = self._pcd.voxel_down_sample(self._cfg.voxel_size)
         
-        # create point cloud    
-        self._createOpen3DCloud()
+        # update flag
+        self._is_constructed = True
+        print("construction completed.")
+        
         return
     
     def show_pcd(self):
@@ -168,38 +203,6 @@ class DepthReconstruction:
 
     """helper functions"""
     
-    def _createOpen3DCloud(self) -> None:
-        print(f"creating open3d geometry point cloud with batch size of {self._cfg.point_cloud_batch_size}...")
-
-        # init point cloud with first image
-        pcd = o3d.geometry.PointCloud() # point size (n, 3)
-        pcd.points = o3d.utility.Vector3dVector(self._points.pop(0))
-        if self._cfg.semantics:
-            pcd.colors = o3d.utility.Vector3dVector(self._sem_mapping.pop(0) / 255.0)    
-        
-        # repeat for all batches
-        for batch_idx in tqdm(range(np.floor(len(self._points)/self._cfg.point_cloud_batch_size).astype(int)), desc ="Generate Open3D Point-Cloud"):
-            pcd.points.extend(np.vstack(self._points[:self._cfg.point_cloud_batch_size]))
-            del self._points[:self._cfg.point_cloud_batch_size] # delete first self._cfg.point_cloud_batch_size elements
-            if self._cfg.semantics:
-                pcd.colors.extend(np.vstack(self._sem_mapping[:self._cfg.point_cloud_batch_size]) / 255.0)
-                del self._sem_mapping[:self._cfg.point_cloud_batch_size] # delete first self._cfg.point_cloud_batch_size elements
-        
-        # add last batch
-        pcd.points.extend(np.vstack(self._points))
-        self._points = None
-        if self._cfg.semantics:
-            pcd.colors.extend(np.vstack(self._sem_mapping) / 255.0)
-            self._sem_mapping = None
-        
-        # apply downsampling
-        self._pcd = pcd.voxel_down_sample(self._cfg.voxel_size)
-        
-        # update flag
-        self._is_constructed = True
-        print("construction completed.")
-        return
-    
     def _read_extrinsic(self) -> None:
         if self._cfg.semantics:
             extrinsic_path = os.path.join(self._cfg.get_data_path(), "camera_extrinsic" + self._cfg.sem_suffix + ".txt")
@@ -226,29 +229,28 @@ class DepthReconstruction:
             self.K_depth = self.K_sem
         return 
 
-    def _load_depth_images(self) -> np.ndarray:
+    def _load_depth_image(self, idx: int) -> np.ndarray:
         # get path to images
         if self._cfg.high_res_depth:
             dir_path = os.path.join(self._cfg.get_data_path(), "depth_high_res")
         else:
             dir_path = os.path.join(self._cfg.get_data_path(), "depth")
-        # init
-        img_array = np.zeros((self._end_idx-self._start_idx, int(self.K_depth[1, 2])*2, int(self.K_depth[0, 2])*2))  # assumes camera center in the middle of image plane
-        # repeat for all further images
-        for idx in range(self._start_idx, self._end_idx):
-            if os.path.isfile(os.path.join(dir_path, str(idx).zfill(4) + self._cfg.depth_suffix + ".npy")):
-                img_array[idx-self._start_idx] =  np.load(os.path.join(dir_path, str(idx).zfill(4) + self._cfg.depth_suffix + ".npy")) / self._cfg.depth_scale
-            else:
-                img_path = os.path.join(dir_path, str(idx).zfill(4) + self._cfg.depth_suffix + ".png")
-                img_array[idx-self._start_idx] = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH) / self._cfg.depth_scale
+
+        if os.path.isfile(os.path.join(dir_path, str(idx + self._start_idx).zfill(4) + self._cfg.depth_suffix + ".npy")):
+            img_array =  np.load(os.path.join(dir_path, str(idx + self._start_idx).zfill(4) + self._cfg.depth_suffix + ".npy")) / self._cfg.depth_scale
+        else:
+            img_path = os.path.join(dir_path, str(idx + self._start_idx).zfill(4) + self._cfg.depth_suffix + ".png")
+            img_array = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH) / self._cfg.depth_scale
         
         img_array[~np.isfinite(img_array)] = 0
         return img_array
       
     def _computePixelTensor(self):  
+        depth_img = self._load_depth_image(0)
+        
         # get image plane mesh grid
-        pix_u = np.arange(0, self.depth_img.shape[2])
-        pix_v = np.arange(0, self.depth_img.shape[1])
+        pix_u = np.arange(0, depth_img.shape[1])
+        pix_v = np.arange(0, depth_img.shape[0])
         grid = np.meshgrid(pix_u, pix_v)
         pixels = np.vstack(list(map(np.ravel, grid))).T
         pixels = np.hstack(

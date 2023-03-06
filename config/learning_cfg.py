@@ -12,6 +12,19 @@ from typing import Tuple, List, Optional
 import yaml
 
 
+# define own loader class to include DataCfg
+class Loader(yaml.SafeLoader):
+    pass
+def construct_datacfg(loader, node):
+    add_dicts = {}
+    for node_entry in node.value:
+        if isinstance(node_entry[1], yaml.MappingNode):
+            add_dicts[node_entry[0].value] = loader.construct_mapping(node_entry[1])
+            node.value.remove(node_entry)
+            
+    return DataCfg(**loader.construct_mapping(node), **add_dicts)
+Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
+        
 @dataclass
 class DataCfg:
     """Config for data loading (only available for new dataloader --> flag in TrainCfg)"""
@@ -148,19 +161,6 @@ class TrainCfg:
 
     @classmethod
     def from_yaml(cls, yaml_path: str):
-        # define own loader class to include DataCfg
-        class Loader(yaml.SafeLoader):
-            pass
-        def construct_datacfg(loader, node):
-            add_dicts = {}
-            for node_entry in node.value:
-                if isinstance(node_entry[1], yaml.MappingNode):
-                    add_dicts[node_entry[0].value] = loader.construct_mapping(node_entry[1])
-                    node.value.remove(node_entry)
-                    
-            return DataCfg(**loader.construct_mapping(node), **add_dicts)
-        Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
-        
         # open yaml file and load config
         with open(yaml_path, "r") as f:
             cfg_dict = yaml.load(f, Loader=Loader)

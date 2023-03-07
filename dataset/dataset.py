@@ -186,19 +186,28 @@ class DistanceSchemeIdx:
         idx_augment = []
 
         # augment pairs if not enough
-        if len(idx_fov) < nb_fov:
+        if len(idx_fov) == 0:
+            print(f"for distance {self.distance} no 'within_fov' samples")
+            idx_fov = np.array([], dtype=np.int64)
+        elif len(idx_fov) < nb_fov:
             print(f"for distance {self.distance} not enough 'within_fov' samples ({len(idx_fov)} instead of {nb_fov})")
             idx_augment.append(np.random.choice(idx_fov, nb_fov-len(idx_fov), replace=False if nb_fov-len(idx_fov) < len(idx_fov) else True))
         else:
             idx_fov = np.random.choice(idx_fov, nb_fov, replace=False)
             
-        if len(idx_front) < nb_front:
+        if len(idx_front) == 0:
+            print(f"for distance {self.distance} no 'front_of_robot' samples")
+            idx_front = np.array([], dtype=np.int64)
+        elif len(idx_front) < nb_front:
             print(f"for distance {self.distance} not enough 'front_of_robot' samples ({len(idx_front)} instead of {nb_front})")
             idx_augment.append(np.random.choice(idx_front, nb_front-len(idx_front), replace=False if nb_front-len(idx_front) < len(idx_front) else True))
         else:
             idx_front = np.random.choice(idx_front, nb_front, replace=False)
         
-        if len(idx_back) < nb_back:
+        if len(idx_back) == 0:
+            print(f"for distance {self.distance} no 'behind_robot' samples")
+            idx_back = np.array([], dtype=np.int64)
+        elif len(idx_back) < nb_back:
             print(f"for distance {self.distance} not enough 'behind_robot' samples ({len(idx_back)} instead of {nb_back})")
             idx_augment.append(np.random.choice(idx_back, nb_back-len(idx_back), replace=False if nb_back-len(idx_back) < len(idx_back) else True))
         else:

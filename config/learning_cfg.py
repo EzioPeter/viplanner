@@ -56,8 +56,8 @@ class DataCfg:
     # train val split
     ratio: float = 0.9
     "ratio between train and val dataset"
-    max_train_pairs: Optional[int] = None  # 6000
-    pairs_per_image: int = 5
+    max_train_pairs: Optional[int] = None
+    pairs_per_image: int = 4
     "maximum number of train pairs (can be used to limit training time) can be set, otherwise number of recorded images times pairs_per_image is used"
     ratio_fov_samples: float = 1.0
     ratio_front_samples: float = 0.0

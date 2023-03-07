@@ -60,6 +60,23 @@ if __name__ == "__main__":
     trainer.save_config()
     torch.cuda.empty_cache()
 
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_obsthres1.0",
+        obstacle_thred=1.0,
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
     matterport_sem_harder: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",

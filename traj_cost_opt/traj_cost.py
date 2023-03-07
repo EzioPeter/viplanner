@@ -18,11 +18,26 @@ class TrajCost:
     def __init__(
         self, 
         gpu_id=0, 
-        log_data: bool = False
+        log_data: bool = False,
+        w_obs: float = 0.25,
+        w_height: float = 1.0,
+        w_motion: float = 1.5,
+        w_goal: float = 2.0,
+        obstalce_thred: float = 0.75,
     ) -> None:
+        # init map and optimizer
         self.tsdf_map = TSDF_Map(gpu_id)
         self.opt = TrajOpt()
         self.is_map = False
+        
+        # loss weights
+        self.w_obs = w_obs
+        self.w_height = w_height
+        self.w_motion = w_motion
+        self.w_goal = w_goal
+        
+        # fear label threshold value
+        self.obstalce_thred = obstalce_thred
         
         # logging
         self.log_data = log_data
@@ -47,11 +62,6 @@ class TrajCost:
         goal: torch.Tensor,
         log_step: int,
         ahead_dist: float,
-        w_obs=0.25,
-        w_height=1.0,
-        w_motion=1.5,
-        w_goal=2.0,
-        obstalce_thred=0.75,
         dataset: str = "train",
     ):
         batch_size, num_p, _ = waypoints.shape
@@ -119,7 +129,7 @@ class TrajCost:
         floss_M[goal_dists > ahead_dist] = 0.0 
         fear_labels = torch.max(floss_M, 1, keepdim=True)[0]
         # fear_labels = nn.Sigmoid()(fear_labels-obstalce_thred)
-        fear_labels = fear_labels > obstalce_thred
+        fear_labels = fear_labels > self.obstalce_thred
         
         # TODO: kinodynamics cost
-        return w_obs*oloss + w_height*hloss + w_motion*mloss + w_goal*gloss, fear_labels.float()
+        return self.w_obs*oloss + self.w_height*hloss + self.w_motion*mloss + self.w_goal*gloss, fear_labels.float()

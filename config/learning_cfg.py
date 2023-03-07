@@ -99,12 +99,21 @@ class TrainCfg:
     "further data configuration"
     multi_epoch_dataloader: bool = True
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
-    num_workers: int = 2 
+    num_workers: int = 4
     "number of workers for dataloader"    
     sensor_offsetX_ANYmal: float = 0.0  # 0.4   # TODO: possible remove, does not make sense to add
     "anymal front camera sensor offset in X axis"   
+    
+    # loss configurations
     fear_ahead_dist: float =2.5 
-    "fear lookahead distance"     
+    "fear lookahead distance"
+    w_obs: float = 0.25
+    w_height: float = 1.0
+    w_motion: float = 1.5
+    w_goal: float = 2.0
+    "weights for the loss components"
+    obstacle_thred: float = 0.75
+    "obstacle threshold to decide if fear path or not"  
     
     # network configurations
     img_input_size: Tuple[int, int] = field(default_factory=lambda: [360, 640]) 

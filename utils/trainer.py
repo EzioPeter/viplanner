@@ -209,7 +209,12 @@ class Trainer:
         # Load Map and Trajectory Class
         traj_cost = TrajCost(
             self._cfg.gpu_id,
-            log_data=train
+            log_data=train,
+            w_obs=self._cfg.w_obs,
+            w_height=self._cfg.w_height,
+            w_goal=self._cfg.w_goal,
+            w_motion=self._cfg.w_motion,
+            obstalce_thred=self._cfg.obstacle_thred,
         )
         traj_cost.SetMap(
             data_path,

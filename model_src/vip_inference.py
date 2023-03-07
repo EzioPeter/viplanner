@@ -20,6 +20,7 @@ import torchvision.transforms as transforms
 # viplanner src
 from .viplanner.plannernet.autoencoder import DualAutoEncoder
 from .viplanner.traj_cost_opt.traj_opt import TrajOpt
+from .viplanner.config.learning_cfg import TrainCfg
 
 torch.set_default_dtype(torch.float32)
 
@@ -30,34 +31,29 @@ class VIPlannerInference:
         model_save: str, 
         sensor_offset_x: float = 0.47,
         sensor_offset_y: float = 0.0,
-        crop_size: list = [360,640],
-        encoder_channel: int = 16,
-        k_nodes: int = 5,
     ) -> None:
         """ VIPlanner Inference Script
 
         Args:
-            model_save (str): path to the model weights
+            model_save (str): path to the model directory containing model.pt and model.yaml
             sensor_offset_x (float, optional): sensor offset in x direction. Defaults to 0.47.
             sensor_offset_y (float, optional): sensor offset in y direction. Defaults to 0.0.
-            crop_size (list, optional): crop size of the image. Defaults to [360,640].
-            encoder_channel (int, optional): number of channels in the encoder. Defaults to 16.
-            k_nodes (int, optional): number of keypoints as output of the network. Defaults to 5.
         """
         # get configs
-        self._model_save = model_save
         self._sensor_offset_x = sensor_offset_x
         self._sensor_offset_y = sensor_offset_y
-        self._crop_size = crop_size
-        self._encoder_channel = encoder_channel
-        self._k_nodes = k_nodes
+        model_path = os.path.join(model_save, "model.pt")
+        config_path = os.path.join(model_save, "model.yaml")
+        
+        # get train config
+        train_cfg: TrainCfg = TrainCfg.from_yaml(config_path)
         
         # get model
-        self.net = DualAutoEncoder(encoder_channel=self._encoder_channel, k=self._k_nodes)
+        self.net = DualAutoEncoder(encoder_channel=train_cfg.in_channel, k=train_cfg.knodes)
         try:
-            model_state_dict, _ = torch.load(self._model_save)
+            model_state_dict, _ = torch.load(model_path)
         except ValueError:
-            model_state_dict = torch.load(self._model_save)
+            model_state_dict = torch.load(model_path)
         self.net.load_state_dict(model_state_dict)
 
         # inference script = no grad for model
@@ -72,7 +68,7 @@ class VIPlannerInference:
             
         # transforms
         self.transforms = transforms.Compose([
-            transforms.Resize(tuple(self._crop_size)),
+            transforms.Resize(tuple(train_cfg.img_input_size)),
             transforms.ToTensor()]
         )
         
@@ -122,7 +118,7 @@ class VIPlannerInference:
             keypoints[..., 1] += self._sensor_offset_y
         
         # generate trajectory
-        traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1, fix_init_m=False)
+        traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1)
 
         return keypoints, traj, fear
 

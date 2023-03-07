@@ -1,13 +1,12 @@
 # planning
 main_freq:              15
-image_flip:             False
+image_flip:             True
 conv_dist:              0.5
-is_sim:                 True
 # network model
-model_save:             models/model_carla.pt
-crop_size:              [360, 640]
+model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD
 # images and gaol waypoint topics
 depth_topic:            /depth_camera_front_upper/depth/image_rect_raw
+depth_cam_info_topic:   /depth_camera_front_upper/depth/camera_info
 rgb_topic:              /wide_angle_camera_front/image_raw/compressed
 goal_topic:             /mp_waypoint
 path_topic:             /path
@@ -22,9 +21,13 @@ world_id:               odom
 is_fear_act:            True
 buffer_size:            3
 angular_thred:          0.3
-track_dist:             0.3
+track_dist:             0.5
 # sensor offset
 sensor_offset_x:        0.4
 sensor_offset_y:        0.0
 # smart joystick
 joyGoal_scale:          2.5
+# visualization
+path_viz:               True
+viz_path_sem_topic:     /viz_path_sem
+viz_path_depth_topic:   /viz_path_depth

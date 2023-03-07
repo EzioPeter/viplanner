@@ -1,11 +1,10 @@
 <launch>
     <arg name="config_m2f"          default="m2f"/>
     <arg name="config_viplanner"    default="legged_sim"/>
-    <arg name="rosbag"              default="false"/>
-    <arg name="use_path_follow"     default="false"/>  <!-- FIXME: Changed, has been enabled before -->
+    <arg name="use_path_follow"     default="true"/>
 
     <group if="$(arg use_path_follow)">
-        <include file="$(find dvf_path_follow)/launch/path_follower.launch" />
+        <include file="$(find mp_local_planner)/launch/path_follower.launch" />
     </group>
 
     

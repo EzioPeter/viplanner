@@ -38,11 +38,11 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
         )
     )
-    # trainer = Trainer(matterport_overfit)
+    trainer = Trainer(matterport_overfit)
     # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,

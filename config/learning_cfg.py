@@ -102,9 +102,7 @@ class TrainCfg:
     multi_epoch_dataloader: bool = True
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
     num_workers: int = 4
-    "number of workers for dataloader"    
-    sensor_offsetX_ANYmal: float = 0.0  # 0.4   # TODO: possible remove, does not make sense to add
-    "anymal front camera sensor offset in X axis"   
+    "number of workers for dataloader"     
     
     # loss configurations
     fear_ahead_dist: float =2.5 

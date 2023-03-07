@@ -58,7 +58,7 @@ class PlannerData(Dataset):
         self.semantics = semantics
 
         # vertical flip transform
-        self.flip_transform = transforms.RandomVerticalFlip(p=1.0)
+        self.flip_transform = transforms.RandomHorizontalFlip(p=1.0)
 
         # init buffers
         self.depth_filename: List[str] = []

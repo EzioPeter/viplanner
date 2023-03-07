@@ -8,62 +8,94 @@ import pypose as pp
 import open3d as o3d
 import open3d.visualization.rendering as rendering
 import scipy.spatial.transform as tf
+import matplotlib.pyplot as plt
+from typing import Optional
 
 # visual-planning-learning
 from .tsdf_map import TSDF_Map
 
-
+             
 class TrajViz:
-    def __init__(self, root_path, map_name, sensorOffsetX=0.0, cameraTilt=0.0):
-        self.tsdf_map = TSDF_Map()
-        self.SetMap(root_path, map_name)
-        self.camera_tilt = cameraTilt
-        self.sensorOffsetX = sensorOffsetX
+    def __init__(
+        self,
+        intrinsics: np.ndarray,
+        cam_resolution: tuple = (360, 640),
+        camera_tilt: float = 0.0, 
+        cost_map: Optional[TSDF_Map] = None,
+    ) -> None:
+        
+        # get parameters
+        self._cam_resolution = cam_resolution
+        self._intrinsics = intrinsics
+        self._cost_map = cost_map
+        self._camera_tilt = camera_tilt
+        
+        # init camera
+        self.set_camera()
+
         return None
 
-    def SetMap(self, root_path, map_name):
-        intrinsic_path = os.path.join(*[root_path, "intrinsics.txt"])
-        self.is_map = False
-        if not map_name == "robot":
-            self.tsdf_map.ReadTSDFMap(root_path, map_name)
-            self.is_map = True
-        self.SetCamera(intrinsic_path)
+    def TransformPoints(self, odom, points) -> torch.Tensor:           
+        batch_size, num_p, _ = points.shape
+        world_ps = pp.identity_SE3(batch_size, num_p, device=points.device, requires_grad=points.requires_grad)
+        world_ps.tensor()[:, :, 0:3] = points
+        world_ps = pp.SE3(odom[:, None, :]) @ pp.SE3(world_ps)
+        return world_ps.tensor().cpu().detach().numpy()
+
+    def set_camera(self):
+        self.camera = o3d.camera.PinholeCameraIntrinsic(
+            self._cam_resolution[1],  # width
+            self._cam_resolution[0],  # height
+            self._intrinsics[0,0],    # fx
+            self._intrinsics[1,1],    # fy
+            self._intrinsics[0,2],    # cx  (width/2)
+            self._intrinsics[1,2]     # cy  (height/2)
+        )
         return
 
-    def TransformPoints(self, odom, points, is_offset=False):
-        world_ps = []
-        for i, p in enumerate(points):
-            p_se3 = pp.identity_SE3(len(p))
-            p = torch.tensor(p)
-            if is_offset:
-                p[..., 0] = p[..., 0] + self.sensorOffsetX
-            p_se3.tensor()[:,0:3] = p
-            world_ps.append((pp.SE3(odom[i, :]) @ p_se3).numpy())
-        return world_ps
+    def VizTrajectory(
+        self,
+        preds: torch.Tensor,
+        waypoints: torch.Tensor,
+        odom: torch.Tensor,
+        goal: torch.Tensor,
+        fear: torch.Tensor,
+        augment_viz: torch.Tensor,
+        cost_map: bool = True,
+        visual_height: float = 0.5,
+        mesh_size: float = 0.5,
+        fov_angle: float = 0.0
+    ) -> None:
+        """ Visualize the trajectory within the costmap
 
-    def SetCamera(self, intrinsic_path, img_width=640, img_height=360):
-        P = np.loadtxt(intrinsic_path, delimiter=",")  # assumes ROS P matrix
-        K = P[0].reshape(3, 4)[:3, :3]
-        self.camera = o3d.camera.PinholeCameraIntrinsic(img_width, img_height, K[0,0], K[1,1], K[0,2], K[1,2])
-        return
-
-    def VizTrajectory(self, preds, waypoints, odom, goal, fear, augment_viz, cost_map=True, visual_height=0.5, mesh_size=0.5, fov_angle: float = 0.0):
+        Args:
+            preds (torch.Tensor): predicted keypoints
+            waypoints (torch.Tensor): waypoints
+            odom (torch.Tensor): odom tensor
+            goal (torch.Tensor): goal tensor
+            fear (torch.Tensor): if trajectory is risky
+            augment_viz (torch.Tensor): if input has been augmented
+            cost_map (bool, optional): visualize costmap. Defaults to True.
+            visual_height (float, optional): visual height of the keypoints. Defaults to 0.5.
+            mesh_size (float, optional): size of the mesh. Defaults to 0.5.
+            fov_angle (float, optional): field of view angle. Defaults to 0.0.
+        """
         # transform to map frame
-        if not self.is_map:
+        if not isinstance(self._cost_map, TSDF_Map):
             print("Cost map is missing.")
             return
         batch_size = len(waypoints)
-        # compensate sensor offset X
-        preds_ws = self.TransformPoints(odom, preds, is_offset=True)
-        wp_ws = self.TransformPoints(odom, waypoints, is_offset=False) # waypoints has been converted into world frame with offset in TrajCost
+        # transform to world frame
+        preds_ws = self.TransformPoints(odom, preds)
+        wp_ws = self.TransformPoints(odom, waypoints)
         goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
         # convert to positions
         goal_ws  = goal_ws.tensor()[:, 0:3].numpy()
         visual_list = []
         if cost_map:
-            visual_list.append(self.tsdf_map.pcd_tsdf)
+            visual_list.append(self._cost_map.pcd_tsdf)
         else:
-            visual_list.append(self.tsdf_map.pcd_viz)
+            visual_list.append(self._cost_map.pcd_viz)
             visual_height = visual_height / 5.0
         
         # visualize and trajs
@@ -132,8 +164,8 @@ class TrajViz:
 
     def VizImages(self, preds, waypoints, odom, goal, fear, images, visual_offset=0.35, mesh_size=0.3, is_shown=True):
         batch_size = len(waypoints)
-        preds_ws = self.TransformPoints(odom, preds, is_offset=True)
-        wp_ws = self.TransformPoints(odom, waypoints, is_offset=False)
+        preds_ws = self.TransformPoints(odom, preds)
+        wp_ws = self.TransformPoints(odom, waypoints)
         if goal.shape[-1] != 7:
             pp_goal = pp.identity_SE3(batch_size, device=goal.device)
             pp_goal.tensor()[:, 0:3] = goal
@@ -167,6 +199,9 @@ class TrajViz:
         wp_start_idx = 1
         cv_img_list = []
 
+        if is_shown: 
+            fig, ax = plt.subplots()
+
         for i in range(batch_size):
             # add geometries
             gp = goal_ws[i, :]
@@ -187,39 +222,41 @@ class TrajViz:
                 wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2] - visual_offset))
                 render.scene.add_geometry("waypoint"+str(k), wp_mesh, mtl)
             # set cameras
-            self.CameraLookAtPose(odom[i, :], render, self.camera_tilt)
+            self.CameraLookAtPose(odom[i, :], render)
             # project to image
             img_o3d = np.asarray(render.render_to_image())
             mask = (img_o3d < 10).all(axis=2)
             # Attach image
             c_img = images[i, :, :].expand(3, -1, -1)
-            c_img = c_img.cpu().detach().numpy().transpose(1, 2, 0)
+            c_img = c_img.cpu().detach().numpy()
+            c_img = np.moveaxis(c_img, 0, 2)
             c_img = (c_img * 255 / np.max(c_img)).astype('uint8')
             img_o3d[mask, :] = c_img[mask, :]
             img_cv2 = cv2.cvtColor(img_o3d, cv2.COLOR_RGBA2BGRA)
             cv_img_list.append(img_cv2)
-            # visualize image
-            if is_shown: 
-                cv2.imshow("Preview window", img_cv2)
-                cv2.waitKey()
-
+            if is_shown:
+                plt.imshow(img_cv2)
+                plt.draw()
+                plt.waitforbuttonpress(0) # this will wait for indefinite time
+                plt.close(fig)
             # clear render geometry
-            render.scene.clear_geometry()        
+            render.scene.clear_geometry()  
+        
         return cv_img_list
 
-    def CameraLookAtPose(self, odom, render, tilt):
+    def CameraLookAtPose(self, odom, render):
         unit_vec = pp.identity_SE3(device=odom.device)
         unit_vec.tensor()[0] = 1.0
         tilt_vec = [0, 0, 0]
-        tilt_vec.extend(list(tf.Rotation.from_euler("xyz", [0.0, tilt, 0.0]).as_quat()))
+        tilt_vec.extend(list(tf.Rotation.from_euler("y", self._camera_tilt, degrees=False).as_quat()))
         tilt_vec = torch.tensor(tilt_vec, device=odom.device, dtype=odom.dtype)
         target_pose = pp.SE3(odom) @ pp.SE3(tilt_vec) @ unit_vec
         camera_up = [0, 0, 1]  # camera orientation
-        offset_vec = pp.identity_SE3(device=odom.device)
-        offset_vec.tensor()[0] = self.sensorOffsetX
-        eye = pp.SE3(odom) @ offset_vec
+        eye = pp.SE3(odom)
         eye = eye.tensor()[0:3].cpu().detach().numpy()
         target = target_pose.tensor()[0:3].cpu().detach().numpy()
         render.scene.camera.look_at(target, eye, camera_up)
         return
+    
+# EoF
     

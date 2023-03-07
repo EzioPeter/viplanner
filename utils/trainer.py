@@ -17,6 +17,7 @@ import torch.utils.data as Data
 import torchvision.transforms as transforms
 import wandb  # logging
 import matplotlib.pyplot as plt
+import random
 from typing import Tuple, List, Optional
 
 torch.set_default_dtype(torch.float32)
@@ -186,8 +187,22 @@ class Trainer:
                 continue
             
             data_path = os.path.join(self.data_dir, env_name)
-            traj_cost, traj_viz = self._get_cost_and_viz(data_path, train)
-            
+
+            # get trajectory cost map
+            traj_cost = TrajCost(
+                self._cfg.gpu_id,
+                log_data=train,
+                w_obs=self._cfg.w_obs,
+                w_height=self._cfg.w_height,
+                w_goal=self._cfg.w_goal,
+                w_motion=self._cfg.w_motion,
+                obstalce_thred=self._cfg.obstacle_thred,
+            )
+            traj_cost.SetMap(
+                data_path,
+                self._cfg.cost_map_name,
+            )
+                    
             generator = PlannerDataGenerator(
                 cfg=self._cfg.data_cfg,
                 root=data_path,
@@ -195,6 +210,13 @@ class Trainer:
                 tsdf_map=traj_cost.tsdf_map  # trajectory cost class
             )
             
+            traj_viz = TrajViz(
+                intrinsics=generator.K_depth,
+                cam_resolution=self._cfg.img_input_size,
+                camera_tilt = self._cfg.camera_tilt,
+                cost_map = traj_cost.tsdf_map,
+            )
+                    
             self.data_generators.append(generator)
             self.data_traj_cost.append(traj_cost)
             self.data_traj_viz.append(traj_viz)
@@ -202,32 +224,6 @@ class Trainer:
         
         print('LOADED ALL DATA')
         return
-    
-    def _get_cost_and_viz(self, data_path: str, train: bool) -> Tuple[TrajCost, TrajViz]:
-        """Get trajectory cost and visualization for the different datasets""" 
-            
-        # Load Map and Trajectory Class
-        traj_cost = TrajCost(
-            self._cfg.gpu_id,
-            log_data=train,
-            w_obs=self._cfg.w_obs,
-            w_height=self._cfg.w_height,
-            w_goal=self._cfg.w_goal,
-            w_motion=self._cfg.w_motion,
-            obstalce_thred=self._cfg.obstacle_thred,
-        )
-        traj_cost.SetMap(
-            data_path,
-            self._cfg.cost_map_name,
-        )
-        traj_viz = TrajViz(
-            data_path,
-            self._cfg.cost_map_name,
-            sensorOffsetX=self._cfg.sensor_offsetX_ANYmal,
-            cameraTilt=self._cfg.camera_tilt
-        )
-
-        return traj_cost, traj_viz
     
     ## Helper function TRAINING
     def _init_logging(self) -> None:
@@ -437,21 +433,25 @@ class Trainer:
                         goal_viz    = torch.cat((goal_viz, goal),   dim=0)
                         fear_viz    = torch.cat((fear_viz, fear),   dim=0)
                         augment_viz = torch.cat((augment_viz, inputs[4]), dim=0)
-                    preds_viz.extend(preds.tolist())
-                    wp_viz.extend(waypoints.tolist())
+                    preds_viz.append(preds.cpu())
+                    wp_viz.append(waypoints.cpu())
 
             if is_visual:
-                max_n = min(len(wp_viz), self._cfg.n_visualize)
-                preds_viz   = preds_viz[:max_n]
-                wp_viz      = wp_viz[:max_n]
-                odom_viz    = odom_viz[:max_n].cpu()
-                goal_viz    = goal_viz[:max_n].cpu()
-                fear_viz    = fear_viz[:max_n, :].cpu()
-                image_viz   = image_viz[:max_n].cpu()
-                augment_viz = augment_viz[:max_n].cpu()
+                preds_viz   = torch.vstack(preds_viz)
+                wp_viz      = torch.vstack(wp_viz)
+                
+                # select points to visualize
+                idx = random.choices(range(preds_viz.shape[0]), k=self._cfg.n_visualize)
+                preds_viz   = preds_viz[idx]
+                wp_viz      = wp_viz[idx]
+                odom_viz    = odom_viz[idx].cpu()
+                goal_viz    = goal_viz[idx].cpu()
+                fear_viz    = fear_viz[idx, :].cpu()
+                image_viz   = image_viz[idx].cpu()
+                augment_viz = augment_viz[idx].cpu()
                 # visual trajectory and images
                 self.data_traj_viz[env_id].VizTrajectory(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, fov_angle=fov_angle, augment_viz=augment_viz)
-                # self.data_traj_viz[env_id].VizImages(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, image_viz)
+                self.data_traj_viz[env_id].VizImages(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, image_viz)
         return test_loss/(batch_idx+1)
     
     def _loss(

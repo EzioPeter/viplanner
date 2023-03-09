@@ -173,6 +173,7 @@ _COCO_MAPPING = {
         "cardboard",
         "light",
         "tent",
+        "unknown",
     ],
     'furniture': [
         "chair",
@@ -202,6 +203,12 @@ _COCO_MAPPING = {
 
 # original coco meta
 _COCO_META = [
+    {
+        'color': [0, 0, 0],
+        'isthing': 0,
+        'id': 0,
+        'name': 'unknown'
+    },
     {
         'color': [220, 20, 60],
         'isthing': 1,

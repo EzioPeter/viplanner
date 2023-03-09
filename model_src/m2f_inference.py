@@ -59,6 +59,7 @@ class Mask2FormerInference:
         # mapping from coco class id to viplanner class id and corresponding color 
         viplanner_meta = VIPlannerSemMetaHandler()
         coco_viplanner_cls_mapping = get_class_for_id()
+        self.viplanner_sem_class_color_map = viplanner_meta.class_color
         self.coco_viplanner_color_mapping = {}
         for coco_id, viplanner_cls_name in coco_viplanner_cls_mapping.items():
             self.coco_viplanner_color_mapping[coco_id] = viplanner_meta.class_color[viplanner_cls_name]
@@ -83,7 +84,7 @@ class Mask2FormerInference:
                 panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping[sinfo['category_id']]
             except KeyError:
                 rospy.loginfo(f"Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping['static']
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.viplanner_sem_class_color_map['static']
         rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
         
         if self.debug:

@@ -93,7 +93,7 @@ class VIPlannerNode:
             img_rgb_sub = message_filters.Subscriber(self.rgb_topic, CompressedImage)
         else:
             img_rgb_sub = message_filters.Subscriber(self.rgb_topic, Image)
-        ts = message_filters.TimeSynchronizer([img_depth_sub, img_rgb_sub], 20)
+        ts = message_filters.ApproximateTimeSynchronizer([img_depth_sub, img_rgb_sub], 40, 0.05)
         if self.compressed:
             ts.registerCallback(self.imageCallbackCompressed)
         else:

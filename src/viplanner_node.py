@@ -77,7 +77,7 @@ class VIPlannerNode:
         self.odom: torch.Tensor = None
         img_depth_sub = message_filters.Subscriber(self.cfg.depth_topic, Image)
         img_sem_sub = message_filters.Subscriber(self.cfg.sem_topic, Image)
-        ts = message_filters.TimeSynchronizer([img_depth_sub, img_sem_sub], 10)
+        ts = message_filters.ApproximateTimeSynchronizer([img_depth_sub, img_sem_sub], 40, 0.05)
         ts.registerCallback(self.imageCallback)
         
         # subscribe to further topics

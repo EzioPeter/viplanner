@@ -8,11 +8,12 @@
 # python
 import time
 import numpy as np
-import torchvision.transforms as transforms
+import torch
 
 from detectron2.config import get_cfg, CfgNode
 from detectron2.projects.deeplab import add_deeplab_config
-from detectron2.engine.defaults import DefaultPredictor
+from detectron2.checkpoint import DetectionCheckpointer
+from detectron2.modeling import build_model
 
 # ROS
 import rospy
@@ -23,9 +24,6 @@ from .viplanner_sem_meta import VIPlannerSemMetaHandler
 
 # mask2former src
 from .mask2former.mask2former import add_maskformer2_config
-
-# viplanner src
-from .viplanner.config import TrainCfg
 
 
 class Mask2FormerInference:
@@ -45,17 +43,13 @@ class Mask2FormerInference:
         
         # setup config
         self._cfg = self._setup_cfg()
-        self._cfg_train = TrainCfg()
         
-        # load model
-        self.predictor = DefaultPredictor(self._cfg)
+        # load model and weights
+        self.model = build_model(self._cfg)
+        self.model.eval()
+        checkpointer = DetectionCheckpointer(self.model)
+        checkpointer.load(self._cfg.MODEL.WEIGHTS) 
 
-        # transforms
-        self.transforms = transforms.Compose([
-            transforms.Resize(self._cfg_train.img_input_size),
-            transforms.ToTensor()]
-        )
-        
         # mapping from coco class id to viplanner class id and corresponding color 
         viplanner_meta = VIPlannerSemMetaHandler()
         coco_viplanner_cls_mapping = get_class_for_id()
@@ -74,7 +68,11 @@ class Mask2FormerInference:
         """
         # get predictions
         start = time.time()
-        predictions = self.predictor(image)
+        height, width = image.shape[:2]
+        image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
+        inputs = {"image": image, "height": height, "width": width}
+        with torch.no_grad():
+            predictions = self.model([inputs])[0]
         panoptic_seg, seg_infos = predictions['panoptic_seg']
         rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
         
@@ -84,7 +82,7 @@ class Mask2FormerInference:
             try:
                 panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping[sinfo['category_id']]
             except KeyError:
-                rospy.loginfo(f"Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
+                rospy.logwarn(f"Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
                 panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.viplanner_sem_class_color_map['static']
         
         if self.debug:

@@ -37,7 +37,6 @@ sys.path.append(pack_path)
 
 # visual imperative planner
 from model_src.vip_inference import VIPlannerInference
-from model_src.viplanner.traj_cost_opt.traj_viz import TrajViz
 from utils.rosutil import ROSArgparse
 
 
@@ -466,6 +465,10 @@ if __name__ == '__main__':
     )
     
     args = parser.parse_args()
+    
+    if args.path_viz:
+        from model_src.viplanner.traj_cost_opt.traj_viz import TrajViz
+
     # model save path
     args.model_save = os.path.join(pack_path, args.model_save)
     

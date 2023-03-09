@@ -2,18 +2,21 @@
 main_freq:              15
 image_flip:             True
 conv_dist:              0.5
+max_depth:              15
 # network model
 model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD
-# images and gaol waypoint topics
+m2f_config_file:        models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml 
+m2f_model_path:         models/coco_panoptic/swin/model_final_9fd0ae.pkl
+# ros topics
 depth_topic:            /depth_camera_front_upper/depth/image_rect_raw
-depth_cam_info_topic:   /depth_camera_front_upper/depth/camera_info
+depth_info_topic:       /depth_camera_front_upper/depth/camera_info
 rgb_topic:              /wide_angle_camera_front/image_raw/compressed
+rgb_info_topic:         /wide_angle_camera_front/camera_info
 goal_topic:             /mp_waypoint
 path_topic:             /path
-image_topic:            /path_image
-camera_tilt:            0.3
-depth_max:              5.0
+m2f_timer_topic:        /m2f_timer
 depth_uint_type:        True
+compressed:             True
 # frame ids
 robot_id:               base
 world_id:               odom

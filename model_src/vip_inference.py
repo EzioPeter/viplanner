@@ -79,6 +79,7 @@ class VIPlannerInference:
         self.is_traj_shift = False
         if math.hypot(self._sensor_offset_x, self._sensor_offset_y) > 1e-1:
             self.is_traj_shift = True
+            print("Trajectory will be shifted by ({}, {})".format(self._sensor_offset_x, self._sensor_offset_y))
         return
 
     def img_converter(self, img: np.ndarray) -> torch.Tensor:

@@ -72,10 +72,11 @@ class Mask2FormerInference:
         Args:
             image (np.ndarray): image to be processed
         """
-        start = time.time()
         # get predictions
+        start = time.time()
         predictions = self.predictor(image)
         panoptic_seg, seg_infos = predictions['panoptic_seg']
+        rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
         
         # create output
         panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
@@ -85,7 +86,6 @@ class Mask2FormerInference:
             except KeyError:
                 rospy.loginfo(f"Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
                 panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.viplanner_sem_class_color_map['static']
-        rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
         
         if self.debug:
             import matplotlib.pyplot as plt

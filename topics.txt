@@ -1,7 +1,0 @@
-Planner ROS bag record commands:
-
-rosbag record /depth_camera_front_upper/point_cloud_self_filtered /depth_camera_front_upper/depth/image_rect_raw /joy /local_guidance_path_follower/twist /mp_waypoint /path /speed /state_estimator/pose_in_odom /compslam_lio/odometry /stop /tf /tf_static /point_cloud_filter/lidar/point_cloud_filtered
-
-rosbag record --node=/vi_planner_node
-
-rosbag record --node=/vi_path_follow

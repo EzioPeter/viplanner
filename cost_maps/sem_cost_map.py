@@ -39,6 +39,7 @@ class SemCostMap:
         # cost map init parameters
         self.pcd: o3d.geometry.PointCloud = None
         self.pcd_filtered: o3d.geometry.PointCloud = None
+        self.height_map: np.ndarray = None
         self._num_x: int = None
         self._num_y: int = None
         self._start_x: float = None
@@ -54,6 +55,23 @@ class SemCostMap:
         print("COST-MAP INIT START")
         print(f"start loading and filtering point cloud from: {self._cfg_general.ply_file}")
         self.pcd = o3d.io.read_point_cloud(os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file))
+
+        # filter for x and y coordinates
+        if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
+            pts = np.asarray(self.pcd.points)
+            pts_x_idx_upper = (pts[:, 0] < self._cfg_general.x_max) if self._cfg_general.x_max is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_x_idx_lower = (pts[:, 0] > self._cfg_general.x_min) if self._cfg_general.x_min is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_y_idx_upper = (pts[:, 1] < self._cfg_general.y_max) if self._cfg_general.y_max is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_y_idx_lower = (pts[:, 1] > self._cfg_general.y_min) if self._cfg_general.y_min is not None else np.ones(pts.shape[0], dtype=bool)
+            self.pcd = self.pcd.select_by_index(np.where(np.vstack((pts_x_idx_lower, pts_x_idx_upper, pts_y_idx_upper, pts_y_idx_lower)).all(axis=0))[0])
+
+        # set parameters
+        self._set_map_parameters()
+
+        # get ground height map
+        self.height_map = self._pcd_ground_height_map()
+
+        # filter point cloud depending on height
         self.pcd_filtered = self._pcd_filter()
         
         # update init flag
@@ -79,28 +97,39 @@ class SemCostMap:
 
             
     """Helper functions"""
+    def _pcd_ground_height_map(self) -> np.ndarray:
+        # for each gird cell, get the point with the highest z value
+        pts = np.asarray(self.pcd.points)
+        pts_grid_idx_red, pts_idx = self._get_unqiue_grid_idx(pts)
+        
+        # ground height of human constructed things (buildings, bench, etc.) should be equal to the ground height of the surrounding terrain/ street
+        # --> classify the selected points and change depending on the class
+        # get colors
+        color = np.asarray(self.pcd.colors)[pts_idx] * 255.0
+        # pts to class idx array
+        pts_ground = np.zeros(color.shape[0], dtype=bool)
+        # assign each point to a class
+        color = color.astype(int)
+        for class_name, class_color in self.sem_meta.class_color.items():
+            pts_idx_of_class = (color == class_color).all(axis=1).nonzero()[0]
+            pts_ground[pts_idx_of_class] = self.sem_meta.class_ground[class_name]
+        
+        # fit kdtree to the points on the ground and assign ground height to all other points based on the nearest neighbor
+        pts_ground_idx = pts_idx[pts_ground]
+        pts_ground = pts[pts_ground_idx]
+        ground_kdtree = scipy.spatial.KDTree(pts_ground) 
+        _, non_ground_neighbor_idx = ground_kdtree.query(pts[pts_idx[~pts_ground]])
+
+        # init height map and assign ground height to all points on the ground
+        height_map = np.zeros((self._num_x, self._num_y))
+        height_map[pts_grid_idx_red[pts_ground, 0], pts_grid_idx_red[pts_ground, 1]] = pts_ground[:, 2]
+        height_map[pts_grid_idx_red[~pts_ground, 0], pts_grid_idx_red[~pts_ground, 1]] = pts_ground[non_ground_neighbor_idx, 2]
+        return height_map
 
     def _pcd_filter(self) -> o3d.geometry.PointCloud:
-        """remove points above the robot height and filter for outliers"""
-        # filter for x and y coordinates
-        if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
-            pts = np.asarray(self.pcd.points)
-            pts_x_idx_upper = (pts[:, 0] < self._cfg_general.x_max) if self._cfg_general.x_max is not None else np.ones(pts.shape[0], dtype=bool)
-            pts_x_idx_lower = (pts[:, 0] > self._cfg_general.x_min) if self._cfg_general.x_min is not None else np.ones(pts.shape[0], dtype=bool)
-            pts_y_idx_upper = (pts[:, 1] < self._cfg_general.y_max) if self._cfg_general.y_max is not None else np.ones(pts.shape[0], dtype=bool)
-            pts_y_idx_lower = (pts[:, 1] > self._cfg_general.y_min) if self._cfg_general.y_min is not None else np.ones(pts.shape[0], dtype=bool)
-            self.pcd = self.pcd.select_by_index(np.where(np.vstack((pts_x_idx_lower, pts_x_idx_upper, pts_y_idx_upper, pts_y_idx_lower)).all(axis=0))[0])
-        
-        # get the ground height
-        pts = np.asarray(self.pcd.points)
-        pts_grid_idx_red = self._get_unqiue_grid_idx(pts)
-        height_map = np.zeros((self._num_x, self._num_y))
-        [pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = pts[grid_idx, 2]
-        
-        # TODO: take ground height into account --> currently only for flat surfaces
-        
-        
+        """remove points above the robot height and filter for outliers"""         
         # remove points above the robot height and under the ground height 
+        # TODO: take ground height into account --> currently only for flat surfaces
         pts = np.asarray(self.pcd.points)
         pts_ceil_idx = pts[:, 2] < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
         pts_ground_idx = pts[:, 2] > self._cfg_sem.ground_height if self._cfg_sem.ground_height is not None else np.ones(pts.shape[0], dtype=bool)
@@ -211,6 +240,7 @@ class SemCostMap:
         class_idx = self._class_mapping()
         
         # update map parameters --> has to be done after mapping because last step where points are removed
+        # TODO: check if parameter would change here --> if not, remove since executed once before to built height map
         self._set_map_parameters()
         
         # get points
@@ -278,7 +308,7 @@ class SemCostMap:
     def _dense_grid_loss(self, smooth_loss: np.ndarray) -> None:
         # get grid idx of all classified points
         pts = np.asarray(self.pcd_filtered.points)
-        pts_grid_idx_red = self._get_unqiue_grid_idx(pts)
+        pts_grid_idx_red, _ = self._get_unqiue_grid_idx(pts)
         
         grid_loss = np.ones((self._num_x, self._num_y)) * -10
         grid_loss[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = smooth_loss[grid_idx]
@@ -321,6 +351,10 @@ class SemCostMap:
             grid_loss[loss_level_idx] = self._distance_based_gradient(loss_level_idx, loss_levels[i], loss_levels[i + 1], False)
         
         assert (grid_loss == -10).any() == False, "There are still grid cells without a loss value."
+
+        # elevate gird_loss to avoid negative values due to negative reward in area with smallest loss level
+        if np.min(grid_loss) < 0:
+            grid_loss = grid_loss + np.abs(np.min(grid_loss))
 
         # smooth loss again
         loss_smooth = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_general.sigma_smooth)        
@@ -373,6 +407,6 @@ class SemCostMap:
         grid_idx[count == 1] = pts_grid_location_map[count == 1]
         pts_grid_idx_red = pts_grid_idx[grid_idx]
 
-        return pts_grid_idx_red
+        return pts_grid_idx_red, grid_idx
 
 # EoF

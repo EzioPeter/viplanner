@@ -95,7 +95,7 @@ class TrainCfg:
          "YFuZgdQ5vWj",
          "2n8kARJN3HM"]
     )
-    test_env_id: int = 5
+    test_env_id: int = 9
     "the test env id in the id list"    
     data_cfg: DataCfg = DataCfg()
     "further data configuration"

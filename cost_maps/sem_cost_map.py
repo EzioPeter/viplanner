@@ -82,22 +82,31 @@ class SemCostMap:
 
     def _pcd_filter(self) -> o3d.geometry.PointCloud:
         """remove points above the robot height and filter for outliers"""
+        # filter for x and y coordinates
+        if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
+            pts = np.asarray(self.pcd.points)
+            pts_x_idx_upper = (pts[:, 0] < self._cfg_general.x_max) if self._cfg_general.x_max is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_x_idx_lower = (pts[:, 0] > self._cfg_general.x_min) if self._cfg_general.x_min is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_y_idx_upper = (pts[:, 1] < self._cfg_general.y_max) if self._cfg_general.y_max is not None else np.ones(pts.shape[0], dtype=bool)
+            pts_y_idx_lower = (pts[:, 1] > self._cfg_general.y_min) if self._cfg_general.y_min is not None else np.ones(pts.shape[0], dtype=bool)
+            self.pcd = self.pcd.select_by_index(np.where(np.vstack((pts_x_idx_lower, pts_x_idx_upper, pts_y_idx_upper, pts_y_idx_lower)).all(axis=0))[0])
         
-        # remove points above the robot height 
+        # get the ground height
+        pts = np.asarray(self.pcd.points)
+        pts_grid_idx_red = self._get_unqiue_grid_idx(pts)
+        height_map = np.zeros((self._num_x, self._num_y))
+        [pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = pts[grid_idx, 2]
+        
         # TODO: take ground height into account --> currently only for flat surfaces
+        
+        
+        # remove points above the robot height and under the ground height 
         pts = np.asarray(self.pcd.points)
         pts_ceil_idx = pts[:, 2] < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
         pts_ground_idx = pts[:, 2] > self._cfg_sem.ground_height if self._cfg_sem.ground_height is not None else np.ones(pts.shape[0], dtype=bool)
         pcd_height_filtered = self.pcd.select_by_index(np.where(np.vstack((pts_ceil_idx, pts_ground_idx)).all(axis=0))[0])
         
-        if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
-            pts = np.asarray(pcd_height_filtered.points)
-            pts_x_idx_upper = (pts[:, 0] < self._cfg_general.x_max) if self._cfg_general.x_max is not None else np.ones(pts.shape[0], dtype=bool)
-            pts_x_idx_lower = (pts[:, 0] > self._cfg_general.x_min) if self._cfg_general.x_min is not None else np.ones(pts.shape[0], dtype=bool)
-            pts_y_idx_upper = (pts[:, 1] < self._cfg_general.y_max) if self._cfg_general.y_max is not None else np.ones(pts.shape[0], dtype=bool)
-            pts_y_idx_lower = (pts[:, 1] > self._cfg_general.y_min) if self._cfg_general.y_min is not None else np.ones(pts.shape[0], dtype=bool)
-            pcd_height_filtered = pcd_height_filtered.select_by_index(np.where(np.vstack((pts_x_idx_lower, pts_x_idx_upper, pts_y_idx_upper, pts_y_idx_lower)).all(axis=0))[0])
-        
+        # downsampling
         if self._cfg_sem.downsample:
             pcd_height_filtered = pcd_height_filtered.voxel_down_sample(self._cfg_general.resolution)
             print("Voxel Downsampling applied")
@@ -269,25 +278,23 @@ class SemCostMap:
     def _dense_grid_loss(self, smooth_loss: np.ndarray) -> None:
         # get grid idx of all classified points
         pts = np.asarray(self.pcd_filtered.points)
-        pts_grid_idx = (np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)).astype(int)
-        grid_idx, pts_to_grid_idx_map = np.unique(pts_grid_idx, axis=0, return_index=True)
+        pts_grid_idx_red = self._get_unqiue_grid_idx(pts)
         
-        # assign each point its smoothed loss
         grid_loss = np.ones((self._num_x, self._num_y)) * -10
-        grid_loss[grid_idx[:, 0], grid_idx[:, 1]] = smooth_loss[pts_to_grid_idx_map]
+        grid_loss[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = smooth_loss[grid_idx]
         
         # get grid idx of all (non-) classified points
         non_classified_idx = np.where(grid_loss == -10)
         non_classified_idx = np.vstack((non_classified_idx[0], non_classified_idx[1])).T
         
-        kdtree = scipy.spatial.KDTree(grid_idx)
+        kdtree = scipy.spatial.KDTree(pts_grid_idx_red)
         distances, idx = kdtree.query(non_classified_idx, k=1) 
         
         # only use points within the mesh, i.e. distance to nearest neighbor smaller than 10 cells
         within_mesh = distances < 5 
         
         # assign each point its neighbor loss
-        grid_loss[non_classified_idx[within_mesh, 0], non_classified_idx[within_mesh, 1]] = grid_loss[grid_idx[idx[within_mesh], 0], grid_idx[idx[within_mesh], 1]]
+        grid_loss[non_classified_idx[within_mesh, 0], non_classified_idx[within_mesh, 1]] = grid_loss[pts_grid_idx_red[idx[within_mesh], 0], pts_grid_idx_red[idx[within_mesh], 1]]
         
         # apply smoothing for filter missclassified points 
         grid_loss[non_classified_idx[~within_mesh, 0], non_classified_idx[~within_mesh, 1]] = OBSTACLE_LOSS
@@ -332,5 +339,40 @@ class SemCostMap:
             plt.show()
 
         return loss_smooth
- 
+    
+    def _get_unqiue_grid_idx(self, pts):
+        """
+        Will select the points that are unique in their grid position and have the heighest z location
+        """
+        pts_grid_idx = (np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)).astype(int)
+        
+        # convert pts_grid_idx to 1d array 
+        pts_grid_idx_1d = pts_grid_idx[:, 0] * self._num_x + pts_grid_idx[:, 1]
+        
+        # get index of all points mapped to the same grid location --> take highest value to avoid local minima in e.g. cars
+        # following solution given at: https://stackoverflow.com/questions/30003068/how-to-get-a-list-of-all-indices-of-repeated-elements-in-a-numpy-array
+        # creates an array of indices, sorted by unique element
+        idx_sort = np.argsort(pts_grid_idx_1d)
+        # sorts pts_grid_idx_1d so all unique elements are together 
+        pts_grid_idx_1d_sorted = pts_grid_idx_1d[idx_sort]
+        # returns the unique values, the index of the first occurrence of a value, and the count for each element
+        vals, idx_start, count = np.unique(pts_grid_idx_1d_sorted, return_counts=True, return_index=True)
+        # splits the indices into separate arrays
+        pts_grid_location_map = np.split(idx_sort, idx_start[1:])
+        
+        # filter for points with more than one occurence
+        pts_grid_location_map = np.array(pts_grid_location_map, dtype=object)
+        pts_grid_location_map_multiple = pts_grid_location_map[count > 1]
+        
+        # get index with maximum z value for all points mapped to the same grid location
+        pts_grid_location_map_multiple_idx = np.array([pts_grid_location_map_multiple[idx][np.argmax(pts[pts_idx, 2])] for idx, pts_idx in enumerate(pts_grid_location_map_multiple)])
+        
+        # combine indicies to get for every grid location the index of the point with the highest z value
+        grid_idx = np.zeros(len(pts_grid_location_map), dtype=int)
+        grid_idx[count > 1] = pts_grid_location_map_multiple_idx
+        grid_idx[count == 1] = pts_grid_location_map[count == 1]
+        pts_grid_idx_red = pts_grid_idx[grid_idx]
+
+        return pts_grid_idx_red
+
 # EoF

@@ -94,7 +94,7 @@ class VIPlannerNode:
         self.vip_timer_data = Float32()
         self.m2f_timer_data = Float32()
         self.vip_timer_pub  = rospy.Publisher('/vip_timer', Float32, queue_size=10)
-        self.m2f_timer_pub  = rospy.Publisher(self.m2f_timer_topic, Float32, queue_size=10)
+        self.m2f_timer_pub  = rospy.Publisher(self.cfg.m2f_timer_topic, Float32, queue_size=10)
         
         # depth and rgb image message --> time syncronization by message_filters
         self.depth_img: np.ndarray = None
@@ -412,9 +412,9 @@ class VIPlannerNode:
         # DEPTH Image
         frame = ros_numpy.numpify(depth_msg)
         frame[~np.isfinite(frame)] = 0
-        if self.depth_uint_type:
+        if self.cfg.depth_uint_type:
             frame = frame / 1000.0
-        frame[frame > self.max_depth] = 0.0
+        frame[frame > self.cfg.max_depth] = 0.0
         if self.cfg.image_flip:
             frame = PIL.Image.fromarray(frame)
             self.depth_img = np.array(frame.transpose(PIL.Image.Transpose.ROTATE_180))
@@ -425,12 +425,12 @@ class VIPlannerNode:
     def poseCallback(self, rgb_msg: Union[Image, CompressedImage], depth_msg: Image):
         # get current pose of semantic and depth image
         try:            
-            pose = self.tf_listener.lookupTransform(self.frame_id, rgb_msg.header.frame_id, rgb_msg.header.stamp)
+            pose = self.tf_listener.lookupTransform(self.cfg.robot_id, rgb_msg.header.frame_id, rgb_msg.header.stamp)
             self.rgb_pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr("Fail to transfer the goal into base frame.")
         try:
-            pose = self.tf_listener.lookupTransform(self.frame_id, depth_msg.header.frame_id, depth_msg.header.stamp)
+            pose = self.tf_listener.lookupTransform(self.cfg.robot_id, depth_msg.header.frame_id, depth_msg.header.stamp)
             self.depth_pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr("Fail to transfer the goal into base frame.")

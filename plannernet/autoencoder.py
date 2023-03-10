@@ -21,11 +21,14 @@ class AutoEncoder(nn.Module):
 
 
 class DualAutoEncoder(nn.Module):
-    def __init__(self, encoder_channel=64, k=5):
+    def __init__(self, encoder_channel=64, k=5, decoder_small: bool = True):
         super().__init__()
         self.encoder_depth = PlannerNet(layers=[2, 2, 2, 2])
         self.encoder_sem = PlannerNet(layers=[2, 2, 2, 2])
-        self.decoder = Decoder(1024, encoder_channel, k)
+        if decoder_small:
+            self.decoder = DecoderS(1024, encoder_channel, k)
+        else:
+            self.decoder = Decoder(1024, encoder_channel, k)
 
     def forward(self, x_depth: torch.Tensor, x_sem: torch.Tensor, goal: torch.Tensor):
         # encode depth
@@ -34,7 +37,7 @@ class DualAutoEncoder(nn.Module):
         # encode sem
         x_sem = self.encoder_sem(x_sem)
         # concat
-        x = torch.cat((x_depth, x_sem), dim=1)
+        x = torch.cat((x_depth, x_sem), dim=1)  # x.size = (N, 1024, 12, 20)
         # decode
         x, c = self.decoder(x, goal)
         return x, c
@@ -80,4 +83,43 @@ class Decoder(nn.Module):
 
         return x, c
 
+class DecoderS(nn.Module):
+    def __init__(self, in_channels, goal_channels, k=5):
+        super().__init__()
+        self.k = k
+        self.relu    = nn.ReLU(inplace=True)
+        self.fg      = nn.Linear(3, goal_channels)
+        self.sigmoid = nn.Sigmoid()
+
+        self.conv1 = nn.Conv2d((in_channels + goal_channels), 512, kernel_size=5, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0);
+        self.conv3 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=0);
+        self.conv4 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0);
+
+        self.fc1   = nn.Linear(64 * 48, 256) # --> in that setting 33 million parameters
+        self.fc2   = nn.Linear(256, k*3)
+        
+        self.frc1 = nn.Linear(256, 1)
+
+    def forward(self, x, goal):
+        # compute goal encoding
+        goal = self.fg(goal[:, 0:3])
+        goal = goal[:, :, None, None].expand(-1, -1, x.shape[2], x.shape[3])
+        # cat x with goal in channel dim
+        x = torch.cat((x, goal), dim=1)  # x.size = (N, 1024+16, 12, 20)
+        # compute x
+        x = self.relu(self.conv1(x))   # size = (N, 512, x.H/32, x.W/32)  --> (N, 512, 10, 18), 
+        x = self.relu(self.conv2(x))   # size = (N, 512, x.H/60, x.W/60)  --> (N, 256, 8, 16)
+        x = self.relu(self.conv3(x))   # size = (N, 512, x.H/90, x.W/90)  --> (N, 128, 6, 14)
+        x = self.relu(self.conv4(x))   # size = (N, 512, x.H/120, x.W/120) --> (N, 64, 4, 12)
+        x = torch.flatten(x, 1)
+
+        f = self.relu(self.fc1(x))
+
+        x = self.fc2(f)
+        x = x.reshape(-1, self.k, 3)
+
+        c = self.sigmoid(self.frc1(f))
+
+        return x, c
 # EoF

@@ -229,7 +229,7 @@ class Trainer:
     def _init_logging(self) -> None:
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
-        os.environ["WANDB_MODE"] = "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
+        os.environ["WANDB_MODE"] = "online"
         dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
         os.makedirs(dir_path, exist_ok=True)
         

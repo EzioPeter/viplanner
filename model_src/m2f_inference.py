@@ -9,6 +9,7 @@
 import time
 import numpy as np
 import torch
+import multiprocessing as mp
 
 from detectron2.config import get_cfg, CfgNode
 from detectron2.projects.deeplab import add_deeplab_config
@@ -26,10 +27,44 @@ from .viplanner_sem_meta import VIPlannerSemMetaHandler
 from .mask2former.mask2former import add_maskformer2_config
 
 
+class Predictor:
+    """
+    Create a simple end-to-end predictor with the given config that runs on
+    single device for a single input image.
+    """
+
+    def __init__(self, cfg):
+        self.cfg = cfg.clone()  # cfg can be modified by model
+        self.model = build_model(self.cfg)
+        self.model.eval()
+
+        checkpointer = DetectionCheckpointer(self.model)
+        print("Model weights loaded from: ", cfg.MODEL.WEIGHTS)
+        checkpointer.load(cfg.MODEL.WEIGHTS)
+
+    def __call__(self, image):
+        """
+        Args:
+            image (np.ndarray): an image of shape (H, W, C) (in BGR order).
+
+        Returns:
+            predictions (dict):
+                the output of the model for one image only.
+                See :doc:`/tutorials/models` for details about the format.
+        """
+        with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
+            height, width = image.shape[:2]
+            image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
+            
+            inputs = {"image": image, "height": height, "width": width}
+            predictions = self.model([inputs])[0]
+            return predictions
+
+
 class Mask2FormerInference:
     """Run Inference on Mask2Former model to estimate semantic segmentation"""
 
-    debug: bool = False
+    debug: bool = True
     
     def __init__(
         self,
@@ -43,12 +78,9 @@ class Mask2FormerInference:
         
         # setup config
         self._cfg = self._setup_cfg()
-        
+
         # load model and weights
-        self.model = build_model(self._cfg)
-        self.model.eval()
-        checkpointer = DetectionCheckpointer(self.model)
-        checkpointer.load(self._cfg.MODEL.WEIGHTS) 
+        self.predictor = Predictor(self._cfg)
 
         # mapping from coco class id to viplanner class id and corresponding color 
         viplanner_meta = VIPlannerSemMetaHandler()
@@ -67,22 +99,15 @@ class Mask2FormerInference:
             image (np.ndarray): image to be processed
         """
         # get predictions
-        start = time.time()
-        height, width = image.shape[:2]
-        image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
-        inputs = {"image": image, "height": height, "width": width}
-        with torch.no_grad():
-            predictions = self.model([inputs])[0]
+        predictions = self.predictor(image)  
         panoptic_seg, seg_infos = predictions['panoptic_seg']
-        rospy.loginfo("Semantic Pred. time: {:.3f}s".format(time.time() - start))
-        
         # create output
         panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
         for sinfo in seg_infos:
             try:
                 panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.coco_viplanner_color_mapping[sinfo['category_id']]
             except KeyError:
-                rospy.logwarn(f"Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
+                rospy.logwarn(f"Category {sinfo['category_id']+1} not found in coco_viplanner_cls_mapping.")
                 panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = self.viplanner_sem_class_color_map['static']
         
         if self.debug:

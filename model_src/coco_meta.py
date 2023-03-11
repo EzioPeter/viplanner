@@ -62,6 +62,7 @@ _COCO_MAPPING = {
     'building': [
         "house",
         "roof",
+        "building-other-merged",
     ],
     'wall': [
         "curtain",
@@ -72,6 +73,7 @@ _COCO_MAPPING = {
         "wall-wood",
         "window-blind",
         "wall-other-merged",
+        "window-other",
     ],
     'fence': [
         "fence-merged",
@@ -155,11 +157,13 @@ _COCO_MAPPING = {
         "cake",
         "fruit",
         "food-other-merged",
+        "apple",
         # computer hardware
         "mouse",
         "remote",
         "keyboard",
         "cell phone",
+        "laptop",
         # other
         "scissors",
         "teddy bear",
@@ -189,6 +193,7 @@ _COCO_MAPPING = {
         "cabinet",
         "table-merged",
         "counter",
+        "tv",
     ],
     'door': [
         "door-stuff",
@@ -203,12 +208,6 @@ _COCO_MAPPING = {
 
 # original coco meta
 _COCO_META = [
-    {
-        'color': [0, 0, 0],
-        'isthing': 0,
-        'id': 0,
-        'name': 'unknown'
-    },
     {
         'color': [220, 20, 60],
         'isthing': 1,
@@ -1012,11 +1011,15 @@ _COCO_META = [
 
 def get_class_for_id():
     id_to_class = {}
-    for id_dict in _COCO_META:
+    for idx, id_dict in enumerate(_COCO_META):
+        success = False
         for class_name, keywords in _COCO_MAPPING.items():
             if any(keyword in id_dict['name'] for keyword in keywords):
-                id_to_class[id_dict['id']] = class_name
+                id_to_class[idx] = class_name
+                success = True
                 break
+        if not success:
+            print("No mapping found for {}".format(id_dict['name']))
     return id_to_class
 
 if __name__ == "__main__":

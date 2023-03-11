@@ -236,7 +236,7 @@ class Trainer:
         wandb.init(
             project=self._cfg.wb_project,
             entity=self._cfg.wb_entity,
-            name=self._cfg._get_model_save()[:-3],
+            name=self._cfg._get_model_save(),
             config=self._cfg.__dict__,
             dir=dir_path
         )

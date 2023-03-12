@@ -229,14 +229,14 @@ class Trainer:
     def _init_logging(self) -> None:
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
-        os.environ["WANDB_MODE"] = "offline" if os.getenv('EXPERIMENT_DIRECTORY') else "online"
+        os.environ["WANDB_MODE"] = "online"
         dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
         os.makedirs(dir_path, exist_ok=True)
         
         wandb.init(
             project=self._cfg.wb_project,
             entity=self._cfg.wb_entity,
-            name=self._cfg._get_model_save()[:-3],
+            name=self._cfg._get_model_save(),
             config=self._cfg.__dict__,
             dir=dir_path
         )
@@ -319,6 +319,11 @@ class Trainer:
                     ratio_fov_samples=self.fov_ratio
                 )
 
+            if self._cfg.data_cfg.load_into_memory:
+                if train:
+                    train_data.load_data_in_memory()
+                val_data.load_data_in_memory()
+            
             if self._cfg.multi_epoch_dataloader:
                 if train:
                     train_loader = MultiEpochsDataLoader(train_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)

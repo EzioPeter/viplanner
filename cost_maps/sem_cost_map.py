@@ -27,7 +27,7 @@ class SemCostMap:
     """
     Cost Map based on semantic information
     """
-    
+            
     def __init__(self, cfg_general: GeneralCostMapConfig, cfg: SemCostMapConfig, visualize: bool = True):
         self._cfg_general = cfg_general
         self._cfg_sem = cfg
@@ -40,10 +40,10 @@ class SemCostMap:
         self.pcd: o3d.geometry.PointCloud = None
         self.pcd_filtered: o3d.geometry.PointCloud = None
         self.height_map: np.ndarray = None
-        self._num_x: int = None
-        self._num_y: int = None
-        self._start_x: float = None
-        self._start_y: float = None
+        self._num_x: int = 0.0
+        self._num_y: int = 0.0
+        self._start_x: float = 0.0
+        self._start_y: float = 0.0
         self._init_done: bool = False
         
         # cost map
@@ -66,10 +66,10 @@ class SemCostMap:
             self.pcd = self.pcd.select_by_index(np.where(np.vstack((pts_x_idx_lower, pts_x_idx_upper, pts_y_idx_upper, pts_y_idx_lower)).all(axis=0))[0])
 
         # set parameters
-        self._set_map_parameters()
+        self._set_map_parameters(self.pcd)
 
         # get ground height map
-        self.height_map = self._pcd_ground_height_map()
+        self.height_map = self._pcd_ground_height_map(self.pcd)
 
         # filter point cloud depending on height
         self.pcd_filtered = self._pcd_filter()
@@ -97,9 +97,10 @@ class SemCostMap:
 
             
     """Helper functions"""
-    def _pcd_ground_height_map(self) -> np.ndarray:
+    def _pcd_ground_height_map(self, pcd: o3d.geometry.PointCloud) -> np.ndarray:
+        "Start building height map"
         # for each gird cell, get the point with the highest z value
-        pts = np.asarray(self.pcd.points)
+        pts = np.asarray(pcd.points)
         pts_grid_idx_red, pts_idx = self._get_unqiue_grid_idx(pts)
         
         # ground height of human constructed things (buildings, bench, etc.) should be equal to the ground height of the surrounding terrain/ street
@@ -116,21 +117,42 @@ class SemCostMap:
         
         # fit kdtree to the points on the ground and assign ground height to all other points based on the nearest neighbor
         pts_ground_idx = pts_idx[pts_ground]
-        pts_ground = pts[pts_ground_idx]
-        ground_kdtree = scipy.spatial.KDTree(pts_ground) 
-        _, non_ground_neighbor_idx = ground_kdtree.query(pts[pts_idx[~pts_ground]])
+        pts_ground_location = pts[pts_ground_idx]
+        ground_kdtree = scipy.spatial.KDTree(pts_ground_location) 
+        _, non_ground_neighbor_idx = ground_kdtree.query(pts[pts_idx[~pts_ground]], workers=-1)
 
         # init height map and assign ground height to all points on the ground
-        height_map = np.zeros((self._num_x, self._num_y))
-        height_map[pts_grid_idx_red[pts_ground, 0], pts_grid_idx_red[pts_ground, 1]] = pts_ground[:, 2]
-        height_map[pts_grid_idx_red[~pts_ground, 0], pts_grid_idx_red[~pts_ground, 1]] = pts_ground[non_ground_neighbor_idx, 2]
+        height_pts_ground = np.zeros(pts_grid_idx_red.shape[0])
+        height_pts_ground[pts_ground] = pts_ground_location[:, 2]
+        height_pts_ground[~pts_ground] = pts_ground_location[non_ground_neighbor_idx, 2]
+        
+        # fill the holes
+        height_map = np.full((self._num_x, self._num_y), np.nan)
+        height_map[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = height_pts_ground
+        hole_idx = np.vstack(np.where(np.isnan(height_map))).T
+        
+        kdtree_grid = scipy.spatial.KDTree(pts_grid_idx_red)
+        distance, neighbor_idx = kdtree_grid.query(hole_idx, k=3, workers=-1)
+        weights = distance / np.sum(distance, axis=1)[:, None]
+        height_map[hole_idx[:, 0], hole_idx[:, 1]] = np.sum(height_pts_ground[neighbor_idx] * weights, axis=1)
+        
+        if self.visualize:
+            # visualize the height map
+            plt.imshow(height_map)
+            plt.colorbar()
+            plt.show()
+        
+        print("Done building height map")
         return height_map
 
     def _pcd_filter(self) -> o3d.geometry.PointCloud:
-        """remove points above the robot height and filter for outliers"""         
-        # remove points above the robot height and under the ground height 
-        # TODO: take ground height into account --> currently only for flat surfaces
+        """remove points above the robot height, under the ground and filter for outliers"""         
         pts = np.asarray(self.pcd.points)
+        
+        if self.height_map is not None:
+            pts_grid_idx = (np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)).astype(int)
+            pts[:, 2] -= self.height_map[pts_grid_idx[:, 0], pts_grid_idx[:, 1]]
+        
         pts_ceil_idx = pts[:, 2] < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
         pts_ground_idx = pts[:, 2] > self._cfg_sem.ground_height if self._cfg_sem.ground_height is not None else np.ones(pts.shape[0], dtype=bool)
         pcd_height_filtered = self.pcd.select_by_index(np.where(np.vstack((pts_ceil_idx, pts_ground_idx)).all(axis=0))[0])
@@ -145,21 +167,27 @@ class SemCostMap:
         
         return pcd_filtered
     
-    def _set_map_parameters(self) -> None:
+    def _set_map_parameters(self, pcd: o3d.geometry.PointCloud) -> None:
         """Define the size and start position of the cost map"""
-        pts = np.asarray(self.pcd_filtered.points)
+        pts = np.asarray(pcd.points)
         assert pts.shape[0] > 0, "No points received."
         
         # get max and minimum of cost map
         max_x, max_y, _ = np.amax(pts, axis=0) + self._cfg_general.clear_dist
         min_x, min_y, _ = np.amin(pts, axis=0) - self._cfg_general.clear_dist
 
+        prev_param = (self._num_x, self._num_y, round(self._start_x,3), round(self._start_y,3))
         self._num_x = np.ceil((max_x - min_x) / self._cfg_general.resolution / 10).astype(int) * 10
         self._num_y = np.ceil((max_y - min_y) / self._cfg_general.resolution / 10).astype(int) * 10
         self._start_x = (max_x + min_x) / 2.0 - self._num_x / 2.0 * self._cfg_general.resolution
         self._start_y = (max_y + min_y) / 2.0 - self._num_y / 2.0 * self._cfg_general.resolution
-        print(f"cost map size set to: {self._num_x} x {self._num_y}")
-        return
+
+        print(f"cost map size set to: {self._num_x} x {self._num_y}")        
+        if prev_param != (self._num_x, self._num_y, round(self._start_x, 3), round(self._start_y, 3)):
+            print("Map parameters changed!")
+            return True
+    
+        return False
 
     def _class_mapping(self) -> np.ndarray:
         # get colors
@@ -241,14 +269,16 @@ class SemCostMap:
         
         # update map parameters --> has to be done after mapping because last step where points are removed
         # TODO: check if parameter would change here --> if not, remove since executed once before to built height map
-        self._set_map_parameters()
-        
+        changed = self._set_map_parameters(self.pcd_filtered)
+        if changed:
+            print("Recompute heightmap map due to changed parameters")
+            self.height_map = self._pcd_ground_height_map(self.pcd_filtered)
+            
         # get points
         pts = np.asarray(self.pcd_filtered.points)
         pts_grid = (pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution
         
         # get loss for each point
-
         pts_loss = np.zeros(class_idx.shape[0])
         for sem_class in range(len(self.sem_meta.losses)):
             pts_loss[class_idx == sem_class] = self.sem_meta.losses[sem_class]
@@ -308,10 +338,10 @@ class SemCostMap:
     def _dense_grid_loss(self, smooth_loss: np.ndarray) -> None:
         # get grid idx of all classified points
         pts = np.asarray(self.pcd_filtered.points)
-        pts_grid_idx_red, _ = self._get_unqiue_grid_idx(pts)
+        pts_grid_idx_red, pts_idx = self._get_unqiue_grid_idx(pts)
         
         grid_loss = np.ones((self._num_x, self._num_y)) * -10
-        grid_loss[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = smooth_loss[grid_idx]
+        grid_loss[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = smooth_loss[pts_idx]
         
         # get grid idx of all (non-) classified points
         non_classified_idx = np.where(grid_loss == -10)

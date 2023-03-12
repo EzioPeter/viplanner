@@ -51,7 +51,7 @@ class ReconstructionCfg:
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
     # point-cloud filter parameters
-    ground_height: Optional[float] = -0.5  # None for matterport  -0.5 for carla
+    ground_height: Optional[float] = -0.1  # None for matterport  -0.5 for carla
     robot_height: float = 0.70
     robot_height_factor: float = 3.0
     nb_neighbors: int = 100
@@ -115,7 +115,7 @@ class CostMapConfig:
     geometry: bool = False
     
     # name
-    map_name: str = "cost_map_sem"
+    map_name: str = "cost_map_sem_test"
     
     # general cost map configuration
     general: GeneralCostMapConfig = GeneralCostMapConfig()

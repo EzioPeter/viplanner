@@ -98,7 +98,7 @@ VIPLANNER_SEM_META = [
         'name': 'bicycle',
         'color': [102, 51, 0],
         'loss': OBSTACLE_LOSS,
-        'keywords': None,
+        'ground': False,
     },
     # construction
     {

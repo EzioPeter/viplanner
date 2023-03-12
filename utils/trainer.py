@@ -319,6 +319,11 @@ class Trainer:
                     ratio_fov_samples=self.fov_ratio
                 )
 
+            if self._cfg.data_cfg.load_into_memory:
+                if train:
+                    train_data.load_data_in_memory()
+                val_data.load_data_in_memory()
+            
             if self._cfg.multi_epoch_dataloader:
                 if train:
                     train_loader = MultiEpochsDataLoader(train_data, batch_size=self._cfg.batch_size, shuffle=True, pin_memory=True, num_workers=self._cfg.num_workers)

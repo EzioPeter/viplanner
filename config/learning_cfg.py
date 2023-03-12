@@ -10,6 +10,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional
 import yaml
+import os
 
 
 # define own loader class to include DataCfg
@@ -65,6 +66,10 @@ class DataCfg:
     ratio_front_samples: float = 0.0
     ratio_back_samples: float = 0.0
     "samples distrubution -> either within the robots fov, in front of the robot but outside the fov or behind the robot"
+
+    # data in memeory
+    load_into_memory: bool = True if os.getenv('EXPERIMENT_DIRECTORY') is not None else False
+    "load all data into memory (RAM) to speed up training"
 
 @dataclass
 class TrainCfg:

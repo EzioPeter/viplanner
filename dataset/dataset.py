@@ -63,10 +63,13 @@ class PlannerData(Dataset):
         # init buffers
         self.depth_filename: List[str] = []
         self.sem_filename: List[str] = []
+        self.depth_imgs: List[torch.Tensor] = []
+        self.sem_imgs: List[torch.Tensor] = []
         self.odom: torch.Tensor = None
         self.goal: torch.Tensor = None
         self.pair_augment: np.ndarray = None
         self.fov_angle: float = 0.0
+        self.load_ram: bool = False
         return     
 
     def update_buffers(
@@ -89,22 +92,19 @@ class PlannerData(Dataset):
         self.fov_angle = fov_angle
         return
 
-    def __len__(self):
-        return len(self.depth_filename)
-
-    def __getitem__(self, idx):
-        """
-        Get batch items
-        
-        Returns:
-            - depth_image: depth image
-            - sem_image: semantic image
-            - odom: odometry of the start pose (point and rotation)
-            - goal: goal point in the camera frame
-            - pair_augment: bool if the pair is augmented (flipped at the y-axis of the image)
-        """
-        
-        # get depth image
+    """Load images"""
+    
+    def load_data_in_memory(self) -> None:
+        """Load data into RAM to speed up training"""
+        print("Loading data in memory...")
+        for idx in tqdm(range(len(self.depth_filename)), desc="Load images into RAM"):
+            self.depth_imgs.append(self._load_depth_img(idx))
+            if self.semantics:
+                self.sem_imgs.append(self._load_sem_img(idx))
+        self.load_ram = True
+        return
+    
+    def _load_depth_img(self, idx) -> torch.Tensor:
         if self.depth_filename[idx].endswith('.png'):
             depth_image = Image.open(self.depth_filename[idx])
             if self._cfg.real_world_data:
@@ -122,20 +122,52 @@ class PlannerData(Dataset):
         if self.pair_augment[idx]:
             depth_image = self.flip_transform.forward(depth_image)  
 
-        # get semantic image
-        if self.semantics:
-            sem_image = Image.open(self.sem_filename[idx])
-            if self._cfg.real_world_data:
-                sem_image = np.array(sem_image.transpose(PIL.Image.ROTATE_180))
-            else:
-                sem_image = np.array(sem_image)
-            # transform semantic image
-            sem_image = Image.fromarray(sem_image)
-            sem_image = self.transform(sem_image)
-            if self.pair_augment[idx]:
-                sem_image = self.flip_transform.forward(sem_image)
+        return depth_image
+    
+    def _load_sem_img(self, idx) -> torch.Tensor:
+        sem_image = Image.open(self.sem_filename[idx])
+        if self._cfg.real_world_data:
+            sem_image = np.array(sem_image.transpose(PIL.Image.ROTATE_180))
         else:
-            sem_image = 0  # cannot be None
+            sem_image = np.array(sem_image)
+        # transform semantic image
+        sem_image = Image.fromarray(sem_image)
+        sem_image = self.transform(sem_image)
+        if self.pair_augment[idx]:
+            sem_image = self.flip_transform.forward(sem_image)
+        
+        return sem_image
+    
+    """Get image in training"""
+    
+    def __len__(self):
+        return len(self.depth_filename)
+
+    def __getitem__(self, idx):
+        """
+        Get batch items
+        
+        Returns:
+            - depth_image: depth image
+            - sem_image: semantic image
+            - odom: odometry of the start pose (point and rotation)
+            - goal: goal point in the camera frame
+            - pair_augment: bool if the pair is augmented (flipped at the y-axis of the image)
+        """
+        
+        # get depth image
+        if self.load_ram:
+            depth_image = self.depth_imgs[idx]
+            if self.semantics:
+                sem_image = self.sem_imgs[idx]
+            else:
+                sem_image = 0
+        else:
+            depth_image = self._load_depth_img(idx)
+            if self.semantics:
+                sem_image = self._load_sem_img(idx)
+            else:
+                sem_image = 0
         
         return depth_image, sem_image, self.odom[idx], self.goal[idx], self.pair_augment[idx]
 

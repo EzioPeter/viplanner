@@ -6,7 +6,7 @@
 @author     Pascal Roth
 @email      rothpa@student.ethz.ch
 
-@brief      cost to pcd mapper and saving to file together with params
+@brief      cost as point cloud
 """
 
 import open3d as o3d
@@ -17,7 +17,7 @@ import os
 torch.set_default_dtype(torch.float32)
 
 
-class CostToPcd:
+class CostMapPCD:
     def __init__(self):
         self.map_init = False
         if torch.cuda.is_available():

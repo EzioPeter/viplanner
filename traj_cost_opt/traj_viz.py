@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from typing import Optional
 
 # visual-planning-learning
-from .tsdf_map import TSDF_Map
+from cost_maps import CostMapPCD
 
              
 class TrajViz:
@@ -21,7 +21,7 @@ class TrajViz:
         intrinsics: np.ndarray,
         cam_resolution: tuple = (360, 640),
         camera_tilt: float = 0.0, 
-        cost_map: Optional[TSDF_Map] = None,
+        cost_map: Optional[CostMapPCD] = None,
     ) -> None:
         
         # get parameters
@@ -81,7 +81,7 @@ class TrajViz:
             fov_angle (float, optional): field of view angle. Defaults to 0.0.
         """
         # transform to map frame
-        if not isinstance(self._cost_map, TSDF_Map):
+        if not isinstance(self._cost_map, CostMapPCD):
             print("Cost map is missing.")
             return
         batch_size = len(waypoints)

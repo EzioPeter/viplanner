@@ -48,6 +48,9 @@ class SemCostMap:
         
         # cost map
         self.grid_cell_loss: np.ndarray = None
+        
+        # height map
+        self.height_map: np.ndarray = None
         return
     
     def pcd_init(self) -> None:
@@ -90,10 +93,7 @@ class SemCostMap:
         grid_loss = self._dense_grid_loss(grid_loss)
 
         print("COST-MAP CREATION DONE")
-        
-        # TODO: Change when using true terrain analysis module to make applicable for non-flat surfaces
-        ground_array = np.ones([self._num_x, self._num_y]) * 0.0
-        return [grid_loss, self.pcd_filtered.points, ground_array], [self._start_x, self._start_y]
+        return [grid_loss, self.pcd_filtered.points, self.height_map], [self._start_x, self._start_y]
 
             
     """Helper functions"""

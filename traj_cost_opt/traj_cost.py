@@ -8,7 +8,7 @@ import wandb
 torch.set_default_dtype(torch.float32)
 
 # visual-imperative-planning
-from .tsdf_map import TSDF_Map
+from cost_maps import CostMapPCD
 from .traj_opt import TrajOpt
 
 class TrajCost:
@@ -26,7 +26,7 @@ class TrajCost:
         obstalce_thred: float = 0.75,
     ) -> None:
         # init map and optimizer
-        self.tsdf_map = TSDF_Map(gpu_id)
+        self.tsdf_map = CostMapPCD(gpu_id)
         self.opt = TrajOpt()
         self.is_map = False
         

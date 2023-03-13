@@ -24,7 +24,7 @@ def construct_datacfg(loader, node):
             node.value.remove(node_entry)
             
     return DataCfg(**loader.construct_mapping(node), **add_dicts)
-Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
+Loader.add_constructor('tag:yaml.org,2002:python/object:config.learning_cfg.DataCfg', construct_datacfg)
 # after evaluation in isaac sim, tag changes 
 Loader.add_constructor('tag:yaml.org,2002:python/object:omni.isaac.anymal.viplanner.src.config.learning_cfg.DataCfg', construct_datacfg)
         
@@ -67,9 +67,6 @@ class DataCfg:
     ratio_back_samples: float = 0.0
     "samples distrubution -> either within the robots fov, in front of the robot but outside the fov or behind the robot"
 
-    # data in memeory
-    load_into_memory: bool = True if os.getenv('EXPERIMENT_DIRECTORY') is not None else False
-    "load all data into memory (RAM) to speed up training"
 
 @dataclass
 class TrainCfg:

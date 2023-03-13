@@ -268,7 +268,6 @@ class SemCostMap:
         class_idx = self._class_mapping()
         
         # update map parameters --> has to be done after mapping because last step where points are removed
-        # TODO: check if parameter would change here --> if not, remove since executed once before to built height map
         changed = self._set_map_parameters(self.pcd_filtered)
         if changed:
             print("Recompute heightmap map due to changed parameters")

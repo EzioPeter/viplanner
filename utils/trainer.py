@@ -207,14 +207,14 @@ class Trainer:
                 cfg=self._cfg.data_cfg,
                 root=data_path,
                 semantics=self._cfg.sem,
-                tsdf_map=traj_cost.tsdf_map  # trajectory cost class
+                cost_map=traj_cost.cost_map  # trajectory cost class
             )
             
             traj_viz = TrajViz(
                 intrinsics=generator.K_depth,
                 cam_resolution=self._cfg.img_input_size,
                 camera_tilt = self._cfg.camera_tilt,
-                cost_map = traj_cost.tsdf_map,
+                cost_map = traj_cost.cost_map,
             )
                     
             self.data_generators.append(generator)
@@ -319,7 +319,7 @@ class Trainer:
                     ratio_fov_samples=self.fov_ratio
                 )
 
-            if self._cfg.data_cfg.load_into_memory:
+            if os.getenv('EXPERIMENT_DIRECTORY'):
                 if train:
                     train_data.load_data_in_memory()
                 val_data.load_data_in_memory()
@@ -427,17 +427,17 @@ class Trainer:
 
                 if is_visual and len(preds_viz) < self._cfg.n_visualize:
                     if batch_idx == 0:
-                        image_viz = image
-                        odom_viz = odom
-                        goal_viz = goal
-                        fear_viz = fear
-                        augment_viz = inputs[4]
+                        image_viz = image.cpu()
+                        odom_viz = odom.cpu()
+                        goal_viz = goal.cpu()
+                        fear_viz = fear.cpu()
+                        augment_viz = inputs[4].cpu()
                     else:
-                        image_viz   = torch.cat((image_viz, image), dim=0)
-                        odom_viz    = torch.cat((odom_viz, odom),   dim=0)
-                        goal_viz    = torch.cat((goal_viz, goal),   dim=0)
-                        fear_viz    = torch.cat((fear_viz, fear),   dim=0)
-                        augment_viz = torch.cat((augment_viz, inputs[4]), dim=0)
+                        image_viz   = torch.cat((image_viz, image.cpu()), dim=0)
+                        odom_viz    = torch.cat((odom_viz, odom.cpu()),   dim=0)
+                        goal_viz    = torch.cat((goal_viz, goal.cpu()),   dim=0)
+                        fear_viz    = torch.cat((fear_viz, fear.cpu()),   dim=0)
+                        augment_viz = torch.cat((augment_viz, inputs[4].cpu()), dim=0)
                     preds_viz.append(preds.cpu())
                     wp_viz.append(waypoints.cpu())
 
@@ -449,11 +449,11 @@ class Trainer:
                 idx = random.choices(range(preds_viz.shape[0]), k=self._cfg.n_visualize)
                 preds_viz   = preds_viz[idx]
                 wp_viz      = wp_viz[idx]
-                odom_viz    = odom_viz[idx].cpu()
-                goal_viz    = goal_viz[idx].cpu()
-                fear_viz    = fear_viz[idx, :].cpu()
-                image_viz   = image_viz[idx].cpu()
-                augment_viz = augment_viz[idx].cpu()
+                odom_viz    = odom_viz[idx]
+                goal_viz    = goal_viz[idx]
+                fear_viz    = fear_viz[idx, :]
+                image_viz   = image_viz[idx]
+                augment_viz = augment_viz[idx]
                 # visual trajectory and images
                 self.data_traj_viz[env_id].VizTrajectory(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, fov_angle=fov_angle, augment_viz=augment_viz)
                 self.data_traj_viz[env_id].VizImages(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, image_viz)

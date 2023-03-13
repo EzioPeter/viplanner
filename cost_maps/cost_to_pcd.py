@@ -18,10 +18,10 @@ torch.set_default_dtype(torch.float32)
 
 
 class CostMapPCD:
-    def __init__(self):
+    def __init__(self, gpu_id: int = 0):
         self.map_init = False
         if torch.cuda.is_available():
-            self.device = torch.device("cuda:0")
+            self.device = torch.device("cuda:" + str(gpu_id))
         else:
             self.device = torch.device("cpu")
         self.pcd_tsdf = o3d.geometry.PointCloud()

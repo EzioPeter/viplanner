@@ -428,12 +428,12 @@ class VIPlannerNode:
             pose = self.tf_listener.lookupTransform(self.cfg.robot_id, rgb_msg.header.frame_id, rgb_msg.header.stamp)
             self.rgb_pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to transfer the goal into base frame.")
+            rospy.logerr(f"RGB Image: Fail to transfer {rgb_msg.header.frame_id} into {self.cfg.robot_id} frame.")
         try:
             pose = self.tf_listener.lookupTransform(self.cfg.robot_id, depth_msg.header.frame_id, depth_msg.header.stamp)
             self.depth_pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to transfer the goal into base frame.")
+            rospy.logerr(f"Depth Image: Fail to transfer {depth_msg.header.frame_id} into {self.cfg.robot_id} frame.")
         
        # get odom from TF for camera image visualization 
         try:
@@ -443,7 +443,7 @@ class VIPlannerNode:
             odom.extend(ori)
             self.odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to get odomemrty from tf.")
+            rospy.logerr(f"Odom: Fail to transfer {self.cfg.world_id,} into {self.cfg.robot_id}")
             return
         
         # transform goal into robot frame
@@ -455,7 +455,7 @@ class VIPlannerNode:
                                                                                          self.cfg.robot_id)
                     goal_robot_frame = self.tf_listener.transformPoint(self.cfg.robot_id, goal_robot_frame)
                 except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                    rospy.logerr("Fail to transfer the goal into base frame.")
+                    rospy.logerr(f"Goal: Fail to transfer {self.goal_pose.header.frame_id} into {self.cfg.robot_id}")
                     return
             goal_robot_frame = torch.tensor([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
             self.goal_rb = goal_robot_frame

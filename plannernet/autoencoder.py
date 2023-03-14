@@ -2,10 +2,42 @@
 import os
 import tqdm
 import torch
-from .PlannerNet import PlannerNet
 import torch.nn as nn
 import torch.utils.data as Data
+import pickle
+from typing import Optional
 
+# detectron2 and mask2former (used to load pre-trained models from Mask2Former)
+try:
+    from detectron2.modeling.backbone import build_resnet_backbone
+    from detectron2.config import get_cfg
+    from detectron2.projects.deeplab import add_deeplab_config
+    from mask2former import add_maskformer2_config
+    pre_train_possible = True
+except ImportError
+    pre_train_possible = False
+    print("[Warning] Pre-trained ResNet50 models cannot be used since detectron2 and/or mask2former not found")
+
+# visual-imperative-planner
+from .PlannerNet import PlannerNet
+
+def load_pre_trained_resnet(cfg_path: str, weight_path: Optional[str]) -> nn.Module:
+    # load config from file
+    cfg = get_cfg()
+    add_deeplab_config(cfg)
+    add_maskformer2_config(cfg)
+    cfg.merge_from_file(cfg_path)
+    cfg.freeze()    
+    # build model
+    resnet = build_resnet_backbone(cfg)
+    # load pre-trained weight file
+    if weight_path:
+        with open(weight_path, "rb") as file:
+            model_file = pickle.load(file, encoding="latin1")
+        resnet.load_state_dict(model_file['model'], strict=False)
+        print(f"[INFO] Loaded pre-trained backbone from {weight_path}")
+    
+    return resnet
 
 class AutoEncoder(nn.Module):
     def __init__(self, encoder_channel=64, k=5):
@@ -21,10 +53,13 @@ class AutoEncoder(nn.Module):
 
 
 class DualAutoEncoder(nn.Module):
-    def __init__(self, encoder_channel=64, k=5):
+    def __init__(self, encoder_channel=64, k=5, resnet50sem: bool = True, cfg_path: Optional[str] = None, weight_path: Optional[str] = None):
         super().__init__()
         self.encoder_depth = PlannerNet(layers=[2, 2, 2, 2])
-        self.encoder_sem = PlannerNet(layers=[2, 2, 2, 2])
+        if resnet50sem:
+            self.encoder_sem = load_pre_trained_resnet(cfg_path, weight_path)
+        else:
+            self.encoder_sem = PlannerNet(layers=[2, 2, 2, 2])
         self.decoder = Decoder(1024, encoder_channel, k)
 
     def forward(self, x_depth: torch.Tensor, x_sem: torch.Tensor, goal: torch.Tensor):

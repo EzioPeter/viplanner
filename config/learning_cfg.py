@@ -126,8 +126,12 @@ class TrainCfg:
     in_channel: int = 16 
     "goal input channel numbers"
     knodes: int = 5 
-    "number of max waypoints predicted"    
-
+    "number of max waypoints predicted"  
+    pre_train_sem: bool = True
+    pre_train_cfg: str  = "/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml"  
+    pre_train_weights: str = "/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/model_final_94dc52.pkl"
+    "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
+    
     # training configurations
     resume: bool = False
     "resume training"    

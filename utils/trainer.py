@@ -244,7 +244,7 @@ class Trainer:
     
     def _load_model(self, resume: bool = False) -> None:
         if self._cfg.sem:
-            self.net = DualAutoEncoder(self._cfg.in_channel, self._cfg.knodes)
+            self.net = DualAutoEncoder(self._cfg.in_channel, self._cfg.knodes, self._cfg.pre_train_sem, self._cfg.pre_train_cfg, self._cfg.pre_train_weight)
         else:
             self.net = AutoEncoder(self._cfg.in_channel, self._cfg.knodes)
 

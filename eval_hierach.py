@@ -14,7 +14,7 @@ from utils.trainer import Trainer
 if __name__ == "__main__":
     # load config
     # cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_env2n8kARJN3HM_ep200_inputDepSem_costSem_optimSGD_hierarch_overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35"
-    cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_env2n8kARJN3HM_ep40_inputDepSem_costSem_optimSGD_test"
+    cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_envtown01_ep100_inputDepSem_costSem_optimSGD_heightmap/"
     train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(cfg_dir, "model.yaml"))
     
     # load trainer and data

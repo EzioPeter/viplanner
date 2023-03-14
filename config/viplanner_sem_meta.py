@@ -18,182 +18,213 @@ VIPLANNER_SEM_META = [
         'name': 'road',
         'loss': ROAD_LOSS,
         'color': [204, 204, 0],
+        'ground': True,
     }, 
     {
         'name': 'sidewalk',
         'loss': TRAVERSABLE_LOSS,
         'color': [0, 255, 0],
+        'ground': True,
     },
     {
         'name': 'crosswalk',
         'loss': TRAVERSABLE_LOSS,
         'color': [0, 204, 0],
+        'ground': True,
     },
     {
         'name': 'floor',
         'loss': TRAVERSABLE_LOSS,
         'color': [0, 102, 0],
+        'ground': True,
     },
     {
         'name': 'gravel',
         'loss': TRAVERSABLE_LOSS,
         'color': [0, 51, 0],
+        'ground': True,
     },
     {
         'name': 'sand',
         'loss': TRAVERSABLE_LOSS,
         'color': [153, 255, 153],
+        'ground': True,
     },
     {
         'name': 'snow',
         'loss': TRAVERSABLE_LOSS,
         'color': [107, 142, 35],
+        'ground': True,
     },
     {
         'name': 'stairs',
         'loss': TRAVERSABLE_LOSS,
         'color': [0, 153, 0],
+        'ground': True,
     },
     # human
     {
         'name': 'person',
         'color': [255, 0, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'anymal',
         'color': [102, 0, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     # vehicle
     {
         'name': 'vehicle',
         'color': [153, 76, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'on_rails',
         'color': [51, 25, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'motorcycle',
         'color': [204, 102, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'bicycle',
         'color': [102, 51, 0],
         'loss': OBSTACLE_LOSS,
-        'keywords': None,
+        'ground': False,
     },
     # construction
     {
         'name': 'building',
         'loss': OBSTACLE_LOSS,
         'color': [127, 0, 255],
+        'ground': False,
     },
     {
         'name': 'wall',
         'color': [102, 0, 204],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'fence',
         'color': [76, 0, 153],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'bridge',
         'color': [51, 0, 102],
         'loss': OBSTACLE_LOSS,
-        'keywords': None,
+        'ground': False,
     },
     {
         'name': 'tunnel',
         'color': [51, 0, 102],
         'loss': OBSTACLE_LOSS,
-        'keywords': None,
+        'ground': False,
     },
     # object
     {
         'name': 'pole',
         'color': [0, 0, 255],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'traffic_sign',
         'color': [0, 0, 153],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'traffic_light',
         'color': [0, 0, 204],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'bench',
         'color': [0, 0, 102],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     # nature
     {
         'name': 'vegetation',
         'color': [153, 0, 153],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'terrain',
         'color': [51, 255, 51],
         'loss': TERRAIN_LOSS,
+        'ground': True,
     },
     {
         'name': 'water_surface',
         'color': [204, 0, 204],
         'loss': OBSTACLE_LOSS,
+        'ground': True,
     },
     # sky
     {
         'name': 'sky',
         'color': [102, 0, 51],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'background',
         'color': [102, 0, 51],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     # void outdoor
     {
         'name': 'dynamic',
         'color': [32, 32, 32],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'static',  # also everything unknown
         'color': [0, 0, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     # indoor
     {
         'name': 'furniture',
         'color': [0, 0, 51],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'door',
         'color': [153, 153, 0],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'ceiling',
         'color': [25, 0, 51],
         'loss': OBSTACLE_LOSS,
+        'ground': False,
     },
     {
         'name': 'indoor_soft',  # human made thing, can be walked on
         'color': [178, 255, 102],
         'loss': ROAD_LOSS,
+        'ground': False,
     }
 ]
 
@@ -208,6 +239,7 @@ class VIPlannerSemMetaHandler:
         # class loss dict
         self.class_loss: dict = self._get_class_loss_dict()
         self.class_color: dict = self._get_class_color_dict()
+        self.class_ground: dict = self._get_class_ground_dict()
         return
     
     def get_colors_for_names(self, name_list: list) -> list:
@@ -227,6 +259,10 @@ class VIPlannerSemMetaHandler:
         """Get class color dict."""
         return {nc['name']: nc['color'] for nc in self.meta}
 
+    def _get_class_ground_dict(self) -> dict:
+        """Get class ground dict."""
+        return {nc['name']: nc['ground'] for nc in self.meta}
+    
     @property
     def colors(self) -> list:
         """Get list of colors."""
@@ -241,6 +277,11 @@ class VIPlannerSemMetaHandler:
     def names(self) -> list:
         """Get list of names."""
         return list(self.class_loss.keys())
+
+    @property
+    def ground(self) -> list:
+        """Get list of ground."""
+        return list(self.class_ground.values())
 
 
 """CLASS COLOR VISUALIZATION"""

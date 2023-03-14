@@ -32,7 +32,7 @@ import torchvision.transforms as transforms
 
 # implerative-planner-learning
 from config import DataCfg
-from traj_cost_opt import TSDF_Map
+from cost_maps import CostMapPCD
 
 # set default dtype to float32
 torch.set_default_dtype(torch.float32)
@@ -274,14 +274,14 @@ class PlannerDataGenerator(Dataset):
         cfg: DataCfg,
         root: str, 
         semantics: bool = False,
-        tsdf_map: TSDF_Map = None,
+        cost_map: CostMapPCD = None,
     ) -> None:
         
         # super().__init__()
         # set parameters
         self._cfg = cfg
         self.root = root
-        self.tsdf_map = tsdf_map
+        self.cost_map = cost_map
         self.semantics = semantics 
         
         # init list for final odom, goal and img mapping
@@ -332,7 +332,7 @@ class PlannerDataGenerator(Dataset):
             
             for i in range(len(self.odom_array_depth)):
                 odom_vis_list.append(copy.deepcopy(small_sphere).translate((self.odom_array_depth[i, 0], self.odom_array_depth[i, 1], self.odom_array_depth[i, 2])))
-            odom_vis_list.append(self.tsdf_map.pcd_tsdf)
+            odom_vis_list.append(self.cost_map.pcd_tsdf)
             
             o3d.visualization.draw_geometries(odom_vis_list)  
         
@@ -364,8 +364,8 @@ class PlannerDataGenerator(Dataset):
         """
         print("Filter odom points within the inflation range of the obstacles in the cost map...")
         
-        norm_inds, _ = self.tsdf_map.Pos2Ind(self.odom_array_depth[:, None, :3])
-        cost_grid = self.tsdf_map.cost_array.T.expand(self.odom_array_depth.shape[0], 1, -1, -1)
+        norm_inds, _ = self.cost_map.Pos2Ind(self.odom_array_depth[:, None, :3])
+        cost_grid = self.cost_map.cost_array.T.expand(self.odom_array_depth.shape[0], 1, -1, -1)
         norm_inds = norm_inds.to(cost_grid.device)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32).to("cpu")
@@ -385,7 +385,7 @@ class PlannerDataGenerator(Dataset):
                     small_sphere.paint_uniform_color([1.0, 0.4, 0.1])  # red
                 odom_vis_list.append(copy.deepcopy(small_sphere).translate((self.odom_array_depth[i, 0], self.odom_array_depth[i, 1], self.odom_array_depth[i, 2])))
 
-            odom_vis_list.append(self.tsdf_map.pcd_tsdf)
+            odom_vis_list.append(self.cost_map.pcd_tsdf)
             o3d.visualization.draw_geometries(odom_vis_list)  
 
         nb_odom_point_prev = len(self.odom_array_depth)
@@ -448,7 +448,7 @@ class PlannerDataGenerator(Dataset):
         num_intermediate = 3
         
         # get occpuancy map from tsdf map
-        cost_array = self.tsdf_map.tsdf_array.cpu().numpy()
+        cost_array = self.cost_map.tsdf_array.cpu().numpy()
         occupancy_map = (cost_array > self._cfg.obs_cost_height).astype(np.uint8)
         
         # construct kdtree to find nearest neighbors of points
@@ -466,7 +466,7 @@ class PlannerDataGenerator(Dataset):
         y_interp = origin_point[:, None, 1] + (neighbor_points[:, 1] - origin_point[:, 1])[:, None] * np.linspace(0, 1, num=num_intermediate+1, endpoint=False)[1:]
         inter_points = np.stack((x_interp.reshape(-1), y_interp.reshape(-1)), axis=1)
         # get the indicies of the interpolated points in the occupancy map
-        occupancy_idx = (inter_points - np.array([self.tsdf_map.start_x, self.tsdf_map.start_y])) / self.tsdf_map.voxel_size
+        occupancy_idx = (inter_points - np.array([self.cost_map.start_x, self.cost_map.start_y])) / self.cost_map.voxel_size
         
         # check occupancy for collisions at the interpolated points
         collision = occupancy_map[occupancy_idx[:, 0].astype(np.int64), occupancy_idx[:, 1].astype(np.int64)]

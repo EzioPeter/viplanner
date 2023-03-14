@@ -8,7 +8,7 @@ import wandb
 torch.set_default_dtype(torch.float32)
 
 # visual-imperative-planning
-from .tsdf_map import TSDF_Map
+from cost_maps import CostMapPCD
 from .traj_opt import TrajOpt
 
 class TrajCost:
@@ -26,7 +26,7 @@ class TrajCost:
         obstalce_thred: float = 0.75,
     ) -> None:
         # init map and optimizer
-        self.tsdf_map = TSDF_Map(gpu_id)
+        self.cost_map = CostMapPCD(gpu_id)
         self.opt = TrajOpt()
         self.is_map = False
         
@@ -51,7 +51,7 @@ class TrajCost:
         return world_ps
     
     def SetMap(self, root_path, map_name):
-        self.tsdf_map.ReadTSDFMap(root_path, map_name)
+        self.cost_map.ReadTSDFMap(root_path, map_name)
         self.is_map = True
         return
 
@@ -67,10 +67,10 @@ class TrajCost:
         batch_size, num_p, _ = waypoints.shape
         if self.is_map:
             world_ps = self.TransformPoints(odom, waypoints)
-            norm_inds, _ = self.tsdf_map.Pos2Ind(world_ps)
+            norm_inds, _ = self.cost_map.Pos2Ind(world_ps)
             
             # Obstacle Cost
-            cost_grid = self.tsdf_map.cost_array.T.expand(batch_size, 1, -1, -1)
+            cost_grid = self.cost_map.cost_array.T.expand(batch_size, 1, -1, -1)
             oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
             oloss_M = oloss_M.to(torch.float32)
             oloss_M_weighted = torch.sum(oloss_M, axis=1)
@@ -79,25 +79,25 @@ class TrajCost:
             if self.debug:
                 import numpy as np
                 # indexes in the cost map
-                start_xy = torch.tensor([self.tsdf_map.start_x, self.tsdf_map.start_y], dtype=torch.float64, device=world_ps.device).expand(1, 1, -1)
-                H = (world_ps.tensor()[:, :, 0:2] - start_xy) / self.tsdf_map.voxel_size
-                cost_values = self.tsdf_map.cost_array[H[0, :, 0].cpu().numpy().astype(np.int64), H[0, :, 1].cpu().numpy().astype(np.int64)]
+                start_xy = torch.tensor([self.cost_map.start_x, self.cost_map.start_y], dtype=torch.float64, device=world_ps.device).expand(1, 1, -1)
+                H = (world_ps.tensor()[:, :, 0:2] - start_xy) / self.cost_map.voxel_size
+                cost_values = self.cost_map.cost_array[H[0, :, 0].cpu().numpy().astype(np.int64), H[0, :, 1].cpu().numpy().astype(np.int64)]
 
                 import matplotlib.pyplot as plt
                 fix, (ax1, ax2, ax3) = plt.subplots(1, 3)
                 sc1 = ax1.scatter(world_ps.data[0][:, 0].cpu().numpy(), world_ps.data[0][:, 1].cpu().numpy(), c=oloss_M[0].cpu().numpy(), cmap='rainbow')
                 sc2 = ax2.scatter(H[0, :, 0].cpu().numpy(), H[0, :, 1].cpu().numpy(), c=cost_values.cpu().numpy(), cmap='rainbow')
-                ax3.imshow(self.tsdf_map.cost_array.cpu().numpy())
+                ax3.imshow(self.cost_map.cost_array.cpu().numpy())
                 
                 import open3d as o3d
                 pcd = o3d.geometry.PointCloud()
                 pcd.points = o3d.utility.Vector3dVector(world_ps.data[0][:, :3].cpu().numpy())
                 pcd.colors = o3d.utility.Vector3dVector(sc1.to_rgba(oloss_M[0].cpu().numpy())[:, :3])
                 # pcd.colors = o3d.utility.Vector3dVector(sc2.to_rgba(cost_values[0].cpu().numpy())[:, :3])
-                o3d.visualization.draw_geometries([self.tsdf_map.pcd_tsdf, pcd])
+                o3d.visualization.draw_geometries([self.cost_map.pcd_tsdf, pcd])
                 
             # Terrian Height loss
-            height_grid = self.tsdf_map.ground_array.T.expand(batch_size, 1, -1, -1)
+            height_grid = self.cost_map.ground_array.T.expand(batch_size, 1, -1, -1)
             hloss_M = F.grid_sample(height_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
             hloss_M = torch.abs(world_ps[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # world_ps - odom to have them on the ground to be comparable to the height map
             hloss_M = torch.sum(hloss_M, axis=1)

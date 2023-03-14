@@ -26,10 +26,10 @@ class ReconstructionCfg:
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"
     # higher resolution depth images available for reconstruction  (meaning that the depth images are also taked by the semantic camera)
-    high_res_depth: bool = False
+    high_res_depth: bool = True
     
     # reconstruction parameters
-    voxel_size: float = 0.05  # [m]
+    voxel_size: float = 0.1  # [m] 0.05 for matterport 0.1 for carla
     start_idx: int = 0  # start index for reconstruction
     max_images: Optional[int] = 1000  # maximum number of images to reconstruct, if None, all images are used
     depth_scale: float = 1000.0  # depth scale factor
@@ -37,7 +37,7 @@ class ReconstructionCfg:
     semantics: bool = True
 
     # speed vs. memory trade-off parameters
-    point_cloud_batch_size: int = 200  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
+    point_cloud_batch_size: int = 100  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
 
     """ Internal functions """    
     def get_data_path(self) -> str:
@@ -51,9 +51,9 @@ class ReconstructionCfg:
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
     # point-cloud filter parameters
-    ground_height: Optional[float] = None  # -0.05 for matterport
+    ground_height: Optional[float] = -0.1  # None for matterport  -0.5 for carla
     robot_height: float = 0.70
-    robot_height_factor: float = 2.0
+    robot_height_factor: float = 3.0
     nb_neighbors: int = 100
     std_ratio: float = 2.0  # keep high, otherwise ground will be removed
     downsample: bool = False
@@ -65,7 +65,7 @@ class SemCostMapConfig:
     sigma_smooth: float = 2.0
     max_iterations: int = 1
     # obstacle threshold
-    obstacle_threshold: float = 0.5  # 0.5 for matterport, 0.7 for carla
+    obstacle_threshold: float = 0.7  # 0.5 for matterport, 0.7 for carla
     # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
     round_decimal_traversable: int = 2
 
@@ -92,19 +92,19 @@ class TsdfCostMapConfig:
 class GeneralCostMapConfig:
     """General Cost Map Configuration"""
     # path to point cloud
-    root_path: str = "/home/pascal/SemNav/imperative_learning/data/B6ByNegPMKs"  #  JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM town01 2azQ1b91cZZ 
+    root_path: str = "/home/pascal/SemNav/imperative_learning/data/town01"  #  JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM  2azQ1b91cZZ B6ByNegPMKs
     ply_file: str = "cloud.ply"
     # resolution of the cost map
-    resolution: float = 0.04  # [m]  (0.04 for matterport, 0.1 for carla)
+    resolution: float = 0.1  # [m]  (0.04 for matterport, 0.1 for carla)
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
     sigma_smooth: float = 1.5
     # cost map expansion
-    x_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    y_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    x_max: Optional[float] = None  # 402.38 # [m] if None, the maximum of the point cloud is used
-    y_max: Optional[float] = None  # 336.65 # [m] if None, the maximum of the point cloud is used
+    x_min: Optional[float] = -8.05  # [m] if None, the minimum of the point cloud is used
+    y_min: Optional[float] = -8.05  # [m] if None, the minimum of the point cloud is used
+    x_max: Optional[float] = 346.22 # [m] if None, the maximum of the point cloud is used
+    y_max: Optional[float] = 336.65 # [m] if None, the maximum of the point cloud is used
 
 
 @dataclass
@@ -115,7 +115,7 @@ class CostMapConfig:
     geometry: bool = False
     
     # name
-    map_name: str = "cost_map_sem"
+    map_name: str = "cost_map_sem_test"
     
     # general cost map configuration
     general: GeneralCostMapConfig = GeneralCostMapConfig()

@@ -18,13 +18,23 @@ import torchvision.transforms as transforms
 import wandb  # logging
 import matplotlib.pyplot as plt
 import random
+import numpy as np
 from typing import Tuple, List, Optional
 
 torch.set_default_dtype(torch.float32)
 
+# detectron2 and mask2former (used to load pre-trained models from Mask2Former)
+try:
+    from detectron2.config import get_cfg
+    from detectron2.projects.deeplab import add_deeplab_config
+    from third_party.mask2former.mask2former import add_maskformer2_config
+    pre_train_possible = True
+except ImportError:
+    pre_train_possible = False
+
 # imperative-planning-learning
 from config import TrainCfg
-from plannernet import AutoEncoder, DualAutoEncoder
+from plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg
 from utils.torchutil import EarlyStopScheduler, count_parameters
 from dataset import PlannerData, PlannerDataGenerator, MultiEpochsDataLoader
 from traj_cost_opt import TrajCost, TrajViz
@@ -52,8 +62,9 @@ class Trainer:
         
         # image transforms
         self.transform = transforms.Compose([
-            transforms.Resize((self._cfg.img_input_size)),
-            transforms.ToTensor()])
+            transforms.ToTensor(),
+            transforms.Resize((self._cfg.img_input_size))
+        ])
 
         # init buffers DATA
         self.data_generators: List[PlannerDataGenerator] = []
@@ -62,14 +73,16 @@ class Trainer:
         self.fov_ratio: float = None
         self.front_ratio: float = None
         self.back_ratio: float = None
-        
+        self.pixel_mean: np.ndarray = np.zeros(3, dtype=int)
+        self.pixel_std: np.ndarray  = np.ones(3, dtype=int)  
+      
         # inti buffers MODEL
         self.best_loss = float('inf')
         self.test_loss = float('inf')
         self.net: nn.Module = None
         self.optimizer: optim.Optimizer = None
         self.scheduler: EarlyStopScheduler = None
-        
+
         print('TRAINER INITIALIZED')
         return
     
@@ -207,6 +220,7 @@ class Trainer:
                 cfg=self._cfg.data_cfg,
                 root=data_path,
                 semantics=self._cfg.sem,
+                rgb=self._cfg.rgb,
                 cost_map=traj_cost.cost_map  # trajectory cost class
             )
             
@@ -243,8 +257,18 @@ class Trainer:
         return
     
     def _load_model(self, resume: bool = False) -> None:
-        if self._cfg.sem:
-            self.net = DualAutoEncoder(self._cfg.in_channel, self._cfg.knodes, self._cfg.pre_train_sem, self._cfg.pre_train_cfg, self._cfg.pre_train_weight)
+        if self._cfg.sem or self._cfg.rgb:
+            if self._cfg.pre_train_sem:
+                pre_train_cfg = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_cfg)
+                pre_train_weights = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
+                m2f_cfg = get_m2f_cfg(pre_train_cfg)
+                self.pixel_mean = m2f_cfg.MODEL.PIXEL_MEAN
+                self.pixel_std  = m2f_cfg.MODEL.PIXEL_STD
+            else:
+                m2f_cfg = None
+                pre_train_weights = None
+                
+            self.net = DualAutoEncoder(self._cfg, m2f_cfg=m2f_cfg, weight_path=pre_train_weights)
         else:
             self.net = AutoEncoder(self._cfg.in_channel, self._cfg.knodes)
 
@@ -287,7 +311,10 @@ class Trainer:
             val_data = PlannerData(
                 cfg=self._cfg.data_cfg,
                 transform=self.transform,
-                semantics=self._cfg.sem
+                semantics=self._cfg.sem,
+                rgb=self._cfg.rgb,
+                pixel_mean=self.pixel_mean,
+                pixel_std=self.pixel_std,
             )
             
             if train:
@@ -295,6 +322,9 @@ class Trainer:
                     cfg=self._cfg.data_cfg,
                     transform=self.transform,
                     semantics=self._cfg.sem,
+                    rgb=self._cfg.rgb,
+                    pixel_mean=self.pixel_mean,
+                    pixel_std=self.pixel_std,
                 ) 
             else:
                 train_data = None
@@ -354,10 +384,10 @@ class Trainer:
             goal  = inputs[3].cuda(self._cfg.gpu_id)
             self.optimizer.zero_grad()
             
-            if self._cfg.sem:
+            if self._cfg.sem or self._cfg.rgb:
                 depth_image = inputs[0].cuda(self._cfg.gpu_id)
-                sem_image = inputs[1].cuda(self._cfg.gpu_id)
-                preds, fear = self.net(depth_image, sem_image, goal)
+                sem_rgb_image = inputs[1].cuda(self._cfg.gpu_id)
+                preds, fear = self.net(depth_image, sem_rgb_image, goal)
             else: 
                 image = inputs[0].cuda(self._cfg.gpu_id)
                 preds, fear = self.net(image, goal)
@@ -397,10 +427,10 @@ class Trainer:
                 odom  = inputs[2].cuda(self._cfg.gpu_id)
                 goal  = inputs[3].cuda(self._cfg.gpu_id)
                 
-                if self._cfg.sem:
+                if self._cfg.sem or self._cfg.rgb:
                     image = inputs[0].cuda(self._cfg.gpu_id)  # depth
-                    sem_image = inputs[1].cuda(self._cfg.gpu_id)  # semantic
-                    preds, fear = self.net(image, sem_image, goal)
+                    sem_rgb_image = inputs[1].cuda(self._cfg.gpu_id)  # semantic
+                    preds, fear = self.net(image, sem_rgb_image, goal)
                 else:
                     image = inputs[0].cuda(self._cfg.gpu_id)
                     preds, fear = self.net(image, goal)

@@ -27,7 +27,8 @@ def construct_datacfg(loader, node):
 Loader.add_constructor('tag:yaml.org,2002:python/object:config.learning_cfg.DataCfg', construct_datacfg)
 # after evaluation in isaac sim, tag changes 
 Loader.add_constructor('tag:yaml.org,2002:python/object:omni.isaac.anymal.viplanner.src.config.learning_cfg.DataCfg', construct_datacfg)
-        
+
+      
 @dataclass
 class DataCfg:
     """Config for data loading (only available for new dataloader --> flag in TrainCfg)"""
@@ -74,6 +75,7 @@ class TrainCfg:
     
     # high level configurations
     sem: bool = True 
+    rgb: bool = False
     "use semantic image"
     file_name: Optional[str] = None
     "appendix to the filename if needed"      
@@ -125,8 +127,9 @@ class TrainCfg:
     knodes: int = 5 
     "number of max waypoints predicted"  
     pre_train_sem: bool = True
-    pre_train_cfg: str  = "/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml"  
-    pre_train_weights: str = "/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/model_final_94dc52.pkl"
+    pre_train_cfg: Optional[str]  = "m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml"  
+    pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
+    pre_train_freeze: bool = True
     "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
     
     # training configurations
@@ -134,7 +137,7 @@ class TrainCfg:
     "resume training"    
     epochs: int = 100
     "number of training epochs"    
-    batch_size: int = 64 
+    batch_size: int = 8 
     "number of minibatch size"    
     hierarchical: bool = False
     hierarchical_step: int = 50

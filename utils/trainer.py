@@ -34,7 +34,7 @@ except ImportError:
 
 # imperative-planning-learning
 from config import TrainCfg
-from plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg
+from plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg, PRE_TRAIN_POSSIBLE
 from utils.torchutil import EarlyStopScheduler, count_parameters
 from dataset import PlannerData, PlannerDataGenerator, MultiEpochsDataLoader
 from traj_cost_opt import TrajCost, TrajViz
@@ -259,6 +259,7 @@ class Trainer:
     def _load_model(self, resume: bool = False) -> None:
         if self._cfg.sem or self._cfg.rgb:
             if self._cfg.pre_train_sem:
+                assert PRE_TRAIN_POSSIBLE, "Pretrained model not available since either detectron2 not installed or mask2former not found in thrid_party folder"
                 pre_train_cfg = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_cfg)
                 pre_train_weights = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
                 m2f_cfg = get_m2f_cfg(pre_train_cfg)

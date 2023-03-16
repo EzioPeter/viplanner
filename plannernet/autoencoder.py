@@ -1,75 +1,14 @@
 #!/usr/bin/env python3
-import os
 import torch
 import torch.nn as nn
-import pickle
 from typing import Optional
-import argparse
-
-# detectron2 and mask2former (used to load pre-trained models from Mask2Former)
-try:
-    os.environ["DETECTRON2_DISABLE_CV2"] = "1"
-    from detectron2.modeling.backbone import build_resnet_backbone
-    from detectron2.config import get_cfg, CfgNode
-    from detectron2.projects.deeplab import add_deeplab_config
-    from third_party.mask2former.mask2former import add_maskformer2_config
-    pre_train_possible = True
-except ImportError:
-    pre_train_possible = False
-    print("[Warning] Pre-trained ResNet50 models cannot be used since detectron2 and/or mask2former not found")
 
 # visual-imperative-planner
 from .PlannerNet import PlannerNet
+from .rgb_encoder import RGBEncoder, PRE_TRAIN_POSSIBLE
 from config import TrainCfg
 
-def get_m2f_cfg(cfg_path: str) -> CfgNode:
-    # load config from file
-    cfg = get_cfg()
-    add_deeplab_config(cfg)
-    add_maskformer2_config(cfg)
-    cfg.merge_from_file(cfg_path)
-    cfg.freeze()
-    return cfg
 
-  
-class RGBEncoder(nn.Module):
-    def __init__(self, cfg: CfgNode, weight_path: Optional[str] = None, freeze: bool = True) -> None:
-        super().__init__()
-        
-        # load pre-trained resnet
-        input_shape = argparse.Namespace()
-        input_shape.channels = 3
-        self.backbone = build_resnet_backbone(cfg, input_shape)
-        
-        # load weights
-        if weight_path is not None:
-            with open(weight_path, "rb") as file:
-                model_file = pickle.load(file, encoding="latin1")
-            
-            model_file['model'] = {k.replace("backbone.", ""): torch.tensor(v) for k, v in model_file['model'].items()}
-                    
-            missing_keys, unexpected_keys = self.backbone.load_state_dict(model_file['model'], strict=False)
-            if len(missing_keys) != 0:
-                print(f"[WARNING] Missing keys: {missing_keys}")
-                print(f"[WARNING] Unexpected keys: {unexpected_keys}")
-            print(f"[INFO] Loaded pre-trained backbone from {weight_path}")
-        
-        # freeze network
-        if freeze:
-            for param in self.backbone.parameters():
-                param.requires_grad = False
-                
-        # layers to get correct output shape --> modifiable
-        self.conv1 = nn.Conv2d(2048, 512, kernel_size=3, stride=1, padding=1)
-        
-        return
-        
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.backbone(x)['res5']    # size = (N, 2048, 12, 20) (height and width same as ResNet18)
-        x = self.conv1(x)               # size = (N, 512,  12, 20) 
-        return x
-        
-    
 class AutoEncoder(nn.Module):
     def __init__(self, encoder_channel=64, k=5):
         super().__init__()
@@ -84,15 +23,15 @@ class AutoEncoder(nn.Module):
 
 
 class DualAutoEncoder(nn.Module):
-    def __init__(self, train_cfg: TrainCfg, m2f_cfg: Optional[CfgNode] = None, weight_path: Optional[str] = None):
+    def __init__(self, train_cfg: TrainCfg, m2f_cfg = None, weight_path: Optional[str] = None):
         super().__init__()
         self.encoder_depth = PlannerNet(layers=[2, 2, 2, 2])
-        if train_cfg.rgb and train_cfg.pre_train_sem and pre_train_possible:
+        if train_cfg.rgb and train_cfg.pre_train_sem and PRE_TRAIN_POSSIBLE:
             self.encoder_sem = RGBEncoder(m2f_cfg, weight_path, freeze=train_cfg.pre_train_freeze)
         else:
             self.encoder_sem = PlannerNet(layers=[2, 2, 2, 2])
         
-        if self.train_cfg.decoder_small:
+        if train_cfg.decoder_small:
             self.decoder = DecoderS(1024, train_cfg.in_channel, train_cfg.knodes)
         else:
             self.decoder = Decoder(1024, train_cfg.in_channel, train_cfg.knodes)

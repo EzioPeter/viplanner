@@ -28,10 +28,11 @@ if __name__ == "__main__":
     matterport_overfit: TrainCfg = TrainCfg(
         sem=False,
         rgb=True,
+        decoder_small=False,
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio09_decoderS",
+        file_name="overfit_ratio09_rgb",
         hierarchical=False,
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,

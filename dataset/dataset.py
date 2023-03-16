@@ -513,7 +513,7 @@ class PlannerDataGenerator(Dataset):
         return
     
     def get_pairs(self):
-        print("Generating pairs of start and end points ...")
+        print("[INFO] Generating pairs of start and end points ...")
         # iterate over all odom points and find goal points
         self.odom_no_suitable_goals = 0
         self.odom_used = 0
@@ -526,10 +526,7 @@ class PlannerDataGenerator(Dataset):
             os.makedirs(os.path.join(self.root, "img_warp"), exist_ok=True)
         
         # get distances between odom and goal points
-        print("Computing distances and shortest paths ...")
         odom_goal_distances = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=self._cfg.max_goal_distance, weight='distance'))
-        # shortest_paths = nx.shortest_path(self.graph, weight='distance')
-        print("Done.")
         
         # init dataclass for each entry in the distance scheme
         self.category_scheme_pairs = dict([(distance, DistanceSchemeIdx(distance=distance)) for distance in self._cfg.distance_scheme.keys()])
@@ -601,7 +598,6 @@ class PlannerDataGenerator(Dataset):
 
                 # plot goal
                 o3d.visualization.draw_geometries(odom_vis_list)
-                
         return
 
     def reduce_pairs(

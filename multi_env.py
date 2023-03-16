@@ -16,7 +16,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio09",
+        file_name="overfit_resnet50",
         hierarchical=True,
     )
     # trainer = Trainer(matterport_overfit_hierarch)
@@ -26,7 +26,8 @@ if __name__ == "__main__":
     # torch.cuda.empty_cache()
     
     matterport_overfit: TrainCfg = TrainCfg(
-        sem=True,
+        sem=False,
+        rgb=True,
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
@@ -45,7 +46,8 @@ if __name__ == "__main__":
     torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
-        sem=True,
+        sem=False,
+        rgb=True,
         cost_map_name="cost_map_sem",
         file_name="decoderS",
         test_env_id=5,  # to make comparable with other runs
@@ -72,11 +74,11 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -96,9 +98,10 @@ if __name__ == "__main__":
     # torch.cuda.empty_cache()
 
     matterport_sem_harder: TrainCfg = TrainCfg(
-        sem=True,
+        sem=False,
+        rgb=True,
         cost_map_name="cost_map_sem",
-        file_name="fov0.80_back0.07_front0.13",
+        file_name="fov0.80_back0.07_front0.13_resnet50",
         data_cfg=DataCfg(
             ratio_fov_samples=0.80,
             ratio_back_samples=0.07,
@@ -116,6 +119,7 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         env_list=["town01", "town01"],
         test_env_id=1,
+        file_name="resnet50",
         data_cfg=DataCfg(
             max_goal_distance=10.0,
             max_depth=15,

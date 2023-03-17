@@ -30,7 +30,7 @@ def get_m2f_cfg(cfg_path: str):  # -> CfgNode:
 
   
 class RGBEncoder(nn.Module):
-    def __init__(self, cfg: CfgNode, weight_path: Optional[str] = None, freeze: bool = True) -> None:
+    def __init__(self, cfg, weight_path: Optional[str] = None, freeze: bool = True) -> None:
         super().__init__()
         
         # load pre-trained resnet

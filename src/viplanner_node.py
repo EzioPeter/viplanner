@@ -448,6 +448,7 @@ class VIPlannerNode:
             self.odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr(f"Odom: Fail to transfer {self.cfg.world_id,} into {self.cfg.robot_id}")
+            rospy.logerr(f"Odom: Fail to transfer {self.cfg.world_id,} into {self.cfg.robot_id}")
             return
         
         # transform goal into robot frame
@@ -459,7 +460,7 @@ class VIPlannerNode:
                                                                                          self.cfg.robot_id)
                     goal_robot_frame = self.tf_listener.transformPoint(self.cfg.robot_id, goal_robot_frame)
                 except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-                    rospy.logerr("Fail to transfer the goal into base frame.")
+                    rospy.logerr(f"Goal: Fail to transfer {self.goal_pose.header.frame_id} into {self.cfg.robot_id}")
                     return
             goal_robot_frame = torch.tensor([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
             self.goal_rb = goal_robot_frame

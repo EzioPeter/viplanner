@@ -19,7 +19,7 @@ import copy
 import time
 import numpy as np
 import scipy.spatial.transform as stf
-from typing import Optional, Union
+from typing import Optional
 import PIL
 
 # ROS
@@ -31,7 +31,6 @@ from sensor_msgs.msg import Image, Joy, CameraInfo, CompressedImage
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
-import message_filters
 import cv_bridge
 
 # init ros node
@@ -46,7 +45,7 @@ from utils.rosutil import ROSArgparse
 
 # conversion matrix from ROS camera convention (z-forward, y-down, x-right) to robotics convention (x-forward, y-left, z-up)
 ROS_TO_ROBOTICS_MAT = stf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True).as_matrix()
-CAMERA_FLIP_MAT = stf.Rotation.from_euler("XYZ", [180, 0, 0], degrees=True).as_matrix()
+CAMERA_FLIP_MAT     = stf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True).as_matrix()
 
 
 class VIPlannerNode:
@@ -59,59 +58,56 @@ class VIPlannerNode:
         self.cfg = cfg
 
         # init planner algo class
-        self.vip_algo = VIPlannerInference(
-            model_save=self.cfg.model_save,
-            sensor_offset_x=self.cfg.sensor_offset_x,
-            sensor_offset_y=self.cfg.sensor_offset_y,
-        )
-        # init semantic network
-        self.m2f_inference = Mask2FormerInference(
-            config_file=args.m2f_config_path,
-            model_weights=args.m2f_model_path,
-        )
+        self.vip_algo = VIPlannerInference(self.cfg)
+        
+        if self.vip_algo.train_cfg.sem:
+            # init semantic network
+            self.m2f_inference = Mask2FormerInference(
+                config_file=args.m2f_config_path,
+                model_weights=args.m2f_model_path,
+            )
+            self.m2f_timer_data = Float32()
+            self.m2f_timer_pub  = rospy.Publisher(self.cfg.m2f_timer_topic, Float32, queue_size=10)
 
-        # init transforms        
+        # init transforms
         self.tf_listener = tf.TransformListener()
+        
         # init bridge
         self.bridge = cv_bridge.CvBridge()
+        
         # init flags
-        self.image_time = rospy.get_rostime()
-        self.is_goal_init = False
-        self.ready_for_planning = False
-        self.is_goal_processed = False
-        self.is_smartjoy = False
-
+        self.is_goal_init               = False
+        self.ready_for_planning_depth   = False
+        self.ready_for_planning_rgb_sem = False
+        self.is_goal_processed          = False
+        self.is_smartjoy                = False
+        
         # planner status
         self.planner_status = Int16()
         self.planner_status.data = 0
-
-
+        
         # fear reaction
         self.fear_buffter = 0
         self.is_fear_reaction = False
         
         # process time
         self.vip_timer_data = Float32()
-        self.m2f_timer_data = Float32()
         self.vip_timer_pub  = rospy.Publisher('/vip_timer', Float32, queue_size=10)
-        self.m2f_timer_pub  = rospy.Publisher(self.cfg.m2f_timer_topic, Float32, queue_size=10)
         
-        # depth and rgb image message --> time syncronization by message_filters
-        self.depth_img: np.ndarray = None
-        self.rgb_img: np.ndarray = None
-        self.pix_depth_cam_frame: np.ndarray = None
-        self.odom: torch.Tensor = None
-        img_depth_sub = message_filters.Subscriber(self.cfg.depth_topic, Image)
+        # depth and rgb image message
+        self.depth_time = rospy.get_rostime()
+        self.depth_img: np.ndarray              = None
+        self.depth_pose: np.ndarray             = None
+        self.sem_rgb_img: np.ndarray            = None
+        self.sem_rgb_odom: np.ndarray           = None
+        self.pix_depth_cam_frame: np.ndarray    = None
+        self.odom: torch.Tensor                 = None
+        rospy.Subscriber(self.cfg.depth_topic, Image, callback=self.depthCallback)
         if self.cfg.compressed:
-            img_rgb_sub = message_filters.Subscriber(self.cfg.rgb_topic, CompressedImage)
+            rospy.Subscriber(self.cfg.rgb_topic, CompressedImage, callback=self.imageCallbackCompressed)
         else:
-            img_rgb_sub = message_filters.Subscriber(self.cfg.rgb_topic, Image)
-        ts = message_filters.ApproximateTimeSynchronizer([img_depth_sub, img_rgb_sub], 40, 0.05)
-        if self.cfg.compressed:
-            ts.registerCallback(self.imageCallbackCompressed)
-        else:
-            ts.registerCallback(self.imageCallback)
-        
+            rospy.Subscriber(self.cfg.rgb_topic, Image, callback=self.imageCallback)
+
         # subscribe to further topics
         rospy.Subscriber(self.cfg.goal_topic, PointStamped, self.goalCallback)
         rospy.Subscriber("/joy", Joy, self.joyCallback, queue_size=10)
@@ -142,35 +138,32 @@ class VIPlannerNode:
     def spin(self):
         r = rospy.Rate(self.cfg.main_freq)
         while not rospy.is_shutdown():
-            if self.ready_for_planning and self.is_goal_init:
-                # main planning starts
-                cur_rgb_image = self.rgb_img.copy()
+            if all((self.ready_for_planning_rgb_sem, self.ready_for_planning_depth, self.is_goal_init)):
+                # copy current data
+                cur_rgb_image = self.sem_rgb_img.copy()
                 cur_depth_image = self.depth_img.copy()
                 cur_depth_pose = self.depth_pose.copy()
-                cur_rgb_pose = self.rgb_pose.copy()
+                cur_rgb_pose = self.sem_rgb_odom.copy()
 
                 # warp rgb image
                 start = time.time()
                 if self.pix_depth_cam_frame is None:
                     self.initPixArray(cur_depth_image.shape)
-                crop_rgb_image = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
+                crop_image, overlap_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
                 time_warp = time.time() - start
 
-                # semantic estimation
-                start = time.time()
-                cur_sem_image = self.m2f_inference.predict(crop_rgb_image)
-                time_sem = time.time() - start
-
+                if overlap_ratio < self.cfg.overlap_ratio_thres:
+                    print(f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}")
+                    continue
+                
                 # Network Planning
                 start = time.time()
-                self.preds, self.waypoints, self.fear = self.vip_algo.plan(cur_depth_image, cur_sem_image, self.goal_rb)
+                self.preds, self.waypoints, self.fear = self.vip_algo.plan(cur_depth_image, crop_image, self.goal_rb)
                 time_planner = time.time() - start
                 
                 start = time.time()
                 
                 # publish time
-                self.m2f_timer_data.data = time_sem * 1000
-                self.m2f_timer_pub.publish(self.m2f_timer_data)
                 self.vip_timer_data.data = time_planner * 1000
                 self.vip_timer_pub.publish(self.vip_timer_data)
                 
@@ -199,16 +192,20 @@ class VIPlannerNode:
                 self.pubPath(self.waypoints, self.is_goal_init)
                 
                 time_other = time.time() - start
-                print(f"Path predicted in {round(time_warp + time_sem + time_planner + time_other, 4)}s \t warp: {round(time_warp, 4)}s \t sem: {round(time_sem, 4)}s \t planner: {round(time_planner, 4)}s \t other: {round(time_other, 4)}s")
+                if self.vip_algo.train_cfg.pre_train_sem:
+                    print(f"Path predicted in {round(time_warp + self.time_sem + time_planner + time_other, 4)}s \t warp: {round(time_warp, 4)}s \t sem: {round(self.time_sem, 4)}s \t planner: {round(time_planner, 4)}s \t other: {round(time_other, 4)}s")
+                    self.time_sem = 0
+                else:
+                    print(f"Path predicted in {round(time_warp + time_planner + time_other, 4)}s \t warp: {round(time_warp, 4)}s \t planner: {round(time_planner, 4)}s \t other: {round(time_other, 4)}s")
 
                 # vizualize path
                 if self.cfg.path_viz:
-                    self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal_rb, self.fear, cur_depth_image, cur_sem_image)
+                    self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal_rb, self.fear, cur_depth_image, crop_image)
 
             r.sleep()
         rospy.spin()
 
-    """RGB IMAGE WARP"""
+    """RGB/ SEM IMAGE WARP"""
     def initPixArray(self, img_shape: tuple):
         # get image plane mesh grid
         pix_u = np.arange(0, img_shape[1])
@@ -250,6 +247,8 @@ class VIPlannerNode:
         rgb_pixels = np.zeros((pixels.shape[0], 3))
         rgb_pixels[filter_idx] = rgb_img[pixels[filter_idx, 1].astype(int)-1, pixels[filter_idx, 0].astype(int)-1]
         rgb_warped = rgb_pixels.reshape(depth_img.shape[0], depth_img.shape[1], 3)
+        # overlap ratio
+        overlap_ratio = np.sum(filter_idx) / pixels.shape[0]
         
         # DEBUG
         if self.debug:
@@ -263,7 +262,7 @@ class VIPlannerNode:
             plt.show()    
         
         # reshape to image
-        return rgb_warped
+        return rgb_warped, overlap_ratio
     
     """PATH PUB, GOLA SUB and FEAR DETECTION"""
 
@@ -279,7 +278,7 @@ class VIPlannerNode:
                 path.poses.append(pose)
         # add header
         path.header.frame_id = fear_path.header.frame_id = self.cfg.robot_id
-        path.header.stamp = fear_path.header.stamp = self.image_time
+        path.header.stamp = fear_path.header.stamp = self.depth_time
         # publish fear path
         if self.is_fear_reaction:
             fear_path.poses = copy.deepcopy(path.poses)
@@ -352,27 +351,22 @@ class VIPlannerNode:
         self.planner_status.data = 0
         return
 
-    def pubRenderImage(self, preds, waypoints, odom, goal, fear, dep_image, sem_image):
-        if self.traj_viz is None:
-            self.traj_viz = TrajViz(intrinsics=self.K_depth)
-
-        if torch.cuda.is_available():
-            odom = odom.cuda()
-            goal = goal.cuda()
+    """RGB IMAGE AND DEPTH CALLBACKS"""
+    def poseCallback(self, frame_id: str, stamp: rospy.Time):
+        try:            
+            self.tf_listener.waitForTransform(self.cfg.world_id, frame_id, rospy.Time(0), rospy.Duration(4.0))
+            t = self.tf_listener.getLatestCommonTime(self.cfg.world_id, frame_id)
+            pose = self.tf_listener.lookupTransform(self.cfg.world_id, frame_id, t)
+            pose = np.hstack(pose)
+        except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            rospy.logerr(f"Fail to transfer {frame_id} into {self.cfg.world_id} frame.")
+        return pose
             
-        image = self.traj_viz.VizImages(preds, waypoints, odom, goal, fear, dep_image)[0]
-        ros_img = ros_numpy.msgify(Image, image, encoding='rgb8')
-        self.img_pub_dep.publish(ros_img)
-        return None
-    
-    """IMAGE CALLBACKS"""
+    def imageCallback(self, rgb_msg: Image):
+        rospy.logdebug("Received rgb image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
 
-    def imageCallback(self, depth_msg: Image, rgb_msg: Image):
-        rospy.logdebug("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
-        rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))        
-
-        # image time
-        self.image_time = depth_msg.header.stamp
+        # image pose
+        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
         
         # RGB image
         try:
@@ -383,59 +377,69 @@ class VIPlannerNode:
         except cv_bridge.CvBridgeError as e:
             print(e)
 
-        self.depthCallback(depth_msg)
-        self.poseCallback(rgb_msg, depth_msg)
+        if self.vip_algo.train_cfg.pre_train_sem:
+            image = self.semPrediction(image)
+        
+        self.sem_rgb_odom = pose
+        self.sem_rgb_img = image
         return        
             
-    def imageCallbackCompressed(self, depth_msg: Image, rgb_msg: CompressedImage):
+    def imageCallbackCompressed(self, rgb_msg: CompressedImage):
         rospy.logdebug("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
-        rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
 
-        # image time
-        self.image_time = depth_msg.header.stamp
-
+        # image pose
+        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        
         # RGB Image
         try:
             rgb_arr = np.frombuffer(rgb_msg.data, np.uint8)
-            self.rgb_img = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
+            image = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
             # rotate image 90 degrees coutner clockwise
             if not self.cfg.image_flip:
-                self.rgb_img = cv2.rotate(self.rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
         except cv_bridge.CvBridgeError as e:
             print(e)
 
-        self.depthCallback(depth_msg)
-        self.poseCallback(rgb_msg, depth_msg)
-        return
-    
-    def depthCallback(self, depth_msg: Image):
-        # DEPTH Image
-        frame = ros_numpy.numpify(depth_msg)
-        frame[~np.isfinite(frame)] = 0
-        if self.cfg.depth_uint_type:
-            frame = frame / 1000.0
-        frame[frame > self.cfg.max_depth] = 0.0
-        if self.cfg.image_flip:
-            frame = PIL.Image.fromarray(frame)
-            self.depth_img = np.array(frame.transpose(PIL.Image.Transpose.ROTATE_180))
-        else:
-            self.depth_img = frame
-        return
-    
-    def poseCallback(self, rgb_msg: Union[Image, CompressedImage], depth_msg: Image):
-        # get current pose of semantic and depth image
-        try:            
-            pose = self.tf_listener.lookupTransform(self.cfg.robot_id, rgb_msg.header.frame_id, rgb_msg.header.stamp)
-            self.rgb_pose = np.hstack(pose)
-        except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to transfer the goal into base frame.")
-        try:
-            pose = self.tf_listener.lookupTransform(self.cfg.robot_id, depth_msg.header.frame_id, depth_msg.header.stamp)
-            self.depth_pose = np.hstack(pose)
-        except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to transfer the goal into base frame.")
+        if self.vip_algo.train_cfg.sem:
+            image = self.semPrediction(image)
         
-       # get odom from TF for camera image visualization 
+        self.sem_rgb_img = image
+        self.sem_rgb_odom = pose
+        self.sem_rgb_new = True
+        self.ready_for_planning_rgb_sem = True
+        return
+    
+    def semPrediction(self, image):
+        # semantic estimation
+        start = time.time()
+        image = self.m2f_inference.predict(image)
+        self.time_sem = time.time() - start
+        # publish prediction time
+        self.m2f_timer_data.data = self.time_sem * 1000
+        self.m2f_timer_pub.publish(self.m2f_timer_data)
+        # TODO: publish semantic image
+        return image
+        
+    def depthCallback(self, depth_msg: Image):
+        rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
+
+        # image time and pose
+        self.depth_time = depth_msg.header.stamp
+        self.depth_pose = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp)
+        
+        # DEPTH Image
+        image = ros_numpy.numpify(depth_msg)
+        image[~np.isfinite(image)] = 0
+        if self.cfg.depth_uint_type:
+            image = image / 1000.0
+        image[image > self.cfg.max_depth] = 0.0
+        if self.cfg.image_flip:
+            image = PIL.Image.fromarray(image)
+            self.depth_img = np.array(image.transpose(PIL.Image.Transpose.ROTATE_180))
+        else:
+            self.depth_img = image
+        
+        # get odom from TF for camera image visualization 
         try:
             self.tf_listener.waitForTransform(self.cfg.world_id, self.cfg.robot_id, rospy.Time(0), rospy.Duration(4.0))
             t = self.tf_listener.getLatestCommonTime(self.cfg.world_id, self.cfg.robot_id)
@@ -443,7 +447,7 @@ class VIPlannerNode:
             odom.extend(ori)
             self.odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr("Fail to get odomemrty from tf.")
+            rospy.logerr(f"Odom: Fail to transfer {self.cfg.world_id,} into {self.cfg.robot_id}")
             return
         
         # transform goal into robot frame
@@ -459,14 +463,13 @@ class VIPlannerNode:
                     return
             goal_robot_frame = torch.tensor([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
             self.goal_rb = goal_robot_frame
-        else:
-            return        
-
+        
         # declare ready for planning
-        self.ready_for_planning = True
+        self.ready_for_planning_depth = True
         self.is_goal_processed  = True
         return
-
+    
+    """ Camera Info Callbacks"""
     def depthCamInfoCallback(self, cam_info_msg: CameraInfo):
         if not self.depth_intrinsics_init:
             rospy.loginfo("Received depth camera info")
@@ -482,6 +485,7 @@ class VIPlannerNode:
             self.K_rgb = np.array(self.K_rgb).reshape(3, 3)
             self.rgb_intrinsics_init = True
         return
+
  
 if __name__ == '__main__':
 
@@ -501,15 +505,18 @@ if __name__ == '__main__':
     parser.add_argument('max_depth',        type=float, default=10.0,                       
         help='max depth distance in image'
     )
+    parser.add_argument('overlap_ratio_thres',type=float, default=0.7,                       
+        help='overlap threshold betweens sem/rgb and depth image'
+    )
     # networks 
     parser.add_argument('model_save',       type=str,   default='models/vip_models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD',    
         help="model directory (within should be a file called model.pt and model.yaml)"
     )
     parser.add_argument('m2f_cfg_file',     type=str,   default='models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml',   
-        help="config file for m2f model"
+        help="config file for m2f model (or pre-trained backbone for direct RGB input)"
     )
     parser.add_argument('m2f_model_path',   type=str,   default='models/coco_panoptic/swin/model_final_9fd0ae.pkl',   
-        help="read model"
+        help="read model for m2f model (or pre-trained backbone for direct RGB input)"
     )
     # ROS topics
     parser.add_argument('depth_topic',     type=str,    default='/rgbd_camera/depth/image', 

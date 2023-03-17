@@ -10,15 +10,13 @@
 
 # python
 import os
-import PIL
 import torch
 import numpy as np
 import math
-from typing import Optional
 import torchvision.transforms as transforms
 
 # viplanner src
-from .viplanner.plannernet.autoencoder import DualAutoEncoder
+from .viplanner.plannernet import DualAutoEncoder, get_m2f_cfg
 from .viplanner.traj_cost_opt.traj_opt import TrajOpt
 from .viplanner.config.learning_cfg import TrainCfg
 
@@ -28,9 +26,7 @@ torch.set_default_dtype(torch.float32)
 class VIPlannerInference:
     def __init__(
         self,
-        model_save: str, 
-        sensor_offset_x: float = 0.47,
-        sensor_offset_y: float = 0.0,
+        cfg,
     ) -> None:
         """ VIPlanner Inference Script
 
@@ -40,16 +36,24 @@ class VIPlannerInference:
             sensor_offset_y (float, optional): sensor offset in y direction. Defaults to 0.0.
         """
         # get configs
-        self._sensor_offset_x = sensor_offset_x
-        self._sensor_offset_y = sensor_offset_y
-        model_path = os.path.join(model_save, "model.pt")
-        config_path = os.path.join(model_save, "model.yaml")
+        self._sensor_offset_x = cfg.sensor_offset_x
+        self._sensor_offset_y = cfg.sensor_offset_y
+        model_path  = os.path.join(cfg.model_save, "model.pt")
+        config_path = os.path.join(cfg.model_save, "model.yaml")
         
         # get train config
-        train_cfg: TrainCfg = TrainCfg.from_yaml(config_path)
+        self.train_cfg: TrainCfg = TrainCfg.from_yaml(config_path)
         
         # get model
-        self.net = DualAutoEncoder(encoder_channel=train_cfg.in_channel, k=train_cfg.knodes)
+        if self.train_cfg.rgb:
+            m2f_cfg = get_m2f_cfg(cfg.m2f_config_path)
+            self.pixel_mean = m2f_cfg.MODEL.PIXEL_MEAN
+            self.pixel_std = m2f_cfg.MODEL.PIXEL_STD
+        else:
+            m2f_cfg = None
+            self.pixel_mean = [0, 0, 0]
+            self.pixel_std = [1, 1, 1]
+        self.net = DualAutoEncoder(train_cfg=self.train_cfg, m2f_cfg=m2f_cfg)
         try:
             model_state_dict, _ = torch.load(model_path)
         except ValueError:
@@ -68,8 +72,9 @@ class VIPlannerInference:
             
         # transforms
         self.transforms = transforms.Compose([
-            transforms.Resize(tuple(train_cfg.img_input_size)),
-            transforms.ToTensor()]
+            transforms.ToTensor(),
+            transforms.Resize(tuple(self.train_cfg.img_input_size))
+            ]
         )
         
         # get trajectory generator
@@ -84,7 +89,6 @@ class VIPlannerInference:
 
     def img_converter(self, img: np.ndarray) -> torch.Tensor:
         # crop image and convert to tensor
-        img = PIL.Image.fromarray(img)
         img = self.transforms(img)
         img = img.unsqueeze(0).to(self._device)
         return img
@@ -92,7 +96,7 @@ class VIPlannerInference:
     def plan(
         self,
         depth_image: np.ndarray,
-        sem_image: np.ndarray,
+        sem_rgb_image: np.ndarray,
         goal_robot_frame: torch.Tensor,
     ) -> tuple:
         """Plan to path towards the goal given depth and semantic image
@@ -100,16 +104,19 @@ class VIPlannerInference:
         Args:
             depth_image (np.ndarray): Depth image from the robot
             goal_robot_frame (torch.Tensor): Goal in robot frame
-            sem_image (Optional[np.ndarray], optional): Semantic Image from the robot. Defaults to None.
+            sem_rgb_image (np.ndarray): Semantic/ RGB Image from the robot.
 
         Returns:
             tuple: _description_
         """
         # get keypoints and fear from planner
         with torch.no_grad():
-            depth_image = self.img_converter(depth_image)
-            sem_image = self.img_converter(sem_image)
-            keypoints, fear = self.net(depth_image, sem_image, goal_robot_frame.to(self._device))
+            depth_image = self.img_converter(depth_image).float()
+            if self.train_cfg.rgb:
+                sem_rgb_image = sem_rgb_image
+                sem_rgb_image = (sem_rgb_image - self.pixel_mean) / self.pixel_std
+            sem_rgb_image = self.img_converter(sem_rgb_image).float()
+            keypoints, fear = self.net(depth_image, sem_rgb_image, goal_robot_frame.to(self._device))
 
         # add potential offset from sensor to robot
         if self.is_traj_shift:

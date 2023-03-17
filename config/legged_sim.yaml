@@ -1,11 +1,12 @@
 # planning
-main_freq:              15
+main_freq:              5
 image_flip:             True
 conv_dist:              0.5
 max_depth:              15
+overlap_ratio_thres:    0.75
 # network model
 model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD
-m2f_config_file:        models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml 
+m2f_cfg_file:           models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml 
 m2f_model_path:         models/coco_panoptic/swin/model_final_9fd0ae.pkl
 # ros topics
 depth_topic:            /depth_camera_front_upper/depth/image_rect_raw

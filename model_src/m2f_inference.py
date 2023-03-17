@@ -64,7 +64,7 @@ class Predictor:
 class Mask2FormerInference:
     """Run Inference on Mask2Former model to estimate semantic segmentation"""
 
-    debug: bool = True
+    debug: bool = False
     
     def __init__(
         self,

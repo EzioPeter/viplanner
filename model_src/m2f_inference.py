@@ -57,7 +57,8 @@ class Predictor:
             image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
             
             inputs = {"image": image, "height": height, "width": width}
-            predictions = self.model([inputs])[0]
+            with torch.cuda.amp.autocast():  # 16 bit precision to speed up inference
+                predictions = self.model([inputs])[0]
             return predictions
 
 

@@ -139,7 +139,7 @@ class TrainCfg:
     "resume training"    
     epochs: int = 100
     "number of training epochs"    
-    batch_size: int = 8 
+    batch_size: int = 64
     "number of minibatch size"    
     hierarchical: bool = False
     hierarchical_step: int = 50

@@ -27,8 +27,10 @@ def construct_datacfg(loader, node):
 Loader.add_constructor('tag:yaml.org,2002:python/object:config.learning_cfg.DataCfg', construct_datacfg)
 # after evaluation in isaac sim, tag changes 
 Loader.add_constructor('tag:yaml.org,2002:python/object:omni.isaac.anymal.viplanner.src.config.learning_cfg.DataCfg', construct_datacfg)
+# backward compatibility with prev version
+Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
 
-      
+
 @dataclass
 class DataCfg:
     """Config for data loading (only available for new dataloader --> flag in TrainCfg)"""

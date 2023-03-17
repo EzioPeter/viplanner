@@ -8,15 +8,23 @@ import argparse
 
 # detectron2 and mask2former (used to load pre-trained models from Mask2Former)
 try:
-    os.environ["DETECTRON2_DISABLE_CV2"] = "1"
     from detectron2.modeling.backbone import build_resnet_backbone
-    from detectron2.config import get_cfg, CfgNode
+    from detectron2.config import get_cfg
     from detectron2.projects.deeplab import add_deeplab_config
-    from third_party.mask2former.mask2former import add_maskformer2_config
     PRE_TRAIN_POSSIBLE = True
 except ImportError:
     PRE_TRAIN_POSSIBLE = False
-    print("[Warning] Pre-trained ResNet50 models cannot be used since detectron2 and/or mask2former not found")
+    print("[Warning] Pre-trained ResNet50 models cannot be used since detectron2 not found")
+
+try:
+    from third_party.mask2former.mask2former import add_maskformer2_config
+except ImportError:
+    # compatibility with VIPlanner ROSnode
+    try:
+        from model_src.mask2former.mask2former import add_maskformer2_config
+    except ImportError:
+        PRE_TRAIN_POSSIBLE = False
+        print("[Warning] Pre-trained ResNet50 models cannot be used since mask2former not found")
 
 
 def get_m2f_cfg(cfg_path: str):  # -> CfgNode:

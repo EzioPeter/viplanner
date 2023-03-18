@@ -31,13 +31,9 @@ class VIPlannerInference:
         """ VIPlanner Inference Script
 
         Args:
-            model_save (str): path to the model directory containing model.pt and model.yaml
-            sensor_offset_x (float, optional): sensor offset in x direction. Defaults to 0.47.
-            sensor_offset_y (float, optional): sensor offset in y direction. Defaults to 0.0.
+            cfg (Namespace): Config Namespace
         """
         # get configs
-        self._sensor_offset_x = cfg.sensor_offset_x
-        self._sensor_offset_y = cfg.sensor_offset_y
         model_path  = os.path.join(cfg.model_save, "model.pt")
         config_path = os.path.join(cfg.model_save, "model.yaml")
         
@@ -79,12 +75,6 @@ class VIPlannerInference:
         
         # get trajectory generator
         self.traj_generate = TrajOpt()
-        
-        # recognize shift in trajectory
-        self.is_traj_shift = False
-        if math.hypot(self._sensor_offset_x, self._sensor_offset_y) > 1e-1:
-            self.is_traj_shift = True
-            print("Trajectory will be shifted by ({}, {})".format(self._sensor_offset_x, self._sensor_offset_y))
         return
 
     def img_converter(self, img: np.ndarray) -> torch.Tensor:
@@ -118,16 +108,9 @@ class VIPlannerInference:
             sem_rgb_image = self.img_converter(sem_rgb_image).float()
             keypoints, fear = self.net(depth_image, sem_rgb_image, goal_robot_frame.to(self._device))
 
-        # add potential offset from sensor to robot
-        if self.is_traj_shift:
-            batch_size, _, dims = keypoints.shape
-            keypoints = torch.cat((torch.zeros(batch_size, 1, dims, device=keypoints.device, requires_grad=False), keypoints), axis=1)
-            keypoints[..., 0] += self._sensor_offset_x
-            keypoints[..., 1] += self._sensor_offset_y
-        
         # generate trajectory
         traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1)
 
-        return keypoints, traj, fear
+        return traj.cpu().squeeze(0).numpy(), fear.cpu().numpy()
 
 # EoF

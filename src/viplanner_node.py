@@ -26,7 +26,7 @@ import PIL
 import rospy
 import rospkg
 import tf
-from std_msgs.msg import Float32, Int16
+from std_msgs.msg import Float32, Int16, Header
 from sensor_msgs.msg import Image, Joy, CameraInfo, CompressedImage
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
@@ -95,7 +95,8 @@ class VIPlannerNode:
         self.vip_timer_pub  = rospy.Publisher('/vip_timer', Float32, queue_size=10)
         
         # depth and rgb image message
-        self.depth_time = rospy.get_rostime()
+        self.depth_header: Header = Header()
+        self.depth_header.stamp = rospy.get_rostime()
         self.depth_img: np.ndarray              = None
         self.depth_pose: np.ndarray             = None
         self.sem_rgb_img: np.ndarray            = None
@@ -158,17 +159,20 @@ class VIPlannerNode:
                 
                 # Network Planning
                 start = time.time()
-                self.preds, self.waypoints, self.fear = self.vip_algo.plan(cur_depth_image, crop_image, self.goal_rb)
+                waypoints, fear = self.vip_algo.plan(cur_depth_image, crop_image, self.goal_cam_frame)
                 time_planner = time.time() - start
                 
                 start = time.time()
+                
+                # transform waypoint to robot frame (prev in depth cam frame with robotics convention)
+                waypoints = (self.cam_rot.T @ waypoints.T).T + self.cam_offset
                 
                 # publish time
                 self.vip_timer_data.data = time_planner * 1000
                 self.vip_timer_pub.publish(self.vip_timer_data)
                 
                 # check goal less than converage range
-                if (np.sqrt(self.goal_rb[0][0]**2 + self.goal_rb[0][1]**2) < self.cfg.conv_dist) and self.is_goal_processed and (not self.is_smartjoy):
+                if (np.sqrt(self.goal_cam_frame[0][0]**2 + self.goal_cam_frame[0][1]**2) < self.cfg.conv_dist) and self.is_goal_processed and (not self.is_smartjoy):
                     self.ready_for_planning = False
                     self.is_goal_init = False
                     # planner status -> Success
@@ -179,8 +183,8 @@ class VIPlannerNode:
                 
                 # check for path with high risk (=fear) path
                 if self.cfg.is_fear_act:
-                    is_track_ahead = self.isForwardTraking(self.waypoints)
-                    self.fearPathDetection(self.fear, is_track_ahead)
+                    is_track_ahead = self.isForwardTraking(waypoints)
+                    self.fearPathDetection(fear, is_track_ahead)
                     if self.is_fear_reaction:
                         rospy.logwarn_throttle(2.0, "current path prediction is invaild.")
                         # planner status -> Fails
@@ -189,7 +193,7 @@ class VIPlannerNode:
                             self.status_pub.publish(self.planner_status)
                 
                 # publish path
-                self.pubPath(self.waypoints, self.is_goal_init)
+                self.pubPath(waypoints, self.is_goal_init)
                 
                 time_other = time.time() - start
                 if self.vip_algo.train_cfg.pre_train_sem:
@@ -197,10 +201,6 @@ class VIPlannerNode:
                     self.time_sem = 0
                 else:
                     print(f"Path predicted in {round(time_warp + time_planner + time_other, 4)}s \t warp: {round(time_warp, 4)}s \t planner: {round(time_planner, 4)}s \t other: {round(time_other, 4)}s")
-
-                # vizualize path
-                if self.cfg.path_viz:
-                    self.pubRenderImage(self.preds, self.waypoints, self.odom, self.goal_rb, self.fear, cur_depth_image, crop_image)
 
             r.sleep()
         rospy.spin()
@@ -270,15 +270,17 @@ class VIPlannerNode:
         path = Path()
         fear_path = Path()
         if is_goal_init:
-            for p in waypoints.squeeze(0):
+            for p in waypoints:
+                # gte individual pose in depth frame
                 pose = PoseStamped()
                 pose.pose.position.x = p[0]
                 pose.pose.position.y = p[1]
                 pose.pose.position.z = p[2]
+                # append to path
                 path.poses.append(pose)
         # add header
         path.header.frame_id = fear_path.header.frame_id = self.cfg.robot_id
-        path.header.stamp = fear_path.header.stamp = self.depth_time
+        path.header.stamp = fear_path.header.stamp = self.depth_header.stamp
         # publish fear path
         if self.is_fear_reaction:
             fear_path.poses = copy.deepcopy(path.poses)
@@ -303,10 +305,9 @@ class VIPlannerNode:
     def isForwardTraking(self, waypoints):
         xhead = np.array([1.0, 0])
         phead = None
-        for p in waypoints.squeeze(0):
-            if torch.norm(p[0:2]).item() > self.cfg.track_dist:
-                phead = np.array([p[0].item(), p[1].item()])
-                phead /= np.linalg.norm(phead)
+        for p in waypoints:
+            if np.linalg.norm(p[0:2]) > self.cfg.track_dist:
+                phead = p[0:2] / np.linalg.norm(p[0:2])
                 break
         if np.all(phead != None) and phead.dot(xhead) > 1.0 - self.cfg.angular_thred:
             return True
@@ -352,21 +353,22 @@ class VIPlannerNode:
         return
 
     """RGB IMAGE AND DEPTH CALLBACKS"""
-    def poseCallback(self, frame_id: str, stamp: rospy.Time):
+    def poseCallback(self, frame_id: str, target_frame_id: Optional[str] = None):
+        target_frame_id = target_frame_id if target_frame_id else self.cfg.world_id
         try:            
-            self.tf_listener.waitForTransform(self.cfg.world_id, frame_id, rospy.Time(0), rospy.Duration(4.0))
-            t = self.tf_listener.getLatestCommonTime(self.cfg.world_id, frame_id)
-            pose = self.tf_listener.lookupTransform(self.cfg.world_id, frame_id, t)
+            self.tf_listener.waitForTransform(target_frame_id, frame_id, rospy.Time(0), rospy.Duration(4.0))
+            t = self.tf_listener.getLatestCommonTime(target_frame_id, frame_id)
+            pose = self.tf_listener.lookupTransform(target_frame_id, frame_id, t)
             pose = np.hstack(pose)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr(f"Fail to transfer {frame_id} into {self.cfg.world_id} frame.")
+            rospy.logerr(f"Fail to transfer {frame_id} into {target_frame_id} frame.")
         return pose
             
     def imageCallback(self, rgb_msg: Image):
         rospy.logdebug("Received rgb image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
 
         # image pose
-        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        pose = self.poseCallback(rgb_msg.header.frame_id)
         
         # RGB image
         try:
@@ -388,7 +390,7 @@ class VIPlannerNode:
         rospy.logdebug("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
 
         # image pose
-        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        pose = self.poseCallback(rgb_msg.header.frame_id)
         
         # RGB Image
         try:
@@ -424,9 +426,8 @@ class VIPlannerNode:
         rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
 
         # image time and pose
-        self.depth_time = depth_msg.header.stamp
-        self.depth_pose = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp)
-        
+        self.depth_header = depth_msg.header
+        self.depth_pose = self.poseCallback(depth_msg.header.frame_id)
         # DEPTH Image
         image = ros_numpy.numpify(depth_msg)
         image[~np.isfinite(image)] = 0
@@ -439,18 +440,6 @@ class VIPlannerNode:
         else:
             self.depth_img = image
         
-        # get odom from TF for camera image visualization 
-        try:
-            self.tf_listener.waitForTransform(self.cfg.world_id, self.cfg.robot_id, rospy.Time(0), rospy.Duration(4.0))
-            t = self.tf_listener.getLatestCommonTime(self.cfg.world_id, self.cfg.robot_id)
-            (odom, ori) = self.tf_listener.lookupTransform(self.cfg.world_id, self.cfg.robot_id, t)
-            odom.extend(ori)
-            self.odom = torch.tensor(odom, dtype=torch.float32).unsqueeze(0)
-        except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            rospy.logerr(f"Odom: Fail to transfer {self.cfg.world_id,} into {self.cfg.robot_id}")
-            rospy.logerr(f"Odom: Fail to transfer {self.cfg.world_id,} into {self.cfg.robot_id}")
-            return
-        
         # transform goal into robot frame
         if self.is_goal_init:
             goal_robot_frame = self.goal_pose;
@@ -462,8 +451,13 @@ class VIPlannerNode:
                 except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
                     rospy.logerr(f"Goal: Fail to transfer {self.goal_pose.header.frame_id} into {self.cfg.robot_id}")
                     return
-            goal_robot_frame = torch.tensor([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z], dtype=torch.float32)[None, ...]
-            self.goal_rb = goal_robot_frame
+            # get transform from robot frame to depth camera frame
+            tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, self.cfg.robot_id)
+            self.cam_offset = tf_robot_depth[0:3]
+            self.cam_rot = stf.Rotation.from_quat(tf_robot_depth[3:7]).as_matrix() @ ROS_TO_ROBOTICS_MAT
+            goal_robot_frame = np.array([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z])
+            goal_cam_frame = self.cam_rot @ (goal_robot_frame - self.cam_offset).T
+            self.goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]
         
         # declare ready for planning
         self.ready_for_planning_depth = True
@@ -568,13 +562,6 @@ if __name__ == '__main__':
     )
     parser.add_argument('track_dist',      type=float,   default=0.5,                        
         help='look ahead distance for path tracking'
-    )
-    # sensor offset
-    parser.add_argument('sensor_offset_x', type=float,   default=0.0,                        
-        help='sensor offset X'
-    )
-    parser.add_argument('sensor_offset_y', type=float,   default=0.0,                        
-        help='sensor offset Y'
     )
     # smart joystick
     parser.add_argument('joyGoal_scale',   type=float,   default=0.5,                        

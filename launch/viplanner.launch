@@ -4,6 +4,7 @@
 
     <group if="$(arg use_path_follow)">
         <include file="$(find mp_local_planner)/launch/path_follower.launch" />
+        <!-- <include file="$(find ps3joy)/launch/ps3.launch" /> -->
     </group>
 
     <!-- VIPlanner Node to generate waypoints using depth and semantic input information -->

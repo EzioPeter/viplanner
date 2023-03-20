@@ -15,6 +15,7 @@ from detectron2.config import get_cfg, CfgNode
 from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.modeling import build_model
+from detectron2.engine.defaults import DefaultPredictor
 
 # ROS
 import rospy
@@ -71,6 +72,7 @@ class Mask2FormerInference:
         self,
         config_file="configs/coco/panoptic-segmentation/maskformer2_R50_bs16_50ep.yaml",
         model_weights="model_final.pth",
+        default_predictor: bool = False,
     ) -> None:
         
         # set arguments
@@ -81,7 +83,11 @@ class Mask2FormerInference:
         self._cfg = self._setup_cfg()
 
         # load model and weights
-        self.predictor = Predictor(self._cfg)
+        if default_predictor:
+            rospy.logwarn("Using default predictor. Make sure to have changed detectron2 to 16bit precision for improved inference speed.")
+            self.predictor = DefaultPredictor(self._cfg)
+        else:
+            self.predictor = Predictor(self._cfg)
 
         # mapping from coco class id to viplanner class id and corresponding color 
         viplanner_meta = VIPlannerSemMetaHandler()

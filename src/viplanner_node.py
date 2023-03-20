@@ -33,6 +33,9 @@ from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
 import cv_bridge
 
+import warnings
+warnings.filterwarnings('ignore')
+
 # init ros node
 rospack = rospkg.RosPack()
 pack_path = rospack.get_path('viplanner_node')
@@ -103,11 +106,11 @@ class VIPlannerNode:
         self.sem_rgb_odom: np.ndarray           = None
         self.pix_depth_cam_frame: np.ndarray    = None
         self.odom: torch.Tensor                 = None
-        rospy.Subscriber(self.cfg.depth_topic, Image, callback=self.depthCallback)
+        rospy.Subscriber(self.cfg.depth_topic, Image, callback=self.depthCallback, queue_size=1, buff_size=2**24)
         if self.cfg.compressed:
-            rospy.Subscriber(self.cfg.rgb_topic, CompressedImage, callback=self.imageCallbackCompressed)
+            rospy.Subscriber(self.cfg.rgb_topic, CompressedImage, callback=self.imageCallbackCompressed, queue_size=1, buff_size=2**24)
         else:
-            rospy.Subscriber(self.cfg.rgb_topic, Image, callback=self.imageCallback)
+            rospy.Subscriber(self.cfg.rgb_topic, Image, callback=self.imageCallback, queue_size=1, buff_size=2**24)
 
         # subscribe to further topics
         rospy.Subscriber(self.cfg.goal_topic, PointStamped, self.goalCallback)
@@ -128,6 +131,9 @@ class VIPlannerNode:
         self.path_pub  = rospy.Publisher(self.cfg.path_topic, Path, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.cfg.path_topic + "_fear", Path, queue_size=10)
 
+        # viz semantic image
+        self.m2f_pub = rospy.Publisher("/m2f_sem_img", Image, queue_size=1)
+         
         # path visualization topics
         if self.cfg.path_viz:
             self.img_pub_dep = rospy.Publisher(self.cfg.viz_path_depth_topic, Image, queue_size=10)
@@ -379,7 +385,7 @@ class VIPlannerNode:
         except cv_bridge.CvBridgeError as e:
             print(e)
 
-        if self.vip_algo.train_cfg.pre_train_sem:
+        if self.vip_algo.train_cfg.sem:
             image = self.semPrediction(image)
         
         self.sem_rgb_odom = pose
@@ -387,8 +393,8 @@ class VIPlannerNode:
         return        
             
     def imageCallbackCompressed(self, rgb_msg: CompressedImage):
-        rospy.logdebug("Received rgb   image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
-
+        rospy.logdebug(f"Received rgb   image {rgb_msg.header.frame_id}: {rgb_msg.header.stamp.to_sec()}")
+        start = time.time()
         # image pose
         pose = self.poseCallback(rgb_msg.header.frame_id)
         
@@ -409,6 +415,16 @@ class VIPlannerNode:
         self.sem_rgb_odom = pose
         self.sem_rgb_new = True
         self.ready_for_planning_rgb_sem = True
+        
+        print("total time", time.time() - start)
+        # publish the image
+        if self.vip_algo.train_cfg.sem:
+            image = cv2.resize(image, (480, 360))
+            print(image.dtype, image.shape)
+            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            sem_msg = ros_numpy.msgify(Image, image, encoding="8UC3")
+            sem_msg.header.stamp = rospy.Time.now()
+            self.m2f_pub.publish(sem_msg)
         return
     
     def semPrediction(self, image):
@@ -419,11 +435,10 @@ class VIPlannerNode:
         # publish prediction time
         self.m2f_timer_data.data = self.time_sem * 1000
         self.m2f_timer_pub.publish(self.m2f_timer_data)
-        # TODO: publish semantic image
         return image
         
     def depthCallback(self, depth_msg: Image):
-        rospy.logdebug("Received depth image %s: %d"%(depth_msg.header.frame_id, depth_msg.header.seq))
+        rospy.logdebug(f"Received depth image {depth_msg.header.frame_id}: {depth_msg.header.stamp.to_sec()}")
 
         # image time and pose
         self.depth_header = depth_msg.header

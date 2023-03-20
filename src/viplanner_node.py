@@ -171,7 +171,7 @@ class VIPlannerNode:
                 start = time.time()
                 
                 # transform waypoint to robot frame (prev in depth cam frame with robotics convention)
-                waypoints = (self.cam_rot.T @ waypoints.T).T + self.cam_offset
+                waypoints = (self.cam_rot @ waypoints.T).T + self.cam_offset
                 
                 # publish time
                 self.vip_timer_data.data = time_planner * 1000
@@ -394,7 +394,6 @@ class VIPlannerNode:
             
     def imageCallbackCompressed(self, rgb_msg: CompressedImage):
         rospy.logdebug(f"Received rgb   image {rgb_msg.header.frame_id}: {rgb_msg.header.stamp.to_sec()}")
-        start = time.time()
         # image pose
         pose = self.poseCallback(rgb_msg.header.frame_id)
         
@@ -416,11 +415,9 @@ class VIPlannerNode:
         self.sem_rgb_new = True
         self.ready_for_planning_rgb_sem = True
         
-        print("total time", time.time() - start)
         # publish the image
         if self.vip_algo.train_cfg.sem:
             image = cv2.resize(image, (480, 360))
-            print(image.dtype, image.shape)
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             sem_msg = ros_numpy.msgify(Image, image, encoding="8UC3")
             sem_msg.header.stamp = rospy.Time.now()
@@ -471,7 +468,7 @@ class VIPlannerNode:
             self.cam_offset = tf_robot_depth[0:3]
             self.cam_rot = stf.Rotation.from_quat(tf_robot_depth[3:7]).as_matrix() @ ROS_TO_ROBOTICS_MAT
             goal_robot_frame = np.array([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z])
-            goal_cam_frame = self.cam_rot @ (goal_robot_frame - self.cam_offset).T
+            goal_cam_frame = self.cam_rot.T @ (goal_robot_frame - self.cam_offset).T
             self.goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]
         
         # declare ready for planning

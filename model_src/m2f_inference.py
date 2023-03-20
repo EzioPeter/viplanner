@@ -72,7 +72,7 @@ class Mask2FormerInference:
         self,
         config_file="configs/coco/panoptic-segmentation/maskformer2_R50_bs16_50ep.yaml",
         model_weights="model_final.pth",
-        default_predictor: bool = True,
+        default_predictor: bool = False,
     ) -> None:
         
         # set arguments

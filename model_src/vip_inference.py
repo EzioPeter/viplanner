@@ -14,6 +14,7 @@ import torch
 import numpy as np
 import math
 import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
 
 # viplanner src
 from .viplanner.plannernet import DualAutoEncoder, get_m2f_cfg
@@ -110,11 +111,18 @@ class VIPlannerInference:
             tuple: _description_
         """
         # get keypoints and fear from planner
+        # fig, axs = plt.subplots(1, 2)
+        # axs[0].imshow(depth_image)
+        # axs[1].imshow(sem_rgb_image)
+        # fig.savefig("/root/git/network_input.png")
+        # plt.close()
+        # print(goal_robot_frame)
+        
         with torch.no_grad():
             depth_image = self.img_converter(depth_image).float()
             if self.train_cfg.rgb:
                 sem_rgb_image = (sem_rgb_image - self.pixel_mean) / self.pixel_std
-            sem_rgb_image = self.img_converter(sem_rgb_image).float()
+            sem_rgb_image = self.img_converter(sem_rgb_image.astype(np.uint8)).float()
             keypoints, fear = self.net(depth_image, sem_rgb_image, goal_robot_frame.to(self._device))
 
         # add potential offset from sensor to robot

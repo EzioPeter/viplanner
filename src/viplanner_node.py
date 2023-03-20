@@ -127,6 +127,9 @@ class VIPlannerNode:
         self.path_pub  = rospy.Publisher(self.cfg.path_topic, Path, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.cfg.path_topic + "_fear", Path, queue_size=10)
 
+        # viz semantic image
+        self.m2f_pub = rospy.Publisher("/m2f_sem_img", Image, queue_size=10)
+         
         # path visualization topics
         if self.cfg.path_viz:
             self.img_pub_dep = rospy.Publisher(self.cfg.viz_path_depth_topic, Image, queue_size=10)
@@ -401,7 +404,7 @@ class VIPlannerNode:
             print(e)
 
         if self.vip_algo.train_cfg.sem:
-            image = self.semPrediction(image)
+            image = self.semPrediction(image, rgb_msg.header.stamp)
         
         self.sem_rgb_img = image
         self.sem_rgb_odom = pose
@@ -409,7 +412,7 @@ class VIPlannerNode:
         self.ready_for_planning_rgb_sem = True
         return
     
-    def semPrediction(self, image):
+    def semPrediction(self, image, rgb_time):
         # semantic estimation
         start = time.time()
         image = self.m2f_inference.predict(image)
@@ -417,7 +420,10 @@ class VIPlannerNode:
         # publish prediction time
         self.m2f_timer_data.data = self.time_sem * 1000
         self.m2f_timer_pub.publish(self.m2f_timer_data)
-        # TODO: publish semantic image
+        # publish prediction image
+        sem_msg = self.bridge.cv2_to_imgmsg(image)
+        sem_msg.header.stamp = rgb_time
+        self.m2f_pub.publish(sem_msg)
         return image
         
     def depthCallback(self, depth_msg: Image):

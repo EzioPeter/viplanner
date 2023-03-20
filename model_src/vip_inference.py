@@ -113,7 +113,6 @@ class VIPlannerInference:
         with torch.no_grad():
             depth_image = self.img_converter(depth_image).float()
             if self.train_cfg.rgb:
-                sem_rgb_image = sem_rgb_image
                 sem_rgb_image = (sem_rgb_image - self.pixel_mean) / self.pixel_std
             sem_rgb_image = self.img_converter(sem_rgb_image).float()
             keypoints, fear = self.net(depth_image, sem_rgb_image, goal_robot_frame.to(self._device))

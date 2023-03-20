@@ -5,6 +5,7 @@ import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 # imperative-planning-learning
 from config import TrainCfg
@@ -12,11 +13,17 @@ from utils.trainer import Trainer
 
 
 if __name__ == "__main__":
-    # load config
-    # cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_env2n8kARJN3HM_ep200_inputDepSem_costSem_optimSGD_hierarch_overfit_ratio0.15_oloss0.25_dataDistanceScheme_oWeight0.35"
-    cfg_dir = "/home/pascal/SemNav/imperative_learning/models/plannernet_envtown01_ep100_inputDepSem_costSem_optimSGD_heightmap/"
-    train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(cfg_dir, "model.yaml"))
+    parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels')
+    parser.add_argument('-md', '--model_dir', type=str, help='Path to model directory',
+                        default="/home/pascal/SemNav/imperative_learning/models/plannernet_envtown01_ep100_inputDepSem_costSem_optimSGD_heightmap/")
+    parser.add_argument('-n', '--nb_viz', type=int, help='Number of trajectores that should be visualized (default: number in model cfg)')
+    args = parser.parse_args()
     
+    # load config
+    train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(args.model_dir, "model.yaml"))
+    if args.nb_viz is not None:
+        train_config.n_visualize = args.nb_viz
+        
     # load trainer and data
     trainer = Trainer(train_config)
     # set random seed for reproducibility

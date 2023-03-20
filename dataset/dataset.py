@@ -45,8 +45,8 @@ class PlannerData(Dataset):
         transform,
         semantics: bool = False,
         rgb: bool = False,
-        pixel_mean: np.ndarray = np.zeros(3, dtype=int),
-        pixel_std: np.ndarray = np.ones(3, dtype=int),
+        pixel_mean: Optional[np.ndarray] = None,
+        pixel_std:  Optional[np.ndarray] = None,
     ) -> None:
         """_summary_
 
@@ -137,7 +137,8 @@ class PlannerData(Dataset):
         else:
             image = np.array(image)
         # normalize image 
-        image = (image - self.pixel_mean) / self.pixel_std
+        if self.pixel_mean is not None and self.pixel_std is not None:
+            image = (image - self.pixel_mean) / self.pixel_std
         # transform semantic image
         image = self.transform(image).type(torch.float32)
         if self.pair_augment[idx]:
@@ -573,11 +574,8 @@ class PlannerDataGenerator(Dataset):
                         small_sphere.paint_uniform_color([0.0, 0.1, 1.0])
                     odom_vis_list.append(copy.deepcopy(small_sphere).translate((pts[0], pts[1], pts[2])))
                 
-                # mesh viz
-                cost_mesh = o3d.io.read_triangle_mesh(os.path.join(self.root, "cost_mesh.ply"))
-                cost_mesh.compute_vertex_normals()
-                cost_mesh.paint_uniform_color([0.4, 0.4, 0.4])
-                odom_vis_list.append(cost_mesh)
+                # viz cost map
+                odom_vis_list.append(self.cost_map.pcd_tsdf)
                 
                 # field of view visualization 
                 fov_vis_length = 0.75  # length of the fov visualization plane in meters

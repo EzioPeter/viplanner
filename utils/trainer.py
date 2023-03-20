@@ -63,7 +63,7 @@ class Trainer:
         # image transforms
         self.transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((self._cfg.img_input_size))
+            transforms.Resize((self._cfg.img_input_size), antialias=True),
         ])
 
         # init buffers DATA
@@ -73,8 +73,8 @@ class Trainer:
         self.fov_ratio: float = None
         self.front_ratio: float = None
         self.back_ratio: float = None
-        self.pixel_mean: np.ndarray = np.zeros(3, dtype=int)
-        self.pixel_std: np.ndarray  = np.ones(3, dtype=int)  
+        self.pixel_mean: np.ndarray = None
+        self.pixel_std: np.ndarray  = None  
       
         # inti buffers MODEL
         self.best_loss = float('inf')
@@ -258,7 +258,7 @@ class Trainer:
     
     def _load_model(self, resume: bool = False) -> None:
         if self._cfg.sem or self._cfg.rgb:
-            if self._cfg.pre_train_sem:
+            if self._cfg.rgb and self._cfg.pre_train_sem:
                 assert PRE_TRAIN_POSSIBLE, "Pretrained model not available since either detectron2 not installed or mask2former not found in thrid_party folder"
                 pre_train_cfg = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_cfg)
                 pre_train_weights = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
@@ -421,7 +421,7 @@ class Trainer:
         
         test_loss = 0
         num_batches = len(loader)
-        preds_viz = []; wp_viz = []
+        preds_viz = []; wp_viz = []; image_viz = []
 
         with torch.no_grad():
             for batch_idx, inputs in enumerate(loader):
@@ -456,35 +456,26 @@ class Trainer:
 
                 test_loss += loss.item()
 
-                if is_visual and len(preds_viz) < self._cfg.n_visualize:
+                if is_visual and len(preds_viz * batch_idx) < self._cfg.n_visualize:
                     if batch_idx == 0:
-                        image_viz = image.cpu()
                         odom_viz = odom.cpu()
                         goal_viz = goal.cpu()
                         fear_viz = fear.cpu()
                         augment_viz = inputs[4].cpu()
                     else:
-                        image_viz   = torch.cat((image_viz, image.cpu()), dim=0)
                         odom_viz    = torch.cat((odom_viz, odom.cpu()),   dim=0)
                         goal_viz    = torch.cat((goal_viz, goal.cpu()),   dim=0)
                         fear_viz    = torch.cat((fear_viz, fear.cpu()),   dim=0)
                         augment_viz = torch.cat((augment_viz, inputs[4].cpu()), dim=0)
                     preds_viz.append(preds.cpu())
                     wp_viz.append(waypoints.cpu())
+                    image_viz.append(image.cpu())
 
             if is_visual:
                 preds_viz   = torch.vstack(preds_viz)
                 wp_viz      = torch.vstack(wp_viz)
+                image_viz   = torch.vstack(image_viz)
                 
-                # select points to visualize
-                idx = random.choices(range(preds_viz.shape[0]), k=self._cfg.n_visualize)
-                preds_viz   = preds_viz[idx]
-                wp_viz      = wp_viz[idx]
-                odom_viz    = odom_viz[idx]
-                goal_viz    = goal_viz[idx]
-                fear_viz    = fear_viz[idx, :]
-                image_viz   = image_viz[idx]
-                augment_viz = augment_viz[idx]
                 # visual trajectory and images
                 self.data_traj_viz[env_id].VizTrajectory(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, fov_angle=fov_angle, augment_viz=augment_viz)
                 self.data_traj_viz[env_id].VizImages(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, image_viz)

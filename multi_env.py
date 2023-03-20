@@ -67,7 +67,7 @@ if __name__ == "__main__":
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
-        file_name="fov0.91_back0.03_front0.06_decoderS",
+        file_name="fov0.91_back0.03_front0.06",
         test_env_id=5, # to make comparable with other runs
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         data_cfg=DataCfg(
             max_goal_distance=20.0,
             max_depth=15,
-            distance_scheme={2: 0.2, 5: 0.35, 8: 0.25, 12: 0.15, 20: 0.05},
+            distance_scheme={5: 0.2, 10: 0.35, 15: 0.25, 17.5: 0.10, 20: 0.10},
             ratio_fov_samples=0.90,
             ratio_back_samples=0.03,
             ratio_front_samples=0.07,
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         data_cfg=DataCfg(
             max_goal_distance=30.0,
             max_depth=15,
-            distance_scheme={3: 0.2, 6: 0.35, 10: 0.25, 20: 0.15, 30: 0.05},
+            distance_scheme={5: 0.2, 10: 0.35, 15: 0.25, 20: 0.10, 30: 0.10},
             ratio_fov_samples=0.90,
             ratio_back_samples=0.03,
             ratio_front_samples=0.07,

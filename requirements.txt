@@ -1,0 +1,11 @@
+torch==2.0.0
+torchvision==0.15.1
+torchaudio==2.0.1
+PyYAML==6.0
+tqdm
+wandb
+matplotlib
+opencv-python-headless
+open3d
+networkx
+scipy

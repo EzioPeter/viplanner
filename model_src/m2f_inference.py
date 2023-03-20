@@ -16,6 +16,7 @@ from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.modeling import build_model
 from detectron2.engine.defaults import DefaultPredictor
+import detectron2.data.transforms as T
 
 # ROS
 import rospy
@@ -43,6 +44,11 @@ class Predictor:
         print("Model weights loaded from: ", cfg.MODEL.WEIGHTS)
         checkpointer.load(cfg.MODEL.WEIGHTS)
 
+        # init augmentation --> for the large wide angle camera of Anymal will result in cropping
+        self.aug = T.ResizeShortestEdge(
+            [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
+        )
+                
     def __call__(self, image):
         """
         Args:
@@ -55,6 +61,7 @@ class Predictor:
         """
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
             height, width = image.shape[:2]
+            image = self.aug.get_transform(image).apply_image(image)
             image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
             
             inputs = {"image": image, "height": height, "width": width}

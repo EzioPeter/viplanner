@@ -29,6 +29,8 @@ import scipy.spatial.transform as tf
 import open3d as o3d
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+from skimage.util import random_noise
+import random
 
 # implerative-planner-learning
 from config import DataCfg
@@ -123,6 +125,16 @@ class PlannerData(Dataset):
         depth_image[~np.isfinite(depth_image)] = 0.0
         depth_image = (depth_image / 1000.0).astype("float32")
         depth_image[depth_image > self._cfg.max_depth] = 0.0
+        
+        # add noise to depth image
+        if self._cfg.depth_salt_pepper or self._cfg.depth_gaussian:
+            depth_norm = (depth_image - np.min(depth_image)) / (np.max(depth_image) - np.min(depth_image))
+            if self._cfg.depth_salt_pepper:
+                depth_norm = random_noise(depth_norm, mode='s&p', amount=self._cfg.depth_salt_pepper, clip=False)
+            if self._cfg.depth_gaussian:
+                depth_norm = random_noise(depth_norm, mode='gaussian', mean=0, var=self._cfg.depth_gaussian, clip=False)
+            depth_image = depth_norm * (np.max(depth_image) - np.min(depth_image)) + np.min(depth_image)
+        
         # transform depth image
         depth_image = self.transform(depth_image).type(torch.float32)
         if self.pair_augment[idx]:
@@ -139,6 +151,14 @@ class PlannerData(Dataset):
         # normalize image 
         if self.pixel_mean is not None and self.pixel_std is not None:
             image = (image - self.pixel_mean) / self.pixel_std
+        
+        # add noise to semantic image
+        if self._cfg.sem_black_img:
+            if random.randint(0, 99) < self._cfg.sem_black_img * 100:
+                image = np.zeros_like(image)
+        elif self._cfg.sem_pepper:
+            image = random_noise(image, mode='pepper', amount=self._cfg.depth_salt_pepper, clip=False)
+
         # transform semantic image
         image = self.transform(image).type(torch.float32)
         if self.pair_augment[idx]:

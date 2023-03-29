@@ -26,60 +26,130 @@ if __name__ == "__main__":
     # torch.cuda.empty_cache()
     
     matterport_overfit: TrainCfg = TrainCfg(
-        sem=False,
-        rgb=True,
-        decoder_small=False,
+        sem=True,
         cost_map_name="cost_map_sem",
         env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
         test_env_id=1,
-        file_name="overfit_ratio09_rgb",
-        hierarchical=False,
+        file_name="overfit_test",
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
+            depth_gaussian=0.05,
+            sem_black_img=0.05,
         )
     )
-    # trainer = Trainer(matterport_overfit)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer = Trainer(matterport_overfit)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
 
-    matterport_sem: TrainCfg = TrainCfg(
-        sem=False,
-        rgb=True,
-        cost_map_name="cost_map_sem",
-        file_name="decoderS",
-        test_env_id=5,  # to make comparable with other runs
-        data_cfg=DataCfg(
-            ratio_fov_samples=0.91,
-            ratio_back_samples=0.03,
-            ratio_front_samples=0.06,
-        )
-    )  
-    # trainer = Trainer(matterport_sem)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
-    
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
-        file_name="fov0.91_back0.03_front0.06",
-        test_env_id=5, # to make comparable with other runs
+        file_name="fov0.91_back0.03_front0.06_sdecoder",
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
         )
     )  
-    # trainer = Trainer(matterport_sem)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_noise_depthSP",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_salt_pepper=0.05,
+            depth_gaussian=None,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_noise_depthGauss",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_salt_pepper=None,
+            depth_gaussian=0.05,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_noise_depth",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_salt_pepper=0.05,
+            depth_gaussian=0.05,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_sem_black",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            sem_black_img=0.05,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_noise_depth_sem_black",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_salt_pepper=0.05,
+            depth_gaussian=0.05,
+            sem_black_img=0.05,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -170,11 +240,11 @@ if __name__ == "__main__":
         n_visualize=128,
         wb_project="SemNav-Carla"
     )  
-    trainer = Trainer(carla_fargoal20)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache() 
+    # trainer = Trainer(carla_fargoal20)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache() 
 
     carla_fargoal30: TrainCfg = TrainCfg(
         sem=True,
@@ -193,10 +263,10 @@ if __name__ == "__main__":
         n_visualize=128,
         wb_project="SemNav-Carla"
     )  
-    trainer = Trainer(carla_fargoal30)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache() 
+    # trainer = Trainer(carla_fargoal30)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache() 
     
 # EoF

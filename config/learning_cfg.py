@@ -70,6 +70,13 @@ class DataCfg:
     ratio_back_samples: float = 0.0
     "samples distrubution -> either within the robots fov, in front of the robot but outside the fov or behind the robot"
 
+    # noise augmentation --> will be applied to a scaled image with range between [0, 1]
+    depth_salt_pepper: Optional[float] = None  # Proportion of image pixels to replace with noise on range [0, 1]
+    depth_gaussian: Optional[float] = None  # Standard deviation of the noise to add (no clipping applied)
+
+    sem_pepper: Optional[float] = 0.05  # Proportion of pixels to randomly set to 0
+    sem_black_img: Optional[float] = 0.05  # Randomly set this proportion of images to complete black images  --> 
+
 
 @dataclass
 class TrainCfg:
@@ -133,7 +140,7 @@ class TrainCfg:
     pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
     pre_train_freeze: bool = True
     "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
-    decoder_small: bool = False
+    decoder_small: bool = True
     "small decoder with less parameters"
     
     # training configurations

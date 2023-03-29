@@ -74,8 +74,8 @@ class DataCfg:
     depth_salt_pepper: Optional[float] = None  # Proportion of image pixels to replace with noise on range [0, 1]
     depth_gaussian: Optional[float] = None  # Standard deviation of the noise to add (no clipping applied)
 
-    sem_pepper: Optional[float] = 0.05  # Proportion of pixels to randomly set to 0
-    sem_black_img: Optional[float] = 0.05  # Randomly set this proportion of images to complete black images  --> 
+    sem_pepper: Optional[float] = None  # Proportion of pixels to randomly set to 0
+    sem_black_img: Optional[float] = None  # Randomly set this proportion of images to complete black images  --> 
 
 
 @dataclass

@@ -10,6 +10,7 @@ OBSTACLE_LOSS = 1
 TRAVERSABLE_LOSS = 0
 ROAD_LOSS = 0.6
 TERRAIN_LOSS = 0.3
+# NOTE: only obstacle loss should be over obscale_loss defined in costmap_cfg.py
 
 # original coco meta
 VIPLANNER_SEM_META = [
@@ -240,6 +241,7 @@ class VIPlannerSemMetaHandler:
         self.class_loss: dict = self._get_class_loss_dict()
         self.class_color: dict = self._get_class_color_dict()
         self.class_ground: dict = self._get_class_ground_dict()
+        self.class_id: dict = self._get_class_id_dict()
         return
     
     def get_colors_for_names(self, name_list: list) -> list:
@@ -262,6 +264,10 @@ class VIPlannerSemMetaHandler:
     def _get_class_ground_dict(self) -> dict:
         """Get class ground dict."""
         return {nc['name']: nc['ground'] for nc in self.meta}
+    
+    def _get_class_id_dict(self) -> dict:
+        """Get class id dict."""
+        return {nc['name']: i for i, nc in enumerate(self.meta)}
     
     @property
     def colors(self) -> list:

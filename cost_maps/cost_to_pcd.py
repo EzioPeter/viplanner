@@ -13,6 +13,7 @@ import open3d as o3d
 import numpy as np
 import torch
 import os
+import argparse
 
 torch.set_default_dtype(torch.float32)
 
@@ -128,3 +129,18 @@ class CostMapPCD:
 
         self.map_init = True
         return
+    
+    
+if __name__ == "__main__":
+    # parse environment directory and cost_map name
+    parser = argparse.ArgumentParser(prog='Show Costmap', description='Show Costmap')
+    parser.add_argument('-e', '--env', type=str, help='path to the environment directory', required=True)
+    parser.add_argument('-m', '--map', type=str, help='name of the cost_map', required=True)
+    args = parser.parse_args()
+    
+    # show costmap
+    map = CostMapPCD()
+    map.ReadTSDFMap(args.env, args.map)
+    map.ShowTSDFMap()
+    
+# EoF

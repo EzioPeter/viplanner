@@ -1,0 +1,18 @@
+# general cfg
+image_flip:             True
+max_depth:              15
+domain:                 depth
+
+# ros topics
+vizTopic:               /viz_path_depth
+imgTopic:               /depth_camera_front_upper/depth/image_rect_raw
+infoTopic:              /depth_camera_front_upper/depth/camera_info
+goalTopic:              /mp_waypoint
+pathTopic:              /path
+
+# frame ids
+robot_frame:            base
+odom_frame:             odom
+
+# visualization
+viz_path_sem_topic:     /viz_path_depth

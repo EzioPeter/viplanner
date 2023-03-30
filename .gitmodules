@@ -1,6 +1,9 @@
 [submodule "model_src/viplanner"]
-	path = model_src/viplanner
+	path = planner/model_src/viplanner
 	url = git@github.com:pascal-roth/viplanner.git
 [submodule "model_src/mask2former"]
-	path = model_src/mask2former
+	path = planner/model_src/mask2former
 	url = git@github.com:facebookresearch/Mask2Former.git
+[submodule "joystick_planner"]
+	path = joystick_planner
+	url = git@bitbucket.org:leggedrobotics/joystick_planner.git

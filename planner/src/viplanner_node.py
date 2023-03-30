@@ -160,7 +160,8 @@ class VIPlannerNode:
                 time_warp = time.time() - start
 
                 if overlap_ratio < self.cfg.overlap_ratio_thres:
-                    print(f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}")
+                    rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}")
+                    self.pubPath(np.zeros((51, 3)), self.is_goal_init)
                     continue
                 
                 # Network Planning

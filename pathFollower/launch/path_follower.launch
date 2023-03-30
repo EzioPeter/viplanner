@@ -15,7 +15,7 @@
   <arg name="goalX" default="0"/>
   <arg name="goalY" default="0"/>
 
-  <node pkg="mp_local_planner" type="pathFollower" name="pathFollower" output="screen" required="true">
+  <node pkg="path_follower" type="path_follower_node" name="pathFollower" output="screen" required="true">
     <param name="sensorOffsetX" value="$(arg sensorOffsetX)" />
     <param name="sensorOffsetY" value="$(arg sensorOffsetY)" />
     <param name="pubSkipNum" type="int" value="1" />

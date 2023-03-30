@@ -136,6 +136,10 @@ class Trainer:
                 
         torch.cuda.empty_cache()
         
+        # empty buffers
+        self.data_generators = []
+        self.data_traj_cost = []
+        self.data_traj_viz = [] 
         return
     
     def test(self, step: Optional[int] = None) -> None:

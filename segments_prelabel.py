@@ -16,17 +16,10 @@ import matplotlib.pyplot as plt
 from segments import SegmentsClient, SegmentsDataset
 from segments.utils import bitmap2file
 
-# m2f
-from detectron2.config import get_cfg
-from detectron2.data.detection_utils import read_image
-from detectron2.projects.deeplab import add_deeplab_config
-from detectron2.utils.logger import setup_logger
-
-from third_party.mask2former.mask2former import add_maskformer2_config
-from third_party.mask2former.demo.predictor import VisualizationDemo
-
 # viplanner
+from utils.m2f_utils import load_m2f_demo
 from config import VIPlannerSemMetaHandler, get_class_for_id
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Prelabel images with a given model')
@@ -37,25 +30,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-c', '--m2f_config', type=str, help='Path to the config',
                         default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml")
     return parser.parse_args()
-
-
-def load_m2f_demo(model_path, config_path):
-    setup_logger(name="fvcore")
-    logger = setup_logger()
-    
-    cfg = get_cfg()
-    add_deeplab_config(cfg)
-    add_maskformer2_config(cfg)
-    cfg.merge_from_file(config_path)
-    cfg.merge_from_list(["MODEL.WEIGHTS", model_path])
-    cfg.freeze()
-    
-    print("Network expects images of type: ", cfg.INPUT.FORMAT)
-    
-    # create predictor
-    demo = VisualizationDemo(cfg)
-    
-    return demo
 
 
 def main(args: argparse.Namespace):
@@ -109,6 +83,7 @@ def main(args: argparse.Namespace):
         plt.draw()
         plt.pause(0.1)
     return
+
 
 if __name__ == "__main__":
     args = parse_args()

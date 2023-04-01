@@ -33,7 +33,7 @@ if __name__ == "__main__":
     if trainer._cfg.hierarchical:
         # load data and model
         trainer._load_data(train=False)
-        trainer._load_model()
+        trainer._load_model(resume=True)
         
         step = int(trainer._cfg.epochs / trainer._cfg.hierarchical_step)
 

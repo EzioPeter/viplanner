@@ -43,7 +43,8 @@ class TrajCost:
         self.log_data = log_data
         return
 
-    def TransformPoints(self, odom, points):
+    @staticmethod
+    def TransformPoints(odom, points):
         batch_size, num_p, _ = points.shape
         world_ps = pp.identity_SE3(batch_size, num_p, device=points.device, requires_grad=points.requires_grad)
         world_ps.tensor()[:, :, 0:3] = points

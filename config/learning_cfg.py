@@ -112,7 +112,7 @@ class TrainCfg:
     "the test env id in the id list"    
     data_cfg: DataCfg = DataCfg()
     "further data configuration"
-    multi_epoch_dataloader: bool = True
+    multi_epoch_dataloader: bool = False
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
     num_workers: int = 4
     "number of workers for dataloader"     

@@ -161,6 +161,8 @@ class PlannerData(Dataset):
 
         # transform semantic image
         image = self.transform(image).type(torch.float32)
+        assert image.max() <= 1.0, "Image is not normalized"
+        
         if self.pair_augment[idx]:
             image = self.flip_transform.forward(image)
         
@@ -542,7 +544,10 @@ class PlannerDataGenerator(Dataset):
         # init semantic warp parameters
         if self.semantics or self.rgb:
             # compute pixel tensor
-            self.pix_depth_cam_frame = self._compute_pixel_tensor()
+            depth_filename = self.depth_filename_list[0]
+            depth_img = self._load_depth_image(depth_filename)
+            x_nums, y_nums = depth_img.shape
+            self.pix_depth_cam_frame = self.compute_pixel_tensor(x_nums, y_nums, self.K_depth)
             # make dir
             os.makedirs(os.path.join(self.root, "img_warp"), exist_ok=True)
         
@@ -772,13 +777,9 @@ class PlannerDataGenerator(Dataset):
         return
     
     """ Warp semantic on depth image helper functions"""
-        
-    def _compute_pixel_tensor(self) -> None:
-        # get shape of depth images
-        depth_filename = self.depth_filename_list[0]
-        depth_img = self._load_depth_image(depth_filename)
-        x_nums, y_nums = depth_img.shape
-        
+    
+    @staticmethod
+    def compute_pixel_tensor(x_nums: int, y_nums: int, K_depth: np.ndarray) -> None:   
         # get image plane mesh grid
         pix_u = np.arange(0, y_nums)
         pix_v = np.arange(0, x_nums)
@@ -789,7 +790,7 @@ class PlannerDataGenerator(Dataset):
         )  # add ones for 3D coordinates           
         
         # transform to camera frame
-        k_inv = np.linalg.inv(self.K_depth)
+        k_inv = np.linalg.inv(K_depth)
         pix_cam_frame = np.matmul(k_inv, pixels.T)
         # reorder to be in "robotics" axis order (x forward, y left, z up)
         return pix_cam_frame[[2, 0, 1], :].T  * np.array([1, -1, -1])
@@ -809,6 +810,30 @@ class PlannerDataGenerator(Dataset):
         depth_image[depth_image > self._cfg.max_depth] = 0.0
         return depth_image
     
+    @staticmethod
+    def compute_overlay(pose_dep, pose_sem, depth_img, sem_rgb_image, pix_depth_cam_frame, K_sem_rgb):
+        # get 3D points of depth image
+        rot = tf.Rotation.from_quat(pose_dep[3:]).as_matrix()
+        dep_im_reshaped = depth_img.reshape(-1, 1) # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
+        points = dep_im_reshaped * (rot @ pix_depth_cam_frame.T).T + pose_dep[:3]
+        
+        # transform points to semantic camera frame
+        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T
+        # normalize points
+        points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
+        # reorder points be camera convention (z-forward)
+        points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]]  * np.array([-1, -1, 1])
+        # transform points to pixel coordinates
+        pixels = (K_sem_rgb @ points_sem_cam_frame_norm.T).T
+        # filter points outside of image
+        filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_rgb_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_rgb_image.shape[0])
+        # get semantic annotation
+        sem_annotation = np.zeros((pixels.shape[0], 3))
+        sem_annotation[filter_idx] = sem_rgb_image[pixels[filter_idx, 1].astype(int), pixels[filter_idx, 0].astype(int)]
+        # reshape to image
+        
+        return sem_annotation.reshape(depth_img.shape[0], depth_img.shape[1], 3) 
+            
     def _get_overlay_img(self, odom_idx):
         # get corresponding filenames
         depth_filename = self.depth_filename_list[odom_idx]
@@ -824,27 +849,7 @@ class PlannerDataGenerator(Dataset):
         pose_dep = self.odom_array_depth[odom_idx].data.cpu().numpy()
         pose_sem = self.odom_array_sem_rgb[odom_idx].data.cpu().numpy()
         
-        # get 3D points of depth image
-        rot = tf.Rotation.from_quat(pose_dep[3:]).as_matrix()
-        dep_im_reshaped = depth_img.reshape(-1, 1) # flip s.t. start in lower left corner of image as (0,0) -> has to fit to the pixel tensor
-        points = dep_im_reshaped * (rot @ self.pix_depth_cam_frame.T).T + pose_dep[:3]
-        
-        # transform points to semantic camera frame
-        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T
-        # normalize points
-        points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
-        # reorder points be camera convention (z-forward)
-        points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]]  * np.array([-1, -1, 1])
-        # transform points to pixel coordinates
-        pixels = (self.K_sem_rgb @ points_sem_cam_frame_norm.T).T
-        # filter points outside of image
-        filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_rgb_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_rgb_image.shape[0])
-        # get semantic annotation
-        sem_annotation = np.zeros((pixels.shape[0], 3))
-        sem_annotation[filter_idx] = sem_rgb_image[pixels[filter_idx, 1].astype(int), pixels[filter_idx, 0].astype(int)]
-        # reshape to image
-        
-        sem_rgb_image_warped = sem_annotation.reshape(depth_img.shape[0], depth_img.shape[1], 3)
+        sem_rgb_image_warped = self.compute_overlay(pose_dep, pose_sem, depth_img, sem_rgb_image, self.pix_depth_cam_frame, self.K_sem_rgb)
         
         # DEBUG
         if self.debug:

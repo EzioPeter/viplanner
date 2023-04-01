@@ -13,7 +13,7 @@ from typing import Optional
 
 # visual-planning-learning
 from cost_maps import CostMapPCD
-
+from .traj_cost import TrajCost
              
 class TrajViz:
     def __init__(
@@ -34,13 +34,6 @@ class TrajViz:
         self.set_camera()
 
         return None
-
-    def TransformPoints(self, odom, points) -> torch.Tensor:           
-        batch_size, num_p, _ = points.shape
-        world_ps = pp.identity_SE3(batch_size, num_p, device=points.device, requires_grad=points.requires_grad)
-        world_ps.tensor()[:, :, 0:3] = points
-        world_ps = pp.SE3(odom[:, None, :]) @ pp.SE3(world_ps)
-        return world_ps.tensor().cpu().detach().numpy()
 
     def set_camera(self):
         self.camera = o3d.camera.PinholeCameraIntrinsic(
@@ -86,8 +79,8 @@ class TrajViz:
             return
         batch_size = len(waypoints)
         # transform to world frame
-        preds_ws = self.TransformPoints(odom, preds)
-        wp_ws = self.TransformPoints(odom, waypoints)
+        preds_ws = TrajCost.TransformPoints(odom, preds).tensor().cpu().detach().numpy()
+        wp_ws = TrajCost.TransformPoints(odom, waypoints).tensor().cpu().detach().numpy()
         goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
         # convert to positions
         goal_ws  = goal_ws.tensor()[:, 0:3].numpy()
@@ -164,8 +157,8 @@ class TrajViz:
 
     def VizImages(self, preds, waypoints, odom, goal, fear, images, visual_offset=0.35, mesh_size=0.3, is_shown=True):
         batch_size = len(waypoints)
-        preds_ws = self.TransformPoints(odom, preds)
-        wp_ws = self.TransformPoints(odom, waypoints)
+        preds_ws = TrajCost.TransformPoints(odom, preds).tensor().cpu().detach().numpy()
+        wp_ws = TrajCost.TransformPoints(odom, waypoints).tensor().cpu().detach().numpy()
         if goal.shape[-1] != 7:
             pp_goal = pp.identity_SE3(batch_size, device=goal.device)
             pp_goal.tensor()[:, 0:3] = goal

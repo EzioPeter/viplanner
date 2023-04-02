@@ -36,7 +36,10 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
             depth_gaussian=0.05,
-            sem_black_img=0.05,
+            sem_rgb_black_img=0.05,
+            noise_edges=True,
+            sem_rgb_random_polygons_nb=10,
+            depth_random_polygons_nb=10,
         )
     )
     # trainer = Trainer(matterport_overfit)
@@ -73,11 +76,11 @@ if __name__ == "__main__":
             depth_gaussian=None,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -91,11 +94,11 @@ if __name__ == "__main__":
             depth_gaussian=0.05,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -109,11 +112,11 @@ if __name__ == "__main__":
             depth_gaussian=0.05,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -123,9 +126,9 @@ if __name__ == "__main__":
             ratio_fov_samples=0.91,
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
-            sem_black_img=0.05,
+            sem_rgb_black_img=0.05,
         )
-    )  
+    )
     trainer = Trainer(matterport_sem)
     trainer.train()
     trainer.test()
@@ -142,7 +145,7 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,
-            sem_black_img=0.05,
+            sem_rgb_black_img=0.05,
         )
     )  
     trainer = Trainer(matterport_sem)
@@ -151,6 +154,63 @@ if __name__ == "__main__":
     trainer.save_config()
     torch.cuda.empty_cache()
 
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_edge_noise",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            noise_edges=True,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+ 
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_polygons",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_random_polygons_nb=10,
+            sem_rgb_random_polygon_nb=10,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem",
+        file_name="fov0.91_back0.03_front0.06_sdecoder_all_noise",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_random_polygons_nb=10,
+            sem_rgb_random_polygon_nb=10,
+            noise_edges=True,
+            depth_salt_pepper=0.05,
+            depth_gaussian=0.05,
+            sem_rgb_black_img=0.05,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+           
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",

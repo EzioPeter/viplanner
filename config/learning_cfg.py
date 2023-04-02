@@ -70,13 +70,21 @@ class DataCfg:
     ratio_back_samples: float = 0.0
     "samples distrubution -> either within the robots fov, in front of the robot but outside the fov or behind the robot"
 
+    # edge blur (real world RealSense difficulties along edges)  --> will be also visible in rgb/sem images due to warp
+    noise_edges: bool = False  # not activate for CARLA yet
+    edge_threshold: int = 100
+    extend_kernel_size: tuple = (5, 5)
+    
     # noise augmentation --> will be applied to a scaled image with range between [0, 1]
     depth_salt_pepper: Optional[float] = None  # Proportion of image pixels to replace with noise on range [0, 1]
     depth_gaussian: Optional[float] = None  # Standard deviation of the noise to add (no clipping applied)
-
-    sem_pepper: Optional[float] = None  # Proportion of pixels to randomly set to 0
-    sem_black_img: Optional[float] = None  # Randomly set this proportion of images to complete black images  --> 
-
+    depth_random_polygons_nb: Optional[int] = None  # Number of random polygons to add
+    depth_random_polygon_size: int = 10  # Size of the random polygons in pixels
+    
+    sem_rgb_pepper: Optional[float] = None  # Proportion of pixels to randomly set to 0
+    sem_rgb_black_img: Optional[float] = None  # Randomly set this proportion of images to complete black images  --> 
+    sem_rgb_random_polygons_nb: Optional[int] = None  # Number of random polygons to add
+    sem_rgb_random_polygon_size: int = 10  # Size of the random polygons in pixels
 
 @dataclass
 class TrainCfg:

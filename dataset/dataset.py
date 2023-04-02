@@ -31,7 +31,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from skimage.util import random_noise
 import random
-
+import shutil
 # implerative-planner-learning
 from config import DataCfg
 from cost_maps import CostMapPCD
@@ -101,11 +101,27 @@ class PlannerData(Dataset):
         self.fov_angle = fov_angle
         return
 
+    """Augment Images with black polygons"""
+    def _add_random_polygons(self, image, nb_polygons, max_size):
+        for i in range(nb_polygons):
+            num_corners = random.randint(10, 20)
+            polygon_points = np.random.randint(0, max_size, size=(num_corners, 2))
+            x_offset = np.random.randint(0, image.shape[0])
+            y_offset = np.random.randint(0, image.shape[1])
+            polygon_points[:, 0] += x_offset
+            polygon_points[:, 1] += y_offset
+
+            # Create a convex hull from the points
+            hull = cv2.convexHull(polygon_points)
+
+            # Draw the hull on the image
+            cv2.fillPoly(image, [hull], (0, 0, 0))
+        return image 
+    
     """Load images"""
     
     def load_data_in_memory(self) -> None:
         """Load data into RAM to speed up training"""
-        print("Loading data in memory...")
         for idx in tqdm(range(len(self.depth_filename)), desc="Load images into RAM"):
             self.depth_imgs.append(self._load_depth_img(idx))
             if self.semantics or self.rgb:
@@ -134,7 +150,9 @@ class PlannerData(Dataset):
             if self._cfg.depth_gaussian:
                 depth_norm = random_noise(depth_norm, mode='gaussian', mean=0, var=self._cfg.depth_gaussian, clip=False)
             depth_image = depth_norm * (np.max(depth_image) - np.min(depth_image)) + np.min(depth_image)
-        
+        if self._cfg.depth_random_polygons_nb and self._cfg.depth_random_polygons_nb > 0:
+            depth_image = self._add_random_polygons(depth_image, self._cfg.depth_random_polygons_nb, self._cfg.depth_random_polygon_size)
+            
         # transform depth image
         depth_image = self.transform(depth_image).type(torch.float32)
         if self.pair_augment[idx]:
@@ -153,12 +171,14 @@ class PlannerData(Dataset):
             image = (image - self.pixel_mean) / self.pixel_std
         
         # add noise to semantic image
-        if self._cfg.sem_black_img:
-            if random.randint(0, 99) < self._cfg.sem_black_img * 100:
+        if self._cfg.sem_rgb_black_img:
+            if random.randint(0, 99) < self._cfg.sem_rgb_black_img * 100:
                 image = np.zeros_like(image)
-        elif self._cfg.sem_pepper:
+        if self._cfg.sem_rgb_pepper:
             image = random_noise(image, mode='pepper', amount=self._cfg.depth_salt_pepper, clip=False)
-
+        if self._cfg.sem_rgb_random_polygons_nb and self._cfg.sem_rgb_random_polygons_nb > 0:
+            image = self._add_random_polygons(image, self._cfg.sem_rgb_random_polygons_nb, self._cfg.sem_rgb_random_polygon_size)
+            
         # transform semantic image
         image = self.transform(image).type(torch.float32)
         assert image.max() <= 1.0, "Image is not normalized"
@@ -249,28 +269,28 @@ class DistanceSchemeIdx:
 
         # augment pairs if not enough
         if len(idx_fov) == 0:
-            print(f"for distance {self.distance} no 'within_fov' samples")
+            print(f"[WARNING] for distance {self.distance} no 'within_fov' samples")
             idx_fov = np.array([], dtype=np.int64)
         elif len(idx_fov) < nb_fov:
-            print(f"for distance {self.distance} not enough 'within_fov' samples ({len(idx_fov)} instead of {nb_fov})")
+            print(f"[INFO] for distance {self.distance} not enough 'within_fov' samples ({len(idx_fov)} instead of {nb_fov})")
             idx_augment.append(np.random.choice(idx_fov, nb_fov-len(idx_fov), replace=False if nb_fov-len(idx_fov) < len(idx_fov) else True))
         else:
             idx_fov = np.random.choice(idx_fov, nb_fov, replace=False)
             
         if len(idx_front) == 0:
-            print(f"for distance {self.distance} no 'front_of_robot' samples")
+            print(f"[WARNING] for distance {self.distance} no 'front_of_robot' samples")
             idx_front = np.array([], dtype=np.int64)
         elif len(idx_front) < nb_front:
-            print(f"for distance {self.distance} not enough 'front_of_robot' samples ({len(idx_front)} instead of {nb_front})")
+            print(f"[INFO] for distance {self.distance} not enough 'front_of_robot' samples ({len(idx_front)} instead of {nb_front})")
             idx_augment.append(np.random.choice(idx_front, nb_front-len(idx_front), replace=False if nb_front-len(idx_front) < len(idx_front) else True))
         else:
             idx_front = np.random.choice(idx_front, nb_front, replace=False)
         
         if len(idx_back) == 0:
-            print(f"for distance {self.distance} no 'behind_robot' samples")
+            print(f"[WARNING] for distance {self.distance} no 'behind_robot' samples")
             idx_back = np.array([], dtype=np.int64)
         elif len(idx_back) < nb_back:
-            print(f"for distance {self.distance} not enough 'behind_robot' samples ({len(idx_back)} instead of {nb_back})")
+            print(f"[INFO] for distance {self.distance} not enough 'behind_robot' samples ({len(idx_back)} instead of {nb_back})")
             idx_augment.append(np.random.choice(idx_back, nb_back-len(idx_back), replace=False if nb_back-len(idx_back) < len(idx_back) else True))
         else:
             idx_back = np.random.choice(idx_back, nb_back, replace=False)        
@@ -308,6 +328,7 @@ class PlannerDataGenerator(Dataset):
         cost_map: CostMapPCD = None,
     ) -> None:
         
+        print(f"[INFO] PlannerDataGenerator init with semantics={semantics}, rgb={rgb} for ENV {os.path.split(root)[-1]}")
         # super().__init__()
         # set parameters
         self._cfg = cfg
@@ -340,13 +361,17 @@ class PlannerDataGenerator(Dataset):
         self.load_odom()
         self.filter_obs_inflation()
         
+        # noise edges in depth image --> real world Realsense difficulties along edges
+        if self._cfg.noise_edges:
+            self.noise_edges()
+        
         # find odom-goal pairs
         self.get_odom_goal_pairs()
         return
 
     """LOAD HELPER FUNCTIONS"""
     def load_odom(self) -> None:           
-        print("Loading odom data...")
+        print("[INFO] Loading odom data...", end=" ")
         # load odom of every image
         odom_path = os.path.join(self.root, f"camera_extrinsic{self._cfg.depth_suffix}.txt")
         odom_np = np.loadtxt(odom_path, delimiter=",")
@@ -368,7 +393,7 @@ class PlannerDataGenerator(Dataset):
             odom_vis_list.append(self.cost_map.pcd_tsdf)
             
             o3d.visualization.draw_geometries(odom_vis_list)  
-        
+        print("DONE!")
         return        
     
     def load_images(self, root_path, domain: str = "depth"):
@@ -395,7 +420,7 @@ class PlannerDataGenerator(Dataset):
         
         Filtering only performed according to the position of the depth camera, due to the close position of depth and semantic camera.
         """
-        print("Filter odom points within the inflation range of the obstacles in the cost map...")
+        print("[INFO] Filter odom points within the inflation range of the obstacles in the cost map...")
         
         norm_inds, _ = self.cost_map.Pos2Ind(self.odom_array_depth[:, None, :3])
         cost_grid = self.cost_map.cost_array.T.expand(self.odom_array_depth.shape[0], 1, -1, -1)
@@ -437,8 +462,9 @@ class PlannerDataGenerator(Dataset):
             self.odom_array_sem_rgb = self.odom_array_sem_rgb[points_free_space.squeeze()]
             sem_rgb_filename_list = self.load_images(self.root, "rgb")
             self.sem_rgb_filename_list = [sem_rgb_filename_list[i] for i in range(len(sem_rgb_filename_list)) if points_free_space[i]]            
-            
-        print(f"odom points outside obs inflation : \t{self.nb_odom_points} ({round(self.nb_odom_points/nb_odom_point_prev*100, 2)} %)")
+        
+        print("DONE!")    
+        print(f"[INFO] odom points outside obs inflation : \t{self.nb_odom_points} ({round(self.nb_odom_points/nb_odom_point_prev*100, 2)} %)")
         
         return 
     
@@ -536,7 +562,6 @@ class PlannerDataGenerator(Dataset):
         return
     
     def get_pairs(self):
-        print("[INFO] Generating pairs of start and end points ...")
         # iterate over all odom points and find goal points
         self.odom_no_suitable_goals = 0
         self.odom_used = 0
@@ -558,7 +583,7 @@ class PlannerDataGenerator(Dataset):
         self.category_scheme_pairs = dict([(distance, DistanceSchemeIdx(distance=distance)) for distance in self._cfg.distance_scheme.keys()])
         
         # iterate over all odom points        
-        for odom_idx in tqdm(range(self.nb_odom_points), desc="odom points"):
+        for odom_idx in tqdm(range(self.nb_odom_points), desc="Start-End Pairs Generation"):
             odom = self.odom_array_depth[odom_idx]
             
             # transform all odom points to current odom frame
@@ -742,7 +767,7 @@ class PlannerDataGenerator(Dataset):
         
         # print data mix
         print(
-            f"datamix containing {odom.shape[0]} suitable odom-goal pairs: \n"
+            f"[INFO] datamix containing {odom.shape[0]} suitable odom-goal pairs: \n"
             f"\t fov               : \t{int(odom.shape[0] * ratio_fov_samples)  } ({round(ratio_fov_samples*100, 2)} %) \n"
             f"\t front of robot    : \t{int(odom.shape[0] * ratio_front_samples)} ({round(ratio_front_samples*100, 2)} %) \n"
             f"\t back of robot     : \t{int(odom.shape[0] * ratio_back_samples) } ({round(ratio_back_samples*100, 2)} %) \n"
@@ -868,4 +893,52 @@ class PlannerDataGenerator(Dataset):
         
         return sem_rgb_image_path
 
+    """Noise Edges helper functions"""
+    
+    def noise_edges(self):
+        """
+        Along the edges in the depth image, set the values to 0. 
+        Mimics the real-world behavior where RealSense depth cameras have difficulties along edges.
+        """
+        print("[INFO] Adding noise to edges in depth images ...", end=" ")
+        new_depth_filename_list = []
+        # create new directory
+        depth_noise_edge_dir = os.path.join(self.root, "depth_noise_edges")
+        os.makedirs(depth_noise_edge_dir, exist_ok=True)
+        
+        for depth_filename in self.depth_filename_list:
+            depth_img = self._load_depth_image(depth_filename)
+            # Perform Canny edge detection
+            image = ((depth_img / depth_img.max())*255).astype(np.uint8)  # convert to CV_U8 format
+            edges = cv2.Canny(image, self._cfg.edge_threshold, self._cfg.edge_threshold * 3)
+            # Dilate the edges to extend their space
+            kernel = np.ones(self._cfg.extend_kernel_size, np.uint8)
+            dilated_edges = cv2.dilate(edges, kernel, iterations=1)
+            # Erode the edges to refine their shape
+            eroded_edges = cv2.erode(dilated_edges, kernel, iterations=1)
+            # modify depth image
+            depth_img[eroded_edges == 255] = 0.0
+            # save depth image
+            depth_img = (depth_img * self._cfg.depth_scale).astype("uint16")
+            if depth_filename.endswith(".png"):
+                cv2.imwrite(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]), depth_img)
+            else:
+                np.save(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]), depth_img)
+            new_depth_filename_list.append(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]))
+        
+        self.depth_filename_list = new_depth_filename_list
+        print("Done!")
+        return
+    
+    """ Cleanup Script for files generated by this class"""
+    
+    def cleanup(self):
+        print(f"[INFO] Cleaning up for environment {os.path.split(self.root)[1]} ...", end=" ")
+        # remove semantic_warp directory
+        shutil.rmtree(os.path.join(self.root, "img_warp"))
+        # remove depth_noise_edges directory
+        shutil.rmtree(os.path.join(self.root, "depth_noise_edges"))
+        print("Done!")
+        return
+        
 # EoF

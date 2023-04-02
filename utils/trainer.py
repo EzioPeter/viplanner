@@ -17,20 +17,10 @@ import torch.utils.data as Data
 import torchvision.transforms as transforms
 import wandb  # logging
 import matplotlib.pyplot as plt
-import random
 import numpy as np
 from typing import Tuple, List, Optional
 
 torch.set_default_dtype(torch.float32)
-
-# detectron2 and mask2former (used to load pre-trained models from Mask2Former)
-try:
-    from detectron2.config import get_cfg
-    from detectron2.projects.deeplab import add_deeplab_config
-    from third_party.mask2former.mask2former import add_maskformer2_config
-    pre_train_possible = True
-except ImportError:
-    pre_train_possible = False
 
 # imperative-planning-learning
 from config import TrainCfg
@@ -136,6 +126,10 @@ class Trainer:
                 
         torch.cuda.empty_cache()
         
+        # cleanup data
+        for generator in self.data_generators:
+            generator.cleanup()
+        
         # empty buffers
         self.data_generators = []
         self.data_traj_cost = []
@@ -164,6 +158,10 @@ class Trainer:
             fov_angle=self.data_generators[0].alpha_fov,
             dataset="test",
         )
+        
+        # cleanup data
+        for generator in self.data_generators:
+            generator.cleanup()
         return 
     
     def save_config(self) -> None:

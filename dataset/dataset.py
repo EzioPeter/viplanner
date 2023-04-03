@@ -889,6 +889,7 @@ class PlannerDataGenerator(Dataset):
         # save semantic image under the new path
         sem_rgb_filename = os.path.split(sem_rgb_filename)[1]
         sem_rgb_image_path = os.path.join(self.root, "img_warp", sem_rgb_filename)
+        sem_rgb_image_warped = cv2.cvtColor(sem_rgb_image_warped, cv2.COLOR_RGB2BGR)  # convert to BGR for cv2
         cv2.imwrite(sem_rgb_image_path, sem_rgb_image_warped)
         
         return sem_rgb_image_path

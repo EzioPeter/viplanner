@@ -14,7 +14,6 @@ import os
 import cv2
 import numpy as np
 import open3d as o3d
-from PIL import Image
 import scipy.spatial.transform as tf
 from tqdm import tqdm
 
@@ -35,7 +34,7 @@ class DepthReconstruction:
             - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
             - xxxx.npy  (arrays should be named with 4 digits, e.g. 0000.npy, 0001.npy, etc.)
         - semantics (optional)
-            - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
+            - xxxx.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc., RGB images)
     
     when both depth and semantic images are available, then define sem_suffic and depth_suffix in ReconstructionCfg to differentiate between the two with the following structure:
     
@@ -47,7 +46,7 @@ class DepthReconstruction:
             - xxxx{depth_suffix}.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
             - xxxx{depth_suffix}.npy  (arrays should be named with 4 digits, e.g. 0000.npy, 0001.npy, etc.)
         - semantics (optional)
-            - xxxx{sem_suffix}.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc.)
+            - xxxx{sem_suffix}.png  (images should be named with 4 digits, e.g. 0000.png, 0001.png, etc., RGB Images)
     
     in the case of high resolution depth images for the reconstruction, the following additional directory is expected:
         - depth_high_res (either png and/ or npy)
@@ -117,7 +116,8 @@ class DepthReconstruction:
                  
             if self._cfg.semantics and self._cfg.high_res_depth:
                 img_path = os.path.join(self._cfg.get_data_path(), "semantics", str(self._start_idx + img_idx).zfill(4) + self._cfg.sem_suffix + ".png")
-                sem_image = cv2.imread(img_path)
+                sem_image = cv2.imread(img_path)  # load in BGR format
+                sem_image = cv2.cvtColor(sem_image, cv2.COLOR_BGR2RGB)
                 sem_points = sem_image.reshape(-1, 3)[non_zero_idx]
                 points_all.append(points_final)
                 sem_map_all.append(sem_points)
@@ -264,7 +264,8 @@ class DepthReconstruction:
     def _get_semantic_image(self, points, idx):
         # load semantic image and pose
         img_path = os.path.join(self._cfg.get_data_path(), "semantics", str(self._start_idx + idx).zfill(4) + self._cfg.sem_suffix + ".png")
-        sem_image = cv2.imread(img_path)
+        sem_image = cv2.imread(img_path)  # loads in bgr order
+        sem_image = cv2.cvtColor(sem_image, cv2.COLOR_BGR2RGB)
         pose_sem   = self.extrinsics_sem[idx + self._cfg.start_idx]
         # transform points to semantic camera frame
         points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T

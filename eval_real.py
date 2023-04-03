@@ -263,6 +263,7 @@ def main(args) -> None:
                 images=depth_img,
                 is_shown=False,
             )
+            raise NotImplementedError("Before Progressing, check if bgr or rgb input")
             [cv2.imwrite(os.path.join(args.data_dir, "viz", f"{idx}_{i}.png"), cv_img) for i, cv_img in enumerate(cv_img_list)]
         
     # crop buffers

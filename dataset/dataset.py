@@ -936,9 +936,11 @@ class PlannerDataGenerator(Dataset):
     def cleanup(self):
         print(f"[INFO] Cleaning up for environment {os.path.split(self.root)[1]} ...", end=" ")
         # remove semantic_warp directory
-        shutil.rmtree(os.path.join(self.root, "img_warp"))
+        if os.path.isdir(os.path.join(self.root, "img_warp")):
+            shutil.rmtree(os.path.join(self.root, "img_warp"))
         # remove depth_noise_edges directory
-        shutil.rmtree(os.path.join(self.root, "depth_noise_edges"))
+        if os.path.isdir(os.path.join(self.root, "depth_noise_edges")):
+            shutil.rmtree(os.path.join(self.root, "depth_noise_edges"))
         print("Done!")
         return
         

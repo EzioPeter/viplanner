@@ -11,6 +11,58 @@ from utils.trainer import Trainer
 
 if __name__ == "__main__":
     # Arguements  
+    matterport_depth: TrainCfg = TrainCfg(
+        sem=False,
+        rgb=False,
+        cost_map_name="cost_map_sem",
+        file_name="depth",
+    )
+    trainer = Trainer(matterport_depth)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_depth_outside: TrainCfg = TrainCfg(
+        sem=False,
+        rgb=False,
+        cost_map_name="cost_map_sem",
+        file_name="depth_fov0.91_back0.03_front0.06",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+        )
+    )
+    trainer = Trainer(matterport_depth_outside)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_depth_noise: TrainCfg = TrainCfg(
+        sem=False,
+        rgb=False,
+        cost_map_name="cost_map_sem",
+        file_name="depth_fov0.91_back0.03_front0.06_noise",
+        data_cfg=DataCfg(
+            ratio_fov_samples=0.91,
+            ratio_back_samples=0.03,
+            ratio_front_samples=0.06,
+            depth_random_polygons_nb=10,
+            sem_rgb_random_polygon_nb=10,
+            noise_edges=True,
+            depth_salt_pepper=0.05,
+            depth_gaussian=0.05,
+            sem_rgb_black_img=0.05,
+        )
+    )
+    trainer = Trainer(matterport_depth_noise)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
     matterport_overfit_hierarch: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",

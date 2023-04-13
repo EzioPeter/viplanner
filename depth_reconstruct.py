@@ -18,7 +18,7 @@ import scipy.spatial.transform as tf
 from tqdm import tqdm
 
 # imperative-cost-map
-from config import ReconstructionCfg
+from config import ReconstructionCfg, VIPlannerSemMetaHandler
 
 class DepthReconstruction:
     """
@@ -66,6 +66,8 @@ class DepthReconstruction:
         self.extrinsics_depth: np.ndarray = None
         self.extrinsics_sem: np.ndarray = None
         self._read_extrinsic()
+        # semantic classes for viplanner
+        self.sem_handler = VIPlannerSemMetaHandler()
         # control flag if point-cloud has been loaded
         self._is_constructed =  False
         
@@ -174,7 +176,8 @@ class DepthReconstruction:
     def show_pcd(self):
         if not self._is_constructed:
             print("no reconstructed cloud")
-        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=np.array([0., 0., 0.]))
+            return
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=np.min(np.asarray(self._pcd.points), axis=0))
         o3d.visualization.draw_geometries([self._pcd, origin], mesh_show_wireframe=True) # visualize point cloud 
         return
 
@@ -279,6 +282,10 @@ class DepthReconstruction:
         filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_image.shape[0])
         # get semantic annotation
         sem_annotation = sem_image[pixels[filter_idx, 1].astype(int), pixels[filter_idx, 0].astype(int)]
+        # remove all pixels that have no semantic annotation
+        non_classified_idx = np.all(sem_annotation == self.sem_handler.class_color['static'], axis=1)
+        sem_annotation = sem_annotation[~non_classified_idx]
+        filter_idx[np.where(filter_idx)[0][non_classified_idx]] = False
         
         return sem_annotation, filter_idx
 

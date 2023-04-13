@@ -187,9 +187,9 @@ class TrainCfg:
     "number of trajectories that are visualized"
 
     # logging configurations
-    wb_project: str = "SemNav-Matterport"
-    wb_entity: str = "semnav"
-    wb_api_key: str = "e718d064556efc09b0bd0574a8e458f92dea49fc"
+    wb_project: str = "Matterport"
+    wb_entity: str = "viplanner"
+    wb_api_key: str = "8d9b2277691e6b27dc2861ce2bc7c0148113c3ce"
     
     # functions
     def _get_model_save(self, epoch: Optional[int] = None):

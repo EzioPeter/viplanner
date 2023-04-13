@@ -29,13 +29,14 @@ def parse_args() -> argparse.Namespace:
                         default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/model_final_9fd0ae.pkl")
     parser.add_argument('-c', '--m2f_config', type=str, help='Path to the config',
                         default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml")
+    parser.add_argument('-v', '--version', type=str, default="v0.2", help='Release Version of Mask2Former')
     return parser.parse_args()
 
 
 def main(args: argparse.Namespace):
     # create client
     client = SegmentsClient("ee0a626ee7c160e6c841dcd59743b811bf25c774")
-    release = client.get_release(args.dataset_name, "v0.1")
+    release = client.get_release(args.dataset_name, args.version)
     
     # Initialize a new dataset, this time containing only unlabeled images
     dataset = SegmentsDataset(release, labelset='ground-truth', filter_by='UNLABELED')

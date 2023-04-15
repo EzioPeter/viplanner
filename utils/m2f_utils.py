@@ -12,9 +12,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import argparse
+from tqdm import tqdm
 
 # viplanner
-from config import VIPlannerSemMetaHandler, get_class_for_id
+from config import VIPlannerSemMetaHandler, get_class_for_id, Mask2FormerCfg
 
 # m2f
 from detectron2.config import get_cfg
@@ -44,7 +45,7 @@ def load_m2f_demo(model_path, config_path):
     return demo
 
 
-def m2f_run_on_folder(rgb_folder, m2f_model, m2f_config):
+def m2f_run_on_folder(rgb_folder: str, m2f_cfg: Mask2FormerCfg):
     # check folder
     assert os.path.isdir(rgb_folder), f"Folder {rgb_folder} does not exist!"
     parent_folder, _ = os.path.split(rgb_folder) 
@@ -52,7 +53,7 @@ def m2f_run_on_folder(rgb_folder, m2f_model, m2f_config):
     os.makedirs(sem_folder, exist_ok=True)
     
     # get m2f model
-    demo = load_m2f_demo(m2f_model, m2f_config)
+    demo = load_m2f_demo(m2f_cfg.model_file, m2f_cfg.config_file)
     
     # get mapping
     viplanner_meta = VIPlannerSemMetaHandler()
@@ -71,7 +72,7 @@ def m2f_run_on_folder(rgb_folder, m2f_model, m2f_config):
     img_list.sort()
     
     # Generate label predictions
-    for img_name in img_list:
+    for img_name in tqdm(img_list, desc="Img Predicted"):
         # load image and convert to BGR format
         img_path = os.path.join(rgb_folder, img_name)
         image = cv2.imread(img_path)
@@ -91,6 +92,7 @@ def m2f_run_on_folder(rgb_folder, m2f_model, m2f_config):
         im.set_data(visualized_output.get_image()[:, :, ::-1])
         
         # save the bgr 
+        panoptic_mask = cv2.cvtColor(panoptic_mask, cv2.COLOR_RGB2BGR)
         cv2.imwrite(os.path.join(sem_folder, img_name), panoptic_mask)
         
         # Redraw the plot
@@ -101,16 +103,14 @@ def m2f_run_on_folder(rgb_folder, m2f_model, m2f_config):
 
 
 if __name__ == "__main__":
+    m2f_cfg = Mask2FormerCfg()
+    
     parser = argparse.ArgumentParser(description='Prelabel images with a given model')
     parser.add_argument('-d', '--dataset_dir', type=str, help='Directory of the dataset',
                         default="/home/pascal/SemNav/imperative_learning/data/nomoko_zurich/rgb")
-    parser.add_argument('-m', '--m2f_model', type=str, help='Path to the model',
-                        default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/model_final_9fd0ae.pkl")
-    parser.add_argument('-c', '--m2f_config', type=str, help='Path to the config',
-                        default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml")
     args = parser.parse_args()
     
     # run on directory
-    m2f_run_on_folder(args.dataset_dir, args.m2f_model, args.m2f_config)
+    m2f_run_on_folder(args.dataset_dir, m2f_cfg)
 
 # EoF

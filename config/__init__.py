@@ -1,7 +1,8 @@
 from .costmap_cfg import ReconstructionCfg, SemCostMapConfig, TsdfCostMapConfig, CostMapConfig, GeneralCostMapConfig
 from .learning_cfg import TrainCfg, DataCfg
 from .viplanner_sem_meta import VIPlannerSemMetaHandler, OBSTACLE_LOSS
-from .coco_meta import get_class_for_id
+from .coco_meta import get_class_for_id, _COCO_MAPPING_UNIQUE
+from .semantic_cfg import SegmentsCfg, Mask2FormerCfg
 
 __all__ = [
     # configs
@@ -12,10 +13,13 @@ __all__ = [
     "GeneralCostMapConfig",
     "TrainCfg",
     "DataCfg",
+    "SegmentsCfg",
+    "Mask2FormerCfg",
     # mapping
     "VIPlannerSemMetaHandler",
     "OBSTACLE_LOSS",
-    "get_class_for_id"
+    "get_class_for_id",
+    _COCO_MAPPING_UNIQUE,
 ]
 
 # EoF

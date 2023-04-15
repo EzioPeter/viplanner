@@ -9,3 +9,4 @@ opencv-python-headless
 open3d
 networkx
 scipy
+panopticapi @ git+https://github.com/cocodataset/panopticapi.git

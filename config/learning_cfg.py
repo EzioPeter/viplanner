@@ -71,7 +71,7 @@ class DataCfg:
     # edge blur (real world RealSense difficulties along edges)  --> will be also visible in rgb/sem images due to warp
     noise_edges: bool = False  # not activate for CARLA yet
     edge_threshold: int = 100
-    extend_kernel_size: tuple = (5, 5)
+    extend_kernel_size: Tuple[int, int] = field(default_factory=lambda: [5, 5])
     
     # noise augmentation --> will be applied to a scaled image with range between [0, 1]
     depth_salt_pepper: Optional[float] = None  # Proportion of image pixels to replace with noise on range [0, 1]

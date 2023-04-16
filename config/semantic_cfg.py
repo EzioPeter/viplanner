@@ -43,6 +43,7 @@ class Mask2FormerCfg:
     # training parameters
     num_gpus: int = 1
     batch_size: int = 8
+    epochs: int = 10
     coco_data: str = "coco"
     coco_nb_images: Optional[int] = 10000  # None for all images
     resume: bool = True

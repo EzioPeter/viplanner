@@ -412,8 +412,12 @@ class M2FOverfit:
         # change to the new datasets
         cfg["DATASETS"]["TRAIN"] = (self.name_coco_train, self.name_zurich_train, )
         cfg["DATASETS"]["TEST"]  = (self.name_coco_val, )
-        # change batchsize
+        # change batchsize and epochs
         cfg['SOLVER']['IMS_PER_BATCH'] = self.m2f_cfg.batch_size
+        iter_steps = int(self.m2f_cfg.epochs * self.m2f_cfg.coco_nb_images / self.m2f_cfg.batch_size)
+        cfg['SOLVER']['MAX_ITER']      = int(iter_steps * 1.2)
+        cfg['SOLVER']['STEPS']         = (int(iter_steps / 2), iter_steps)
+
         # change output dir
         cfg.OUTPUT_DIR = self.m2f_cfg.output_path
         

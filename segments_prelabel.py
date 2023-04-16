@@ -8,7 +8,6 @@ Script to prelabel real-world RGB images which label can be fine-tuned in segmen
 """
 
 # python
-import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -18,31 +17,19 @@ from segments.utils import bitmap2file
 
 # viplanner
 from utils.m2f_utils import load_m2f_demo
-from config import VIPlannerSemMetaHandler, get_class_for_id
+from config import VIPlannerSemMetaHandler, get_class_for_id, SegmentsCfg, Mask2FormerCfg
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Prelabel images with a given model')
-    parser.add_argument('-d', '--dataset_name', type=str, help='Name of the dataset',
-                        default="leggedrobotics/urban_navigation")
-    parser.add_argument('-m', '--m2f_model', type=str, help='Path to the model',
-                        default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/model_final_9fd0ae.pkl")
-    parser.add_argument('-c', '--m2f_config', type=str, help='Path to the config',
-                        default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml")
-    parser.add_argument('-v', '--version', type=str, default="v0.2", help='Release Version of Mask2Former')
-    return parser.parse_args()
-
-
-def main(args: argparse.Namespace):
+def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):
     # create client
-    client = SegmentsClient("ee0a626ee7c160e6c841dcd59743b811bf25c774")
-    release = client.get_release(args.dataset_name, args.version)
+    client = SegmentsClient(segments_cfg.api_key)
+    release = client.get_release(segments_cfg.dataset_name, segments_cfg.version)
     
     # Initialize a new dataset, this time containing only unlabeled images
     dataset = SegmentsDataset(release, labelset='ground-truth', filter_by='UNLABELED')
     
     # get m2f model
-    demo = load_m2f_demo(args.m2f_model, args.m2f_config)
+    demo = load_m2f_demo(m2f_cfg.model_file, m2f_cfg.config_file)
     
     # get mapping from coco to viplanner semantic classes
     viplanner_meta = VIPlannerSemMetaHandler()
@@ -87,7 +74,8 @@ def main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    segments_cfg = SegmentsCfg()
+    m2f_cfg = Mask2FormerCfg()
+    main(segments_cfg, m2f_cfg)
     
 # EoF

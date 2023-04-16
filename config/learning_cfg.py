@@ -10,8 +10,6 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional
 import yaml
-import os
-
 
 # define own loader class to include DataCfg
 class Loader(yaml.SafeLoader):

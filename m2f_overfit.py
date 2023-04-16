@@ -412,7 +412,11 @@ class M2FOverfit:
         # change to the new datasets
         cfg["DATASETS"]["TRAIN"] = (self.name_coco_train, self.name_zurich_train, )
         cfg["DATASETS"]["TEST"]  = (self.name_coco_val, )
+        # change batchsize
+        cfg['SOLVER']['IMS_PER_BATCH'] = self.m2f_cfg.batch_size
+        # change output dir
         cfg.OUTPUT_DIR = self.m2f_cfg.output_path
+        
         cfg.freeze()
         default_setup(cfg, self.m2f_cfg)
         # Setup logger for "mask_former" module

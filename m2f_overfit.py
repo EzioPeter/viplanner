@@ -32,7 +32,7 @@ import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
 from detectron2.data import MetadataCatalog, build_detection_train_loader
-from detectron2.data.datasets import register_coco_panoptic
+from detectron2.data.datasets import register_coco_panoptic, register_coco_panoptic_separated
 from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
 from detectron2.engine import (
     DefaultTrainer,
@@ -359,22 +359,32 @@ class M2FOverfit:
             image_root=os.path.join(self.m2f_cfg.coco_data_path, "train2017"),
             panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_train2017"),
             panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, annotation_json),
-            instances_json=None,
         )
-        register_coco_panoptic(
-            name=self.name_coco_val,
-            metadata=coco_meta,
-            image_root=os.path.join(self.m2f_cfg.coco_data_path, "val2017"),
-            panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
-            panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017.json"),
-            instances_json=None,
-        )
-        separate_coco_semantic_from_panoptic(
-            panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017.json"),
-            panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
-            sem_seg_root=os.path.join(self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"),
-            categories=COCO_CATEGORIES
-        )
+        if not self.m2f_cfg.use_sem_seg:
+            register_coco_panoptic(
+                name=self.name_coco_val,
+                metadata=coco_meta,
+                image_root=os.path.join(self.m2f_cfg.coco_data_path, "val2017"),
+                panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
+                panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017.json"),
+            )
+        else:
+            raise NotImplementedError("Also requires instances json file")
+            register_coco_panoptic_separated(
+                name=self.name_coco_val,
+                metadata=coco_meta,
+                image_root=os.path.join(self.m2f_cfg.coco_data_path, "val2017"),
+                panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
+                panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017.json"),
+                sem_seg_root=os.path.join(self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"),       
+                instances_json=None,         
+            )
+            separate_coco_semantic_from_panoptic(
+                panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017.json"),
+                panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
+                sem_seg_root=os.path.join(self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"),
+                categories=COCO_CATEGORIES
+            )
         
         # add own dataset (Metadata same as the coco dataset)
         register_coco_panoptic(
@@ -383,9 +393,7 @@ class M2FOverfit:
             image_root=os.path.join(self.segments_cfg.export_file_path, "train"),
             panoptic_root=os.path.join(self.segments_cfg.export_file_path, "annotations", "images"),
             panoptic_json=os.path.join(self.segments_cfg.export_file_path, "annotations", "panoptic_zurich.json"),
-            instances_json=None
-        )
-
+        )       
         print('[INFO] Dataset registered!')
 
     def overfit(self) -> None:
@@ -421,6 +429,11 @@ class M2FOverfit:
         # change output dir
         cfg.OUTPUT_DIR = self.m2f_cfg.output_path
         
+        # disable instance testing  (instance json not available)
+        cfg["MODEL"]["MASK_FORMER"]["TEST"]["INSTANCE_ON"] = False
+        if not self.m2f_cfg.use_sem_seg:
+            cfg["MODEL"]["MASK_FORMER"]["TEST"]["SEMANTIC_ON"] = False
+            
         cfg.freeze()
         default_setup(cfg, self.m2f_cfg)
         # Setup logger for "mask_former" module

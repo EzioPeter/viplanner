@@ -51,6 +51,7 @@ class Mask2FormerCfg:
     machine_rank: int = 0
     num_machines: int = 1
     dist_url: str = 'tcp://127.0.0.1:50152'
+    use_sem_seg: bool = False  # semantic segmentation evaluation  --> also requires instancs json file (not available yet)
     
     
     @property

@@ -82,7 +82,7 @@ class DataCfg:
     sem_rgb_pepper: Optional[float] = None  # Proportion of pixels to randomly set to 0
     sem_rgb_black_img: Optional[float] = None  # Randomly set this proportion of images to complete black images  --> 
     sem_rgb_random_polygons_nb: Optional[int] = None  # Number of random polygons to add
-    sem_rgb_random_polygon_size: int = 10  # Size of the random polygons in pixels
+    sem_rgb_random_polygon_size: int = 20  # Size of the random polygons in pixels
 
 @dataclass
 class TrainCfg:

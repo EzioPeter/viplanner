@@ -17,11 +17,11 @@ if __name__ == "__main__":
         cost_map_name="cost_map_sem",
         file_name="depth",
     )
-    trainer = Trainer(matterport_depth)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_depth)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_depth_outside: TrainCfg = TrainCfg(
         sem=False,
@@ -34,11 +34,11 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
         )
     )
-    trainer = Trainer(matterport_depth_outside)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_depth_outside)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_depth_noise: TrainCfg = TrainCfg(
         sem=False,
@@ -50,7 +50,7 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
             depth_random_polygons_nb=10,
-            sem_rgb_random_polygon_nb=10,
+            sem_rgb_random_polygons_nb=10,
             noise_edges=True,
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,
@@ -102,19 +102,35 @@ if __name__ == "__main__":
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
-        cost_map_name="cost_map_sem",
-        file_name="fov0.91_back0.03_front0.06_sdecoder",
+        cost_map_name="cost_map_sem_obs04",
+        file_name="obs04_sdecoder",
+        data_cfg=DataCfg(
+            ratio_fov_samples=1.0,
+            ratio_back_samples=0.0,
+            ratio_front_samples=0.0,
+        )
+    )  
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
+
+    matterport_sem: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem_obs04",
+        file_name="obs04_fov0.91_back0.03_front0.06_sdecoder",
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
         )
     )  
-    # trainer = Trainer(matterport_sem)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer = Trainer(matterport_sem)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -181,11 +197,11 @@ if __name__ == "__main__":
             sem_rgb_black_img=0.05,
         )
     )
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -200,11 +216,11 @@ if __name__ == "__main__":
             sem_rgb_black_img=0.05,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -217,11 +233,11 @@ if __name__ == "__main__":
             noise_edges=True,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
  
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
@@ -232,25 +248,25 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
             depth_random_polygons_nb=10,
-            sem_rgb_random_polygon_nb=10,
+            sem_rgb_random_polygons_nb=10,
         )
     )  
-    trainer = Trainer(matterport_sem)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_sem)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
-        cost_map_name="cost_map_sem",
-        file_name="fov0.91_back0.03_front0.06_sdecoder_all_noise",
+        cost_map_name="cost_map_sem_obs04",
+        file_name="obs04_fov0.91_back0.03_front0.06_sdecoder_all_noise",
         data_cfg=DataCfg(
             ratio_fov_samples=0.91,
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
             depth_random_polygons_nb=10,
-            sem_rgb_random_polygon_nb=10,
+            sem_rgb_random_polygons_nb=10,
             noise_edges=True,
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,

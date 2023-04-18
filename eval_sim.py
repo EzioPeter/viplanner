@@ -15,7 +15,7 @@ from utils.trainer import Trainer
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels')
     parser.add_argument('-md', '--model_dir', type=str, help='Path to model directory',
-                        default="/home/pascal/SemNav/imperative_learning/models/plannernet_envtown01_ep100_inputDepSem_costSem_optimSGD_heightmap/")
+                        default="/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_fov0.91_back0.03_front0.06_decoderS/")
     parser.add_argument('-n', '--nb_viz', type=int, help='Number of trajectores that should be visualized (default: number in model cfg)')
     args = parser.parse_args()
     
@@ -49,12 +49,12 @@ if __name__ == "__main__":
             fov_ratio = 1.0 - (trainer._cfg.hierarchical_back_step_ratio + trainer._cfg.hierarchical_front_step_ratio) * current_step
             front_ratio = trainer._cfg.hierarchical_front_step_ratio * current_step
             back_ratio = trainer._cfg.hierarchical_back_step_ratio * current_step
-            model_path = os.path.join(trainer.model_dir, "hierarchical", f"model_ep{epoch}_fov{round(fov_ratio, 3)}_front{round(front_ratio, 3)}_back{round(back_ratio, 3)}.pt")
+            model_file = os.path.join(trainer.model_dir, "hierarchical", f"model_ep{epoch}_fov{round(fov_ratio, 3)}_front{round(front_ratio, 3)}_back{round(back_ratio, 3)}.pt")
             # load model at the step
-            if os.path.isfile(model_path):
-                model_state_dict, best_loss = torch.load(model_path)
+            if os.path.isfile(model_file):
+                model_state_dict, best_loss = torch.load(model_file)
                 trainer.net.load_state_dict(model_state_dict)
-                print("Resume train from {} with loss {}".format(model_path, best_loss))    
+                print("Resume train from {} with loss {}".format(model_file, best_loss))    
                 
                 test_loss[current_step, 0] = epoch
                 test_loss[current_step, 1] = trainer._test_epoch(
@@ -73,10 +73,10 @@ if __name__ == "__main__":
         optim = "SGD" if trainer._cfg.optimizer == "sgd" else "Adam"
         name = f"_{trainer._cfg.file_name}" if trainer._cfg.file_name is not None else ""
         if os.path.isdir(os.path.join("/home/pascal/SemNav/imperative_learning", "models", f"plannernet_env{trainer._cfg.env_list[0]}_ep{trainer._cfg.epochs}_input{input_domain}_cost{cost_name}_optim{optim}{name}")):
-            model_path = os.path.join("/home/pascal/SemNav/imperative_learning", "models", f"plannernet_env{trainer._cfg.env_list[0]}_ep{trainer._cfg.epochs}_input{input_domain}_cost{cost_name}_optim{optim}{name}", "model.pt")
-            model_state_dict, best_loss = torch.load(model_path)
+            model_file = os.path.join("/home/pascal/SemNav/imperative_learning", "models", f"plannernet_env{trainer._cfg.env_list[0]}_ep{trainer._cfg.epochs}_input{input_domain}_cost{cost_name}_optim{optim}{name}", "model.pt")
+            model_state_dict, best_loss = torch.load(model_file)
             trainer.net.load_state_dict(model_state_dict)
-            print("Resume train from {} with loss {}".format(model_path, best_loss))    
+            print("Resume train from {} with loss {}".format(model_file, best_loss))    
             
             test_loss_non_hierarch = trainer._test_epoch(
                 test_loader[0], 

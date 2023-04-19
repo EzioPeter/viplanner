@@ -16,7 +16,7 @@ from segments import SegmentsClient, SegmentsDataset
 from segments.utils import bitmap2file
 
 # viplanner
-from utils.m2f_utils import load_m2f_demo
+from utils.m2f_utils import M2FWrapper
 from config import VIPlannerSemMetaHandler, get_class_for_id, SegmentsCfg, Mask2FormerCfg
 
 
@@ -29,7 +29,7 @@ def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):
     dataset = SegmentsDataset(release, labelset='ground-truth', filter_by='UNLABELED')
     
     # get m2f model
-    demo = load_m2f_demo(m2f_cfg.model_file, m2f_cfg.config_file)
+    m2f_wrapper = M2FWrapper(m2f_cfg)
     
     # get mapping from coco to viplanner semantic classes
     viplanner_meta = VIPlannerSemMetaHandler()
@@ -49,7 +49,7 @@ def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):
         image = image[:, :, ::-1]
         
         # Visualize the predictions
-        predictions, visualized_output = demo.run_on_image(image)
+        predictions = m2f_wrapper.predictor(image)
         segmentation_bitmap, seg_infos = predictions['panoptic_seg']
         
         # create output with VIPLanner Semantic Classes 
@@ -66,7 +66,7 @@ def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):
         }
         client.add_label(sample['uuid'], 'ground-truth', attributes, label_status='PRELABELED')
 
-        im.set_data(visualized_output.get_image()[:, :, ::-1])
+        im.set_data(m2f_wrapper._create_mask(predictions=predictions))
         # Redraw the plot
         plt.draw()
         plt.pause(0.1)

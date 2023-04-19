@@ -19,9 +19,9 @@ from typing import List
 import scipy.spatial.transform as tf
 
 # viplanner
-from config import TrainCfg, VIPlannerSemMetaHandler, get_class_for_id
+from config import TrainCfg, Mask2FormerCfg
 from utils.trainer import Trainer
-from utils.m2f_utils import load_m2f_demo
+from utils.m2f_utils import M2FWrapper
 from traj_cost_opt import TrajOpt, TrajCost, TrajViz
 from dataset import PlannerDataGenerator
 
@@ -35,7 +35,7 @@ CAMERA_FLIP_MAT     = tf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True)
 
 class RealWorldEvaluator:
 
-    def __init__(self, args: argparse.Namespace) -> None:
+    def __init__(self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg) -> None:
         """
         Make prediction on real world images and evaluate the generated pathes. Expected args:
 
@@ -50,10 +50,9 @@ class RealWorldEvaluator:
                                         - odom_bgr.txt          (bgr   odometry values at different time values (x, y, z, qx, qy, qz, qw, sec, nsec))
                                         - intrinsics_bgr.txt
                                         - intrinsics_depth.txt
-        args.m2f_cfg            -- path to mask2former config yaml file
-        args.m2f_weights        -- path to mask2former weight .pkl file
         """
         self.args = args
+        self.m2f_cfg = m2f_cfg
         
         # load data
         self.K_bgr: np.ndarray = None
@@ -78,53 +77,6 @@ class RealWorldEvaluator:
         self.plt_comparison(length_goal_list, length_path_list, goal_distance_list)
 
         return
-
-    def sem_predictions(self) -> None:
-        # check if and which files are already in the directory, only progress for the non-included files
-        files_in_directory_set = set(os.listdir(os.path.join(self.args.data_dir, "semantics")))
-        filenames_set = set(self.bgr_img_list)
-        filenames_not_included = list(filenames_set - files_in_directory_set)
-        if len(filenames_not_included) == 0:
-            return
-
-        m2f_demo = load_m2f_demo(self.args.m2f_weights, self.args.m2f_cfg)
-
-        # get mapping from coco to viplanner semantic classes
-        viplanner_meta = VIPlannerSemMetaHandler()
-        coco_viplanner_cls_mapping = get_class_for_id()
-        viplanner_sem_class_color_map = viplanner_meta.class_color
-        coco_viplanner_color_mapping = {}
-        for coco_id, viplanner_cls_name in coco_viplanner_cls_mapping.items():
-            coco_viplanner_color_mapping[coco_id] = viplanner_meta.class_color[viplanner_cls_name]
-        
-        # make new diretory for semantic classes
-        os.makedirs(os.path.join(self.args.data_dir, "semantics"), exist_ok=True)
-
-        # get list of all files in bgr directory
-        for curr_bgr in tqdm(filenames_not_included, desc="Semantic Estimation"):
-            # load_image
-            image = cv2.imread(os.path.join(self.args.data_dir, "bgr", curr_bgr))
-            # get predictions
-            predictions, visualized_output = m2f_demo.run_on_image(image)
-            panoptic_seg, seg_infos = predictions['panoptic_seg']
-            # create output
-            panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
-            for sinfo in seg_infos:
-                try:
-                    panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = coco_viplanner_color_mapping[sinfo['category_id']]
-                except KeyError:
-                    print(f"WARNING: Category {sinfo['category_id']} not found in coco_viplanner_cls_mapping.")
-                    panoptic_mask[panoptic_seg.cpu().numpy() == sinfo['id']] = viplanner_sem_class_color_map['static']
-            
-            if self.args.debug:
-                plt.imshow(panoptic_mask)
-                plt.show()
-                
-            # save image 
-            panoptic_mask = cv2.cvtColor(panoptic_mask, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(os.path.join(self.args.data_dir, "semantics", curr_bgr), panoptic_mask)
-        return
-
 
     def load_data(self) -> None:
         # load data timestamps and synchroniize them
@@ -193,7 +145,8 @@ class RealWorldEvaluator:
 
         # if semantics are used, load M2F model and estimate semantics
         if train_config.sem:
-            self.sem_predictions()
+            m2f_wrapper = M2FWrapper(self.m2f_cfg)
+            m2f_wrapper.run_on_folder(os.path.join(self.args.data_dir, "bgr"), self.args.debug)
 
         # load trainer, model
         trainer = Trainer(train_config)
@@ -447,10 +400,6 @@ if __name__ == "__main__":
                         ])
     parser.add_argument('-d', '--data_dir',  type=str, help='Path to data directory (should contain bgr, depth and odom data)', 
                         default="/home/pascal/SemNav/env/anymal/2023_03_23_rsl/")
-    parser.add_argument('--m2f_cfg',  type=str, help='Path to config file for mask2former',
-                        default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml")
-    parser.add_argument('--m2f_weights',  type=str, help='Path to weights file for mask2former',
-                        default="/home/pascal/SemNav/sem_seg/m2f_model/coco/panoptic/swin/model_final_9fd0ae.pkl")
     parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     parser.add_argument('--goal_frame_advances', nargs='+', type=int, help='Number of frames to advance the goal',
@@ -460,7 +409,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    RealWorldEvaluator(args)
+    m2f_cfg = Mask2FormerCfg()
+    RealWorldEvaluator(args, m2f_cfg)
 
 # EoF
  

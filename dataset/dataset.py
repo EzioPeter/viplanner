@@ -463,6 +463,7 @@ class PlannerDataGenerator(Dataset):
             sem_rgb_filename_list = self.load_images(self.root, "rgb")
             self.sem_rgb_filename_list = [sem_rgb_filename_list[i] for i in range(len(sem_rgb_filename_list)) if points_free_space[i]]            
         
+        assert len(self.depth_filename_list) != 0, "No depth images left after filtering"
         print("DONE!")    
         print(f"[INFO] odom points outside obs inflation : \t{self.nb_odom_points} ({round(self.nb_odom_points/nb_odom_point_prev*100, 2)} %)")
         
@@ -853,7 +854,7 @@ class PlannerDataGenerator(Dataset):
         # filter points outside of image
         filter_idx = (pixels[:, 0] >= 0) & (pixels[:, 0] < sem_rgb_image.shape[1]) & (pixels[:, 1] >= 0) & (pixels[:, 1] < sem_rgb_image.shape[0])
         # get semantic annotation
-        sem_annotation = np.zeros((pixels.shape[0], 3))
+        sem_annotation = np.zeros((pixels.shape[0], 3), dtype=np.uint8)
         sem_annotation[filter_idx] = sem_rgb_image[pixels[filter_idx, 1].astype(int), pixels[filter_idx, 0].astype(int)]
         # reshape to image
         

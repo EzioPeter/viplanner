@@ -57,11 +57,11 @@ if __name__ == "__main__":
             sem_rgb_black_img=0.05,
         )
     )
-    trainer = Trainer(matterport_depth_noise)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(matterport_depth_noise)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     matterport_overfit_hierarch: TrainCfg = TrainCfg(
         sem=True,

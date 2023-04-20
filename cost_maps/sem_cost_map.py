@@ -48,9 +48,6 @@ class SemCostMap:
         
         # cost map
         self.grid_cell_loss: np.ndarray = None
-        
-        # height map
-        self.height_map: np.ndarray = None
         return
     
     def pcd_init(self) -> None:
@@ -72,8 +69,11 @@ class SemCostMap:
         self._set_map_parameters(self.pcd)
 
         # get ground height map
-        self.height_map = self._pcd_ground_height_map(self.pcd)
-
+        if self._cfg_sem.compute_height_map:
+            self.height_map = self._pcd_ground_height_map(self.pcd)
+        else:
+            self.height_map = np.zeros((self._num_x, self._num_y))
+        
         # filter point cloud depending on height
         self.pcd_filtered = self._pcd_filter()
         
@@ -106,7 +106,7 @@ class SemCostMap:
         # ground height of human constructed things (buildings, bench, etc.) should be equal to the ground height of the surrounding terrain/ street
         # --> classify the selected points and change depending on the class
         # get colors
-        color = np.asarray(self.pcd.colors)[pts_idx] * 255.0
+        color = np.asarray(pcd.colors)[pts_idx] * 255.0
         # pts to class idx array
         pts_ground = np.zeros(color.shape[0], dtype=bool)
         # assign each point to a class
@@ -115,8 +115,17 @@ class SemCostMap:
             pts_idx_of_class = (color == class_color).all(axis=1).nonzero()[0]
             pts_ground[pts_idx_of_class] = self.sem_meta.class_ground[class_name]
         
-        # fit kdtree to the points on the ground and assign ground height to all other points based on the nearest neighbor
+        # filter outliers
         pts_ground_idx = pts_idx[pts_ground]
+        if False:
+            pcd_ground = pcd.select_by_index(pts_ground_idx)
+            _, ind = pcd_ground.remove_radius_outlier(nb_points=5, radius=5 * self._cfg_general.resolution)
+            pts_ground_idx = pts_ground_idx[ind]
+            pts_ground_red = np.zeros(pts_grid_idx_red.shape[0], dtype=bool)
+            pts_ground_red[np.where(pts_ground)[0][ind]] = True
+            pts_ground = pts_ground_red
+            
+        # fit kdtree to the points on the ground and assign ground height to all other points based on the nearest neighbor
         pts_ground_location = pts[pts_ground_idx]
         ground_kdtree = scipy.spatial.KDTree(pts_ground_location) 
         _, non_ground_neighbor_idx = ground_kdtree.query(pts[pts_idx[~pts_ground]], workers=-1)
@@ -269,9 +278,11 @@ class SemCostMap:
         
         # update map parameters --> has to be done after mapping because last step where points are removed
         changed = self._set_map_parameters(self.pcd_filtered)
-        if changed:
+        if changed and self._cfg_sem.compute_height_map:
             print("Recompute heightmap map due to changed parameters")
             self.height_map = self._pcd_ground_height_map(self.pcd_filtered)
+        elif changed:
+            self.height_map = np.zeros((self._num_x, self._num_y))
             
         # get points
         pts = np.asarray(self.pcd_filtered.points)

@@ -426,7 +426,7 @@ class VIPlannerNode:
         return
     
     def semPrediction(self, image):
-        # semantic estimation
+        # semantic estimation with image in BGR format
         start = time.time()
         image = self.m2f_inference.predict(image)
         self.time_sem = time.time() - start

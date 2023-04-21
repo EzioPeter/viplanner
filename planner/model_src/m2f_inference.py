@@ -48,7 +48,9 @@ class Predictor:
         self.aug = T.ResizeShortestEdge(
             [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
         )
-                
+        self.input_format = cfg.INPUT.FORMAT
+        assert self.input_format in ["RGB", "BGR"], self.input_format
+                        
     def __call__(self, image):
         """
         Args:
@@ -60,6 +62,9 @@ class Predictor:
                 See :doc:`/tutorials/models` for details about the format.
         """
         with torch.no_grad():  # https://github.com/sphinx-doc/sphinx/issues/4258
+            if self.input_format == "RGB":
+                # whether the model expects BGR inputs or RGB
+                image = image[:, :, ::-1]
             height, width = image.shape[:2]
             image = self.aug.get_transform(image).apply_image(image)
             image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
@@ -110,7 +115,7 @@ class Mask2FormerInference:
         """Predict semantic segmentation from image
 
         Args:
-            image (np.ndarray): image to be processed
+            image (np.ndarray): image to be processed in BGR format
         """
         # get predictions
         predictions = self.predictor(image)  

@@ -62,7 +62,7 @@ class BaseEvaluator:
     
     def reset(self) -> None:
         self.create_buffers()
-        self.eval_stats = None
+        self.eval_stats = {}
         return
     
     ##
@@ -110,7 +110,10 @@ class BaseEvaluator:
     # Plotting
     ##
     
-    def plt_single_model(self, eval_dir: str) -> None:
+    def plt_single_model(self, eval_dir: str, show: bool = True) -> None:
+        # check if directory exists
+        os.makedirs(eval_dir, exist_ok=True)
+        
         # get goal success
         goal_success_bool = self.goal_distances < self.tolerance
 
@@ -146,7 +149,10 @@ class BaseEvaluator:
         ax.tick_params(axis='both', which='major', labelsize=14)
         ax.legend()
         fig.savefig(os.path.join(eval_dir, "path_length.png"))
-        plt.show() 
+        if show:
+            plt.show() 
+        else:
+            plt.close()
 
         ## plot to compare the increase in path length depending in on the distance between goal and start
         goal_success_mean = np.sum(goal_success_bool) / len(self.goal_distances)
@@ -176,7 +182,10 @@ class BaseEvaluator:
 
         plt.suptitle("Goal Distance", fontsize=20)
         fig.savefig(os.path.join(eval_dir, "goal_distance.png"))
-        plt.show()
+        if show:
+            plt.show() 
+        else:
+            plt.close()
         return
     
     def plt_comparison(
@@ -185,6 +194,7 @@ class BaseEvaluator:
         length_goal_list: List[np.ndarray],
         goal_distance_list: List[np.ndarray],
         model_dirs: List[str],
+        save_dir: str,
     ) -> None:
         # path increase plot
         fig_path, axs_path = plt.subplots(figsize=(12, 10))
@@ -234,8 +244,8 @@ class BaseEvaluator:
         
         axs_path.legend()
         axs_goal.legend()
-        fig_path.savefig(os.path.join(self.args.data_dir, "path_length_comp.png"))
-        fig_goal.savefig(os.path.join(self.args.data_dir, "goal_distance_comp.png"))
+        fig_path.savefig(os.path.join(save_dir, "path_length_comp.png"))
+        fig_goal.savefig(os.path.join(save_dir, "goal_distance_comp.png"))
         plt.show()
         return
 

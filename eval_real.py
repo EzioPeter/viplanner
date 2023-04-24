@@ -81,7 +81,7 @@ class RealWorldEvaluator(BaseEvaluator):
             goal_distance_list.append(goal_distance)
             self.reset()
         
-        self.plt_comparison(length_goal_list, length_path_list, goal_distance_list, self.args.model_dirs)
+        self.plt_comparison(length_goal_list, length_path_list, goal_distance_list, self.args.model_dirs, self.args.data_dir)
 
         return
 

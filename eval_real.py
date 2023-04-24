@@ -24,6 +24,7 @@ from utils.trainer import Trainer
 from utils.m2f_utils import M2FWrapper
 from traj_cost_opt import TrajOpt, TrajCost, TrajViz
 from dataset import PlannerDataGenerator
+from utils.eval_utils import BaseEvaluator
 
 # set random seed for reproducibility
 torch.manual_seed(12)
@@ -33,7 +34,7 @@ ROS_TO_ROBOTICS_MAT = tf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True)
 CAMERA_FLIP_MAT     = tf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True).as_matrix()
 
 
-class RealWorldEvaluator:
+class RealWorldEvaluator(BaseEvaluator):
 
     def __init__(self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg) -> None:
         """
@@ -51,6 +52,7 @@ class RealWorldEvaluator:
                                         - intrinsics_bgr.txt
                                         - intrinsics_depth.txt
         """
+        super().__init__(args.tolerance)
         self.args = args
         self.m2f_cfg = m2f_cfg
         
@@ -63,7 +65,11 @@ class RealWorldEvaluator:
         self.bgr_img_list: np.ndarray = None
         self.odom_depth_pp: pp.LieTensor = None
         self.load_data()
-
+        
+        # create buffers and set nbr paths
+        self.set_nbr_paths(nbr_paths=(len(self.depth_img_list) - max(self.args.goal_frame_advances)) * len(self.args.goal_frame_advances))
+        self.create_buffers()
+        
         # run model
         length_goal_list = []
         length_path_list = []
@@ -73,8 +79,9 @@ class RealWorldEvaluator:
             length_goal_list.append(length_goal)
             length_path_list.append(length_path)
             goal_distance_list.append(goal_distance)
+            self.reset()
         
-        self.plt_comparison(length_goal_list, length_path_list, goal_distance_list)
+        self.plt_comparison(length_goal_list, length_path_list, goal_distance_list, self.args.model_dirs)
 
         return
 
@@ -146,7 +153,7 @@ class RealWorldEvaluator:
         # if semantics are used, load M2F model and estimate semantics
         if train_config.sem:
             m2f_wrapper = M2FWrapper(self.m2f_cfg)
-            m2f_wrapper.run_on_folder(os.path.join(self.args.data_dir, "bgr"), self.args.debug)
+            m2f_wrapper.run_on_folder(os.path.join(self.args.data_dir, "bgr"), self.args.debug, run_on_existing_files=False)
 
         # load trainer, model
         trainer = Trainer(train_config)
@@ -171,11 +178,6 @@ class RealWorldEvaluator:
         depth_img = np.asarray(depth_img)
         x_nums, y_nums = depth_img.shape
         depth_pixel_array = PlannerDataGenerator.compute_pixel_tensor(x_nums, y_nums, self.K_depth)
-
-        # init eval buffers
-        length_path    = np.zeros((len(self.depth_img_list) - max(self.args.goal_frame_advances)) * len(self.args.goal_frame_advances))
-        length_goal    = np.zeros((len(self.depth_img_list) - max(self.args.goal_frame_advances)) * len(self.args.goal_frame_advances))
-        goal_distances = np.zeros((len(self.depth_img_list) - max(self.args.goal_frame_advances)) * len(self.args.goal_frame_advances))
 
         # make predictions
         pred_counter = 0
@@ -236,9 +238,9 @@ class RealWorldEvaluator:
             waypoints_world = TrajCost.TransformPoints(self.odom_depth[idx][None, :], waypoints.to("cpu")).tensor().cpu().numpy()
             
             # evaluate
-            goal_distances[pred_counter:pred_counter+len(goals)] = np.linalg.norm(waypoints_world[:, -1, :2] - self.odom_depth[goal_frames[goal_filter], :2], axis=1)
-            length_path[pred_counter:pred_counter+len(goals)]    = np.sum(np.linalg.norm(waypoints_world[:, 1:, :2] - waypoints_world[:, :-1, :2], axis=2), axis=1)
-            length_goal[pred_counter:pred_counter+len(goals)]    = np.linalg.norm(self.odom_depth[goal_frames[goal_filter], :2] - self.odom_depth[idx, :2], axis=1)
+            self.goal_distances[pred_counter:pred_counter+len(goals)] = np.linalg.norm(waypoints_world[:, -1, :2] - self.odom_depth[goal_frames[goal_filter], :2], axis=1)
+            self.length_path[pred_counter:pred_counter+len(goals)]    = np.sum(np.linalg.norm(waypoints_world[:, 1:, :2] - waypoints_world[:, :-1, :2], axis=2), axis=1)
+            self.length_goal[pred_counter:pred_counter+len(goals)]    = np.linalg.norm(self.odom_depth[goal_frames[goal_filter], :2] - self.odom_depth[idx, :2], axis=1)
             pred_counter += len(goals)
 
             # viz trajectories within the depth image
@@ -256,139 +258,33 @@ class RealWorldEvaluator:
                 [cv2.imwrite(os.path.join(self.args.data_dir, "viz", f"{idx}_{i}.png"), cv_img) for i, cv_img in enumerate(cv_img_list)]
             
         # crop buffers
-        goal_distances = goal_distances[:pred_counter]
-        length_path = length_path[:pred_counter]
-        length_goal = length_goal[:pred_counter]
+        self.goal_distances = self.goal_distances[:pred_counter]
+        self.length_path = self.length_path[:pred_counter]
+        self.length_goal = self.length_goal[:pred_counter]
         
         # sort values
-        sort_indices = np.argsort(length_goal)
-        length_goal = length_goal[sort_indices]
-        length_path = length_path[sort_indices]
-        goal_distances = goal_distances[sort_indices]
+        sort_indices = np.argsort(self.length_goal)
+        self.length_goal = self.length_goal[sort_indices]
+        self.length_path = self.length_path[sort_indices]
+        self.goal_distances = self.goal_distances[sort_indices]
 
         # make directory and save data
         _, model_name = os.path.split(model_dir)
         eval_dir = os.path.join(self.args.data_dir, f"eval_{model_name}")
         os.makedirs(eval_dir, exist_ok=True)
 
-        np.savetxt(os.path.join(eval_dir, "length_path.txt"), length_path)
-        np.savetxt(os.path.join(eval_dir, "length_goal.txt"), length_goal)
-        np.savetxt(os.path.join(eval_dir, "goal_distances.txt"), goal_distances)
+        np.savetxt(os.path.join(eval_dir, "length_path.txt"), self.length_path)
+        np.savetxt(os.path.join(eval_dir, "self.length_goal.txt"), self.length_goal)
+        np.savetxt(os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances)
 
-        unique_goal_length = np.unique(np.round(length_goal, 1))
-        mean_path_length = []
-        std_path_length = []
-        mean_goal_distance = []
-        std_goal_distance = []
-        goal_counts = []
-        for x in unique_goal_length:
-            y_subset = length_path[np.round(length_goal, 1) == x]
-            mean_path_length.append(np.mean(y_subset))
-            std_path_length.append(np.std(y_subset))
-            mean_goal_distance.append(np.mean(y_subset))
-            std_goal_distance.append(np.std(y_subset))
-            goal_counts.append(len(y_subset))
-
-        ## plot with the distance to the goal depending on the length between goal and start
-        avg_increase = np.mean((length_path / length_goal) -1)
+        # plot data
+        self.plt_single_model(eval_dir)
         
-        fig, ax = plt.subplots(figsize=(12, 10))
-        fig.suptitle("Path Length Increase", fontsize=20)
-        ax.plot(unique_goal_length, mean_path_length, color='blue', label='Average path length')
-        ax.fill_between(unique_goal_length, np.array(mean_path_length) - np.array(std_path_length), np.array(mean_path_length) + np.array(std_path_length), color='blue', alpha=0.2, label='Uncertainty')
-        ax.set_xlabel('Start-Goal Distance', fontsize=16)
-        ax.set_ylabel('Path Length', fontsize=16)
-        ax.set_title(f"Avg increase of path length is {round(avg_increase, 5)*100}%", fontsize=16)
-        ax.tick_params(axis='both', which='major', labelsize=14)
-        ax.legend()
-        plt.tight_layout()
-        fig.savefig(os.path.join(eval_dir, "path_length.png"))
-        plt.show() 
-
-
-        ## plot to compare the increase in path length depending in on the distance between goal and start
-        goal_success = np.sum(goal_distances < self.args.tolerance) / len(goal_distances)
-
-        # Create a figure and two axis objects, with the second one sharing the x-axis of the first
-        fig, ax1 = plt.subplots(figsize=(12, 10))
-        ax2 = ax1.twinx()
-        fig.subplots_adjust(hspace=0.4)  # Add some vertical spacing between the two plots
-
-        # Plot the goal distance data
-        ax1.plot(unique_goal_length, mean_goal_distance, color='blue', label='Average goal distance length', zorder=2)
-        ax1.fill_between(unique_goal_length, np.array(mean_goal_distance) - np.array(std_goal_distance), np.array(mean_goal_distance) + np.array(std_goal_distance), color='blue', alpha=0.2, label='Uncertainty', zorder=1)
-        ax1.set_xlabel('Start-Goal Distance', fontsize=16)
-        ax1.set_ylabel('Goal Distance', fontsize=16)
-        ax1.set_title(f"With a tolerance of {self.args.tolerance} are {round(goal_success, 5)*100} % of goals reached", fontsize=16)
-        ax1.tick_params(axis='both', which='major', labelsize=14)
-
-        # Plot the goal counts data on the second axis
-        ax2.bar(unique_goal_length, goal_counts, color='red', alpha=0.5, width=0.05, label='Number of samples', zorder=0)
-        ax2.set_ylabel('Sample count', fontsize=16)
-        ax2.tick_params(axis='both', which='major', labelsize=14)
-
-        # Combine the legends from both axes
-        lines, labels = ax1.get_legend_handles_labels()
-        bars, bar_labels = ax2.get_legend_handles_labels()
-        ax2.legend(lines+bars, labels+bar_labels, loc='upper center')
-
-        plt.suptitle("Goal Distance", fontsize=20)
-        plt.tight_layout()
-        fig.savefig(os.path.join(eval_dir, "goal_distance.png"))
-        plt.show()
+        # get statistics
+        self.eval_statistics()
+        self.save_eval_results(model_dir, save_name=os.path.split(self.args.data_dir)[-1])
         
-        return length_goal, length_path, goal_distances
-
-    def plt_comparison(self, length_path_list, length_goal_list, goal_distance_list) -> None:
-        # path increase plot
-        fig_path, axs_path = plt.subplots(figsize=(12, 10))
-        fig_path.suptitle("Path Length Increase Comp", fontsize=20)
-        axs_path.set_xlabel('Start-Goal Distance', fontsize=16)
-        axs_path.set_ylabel('Path Length', fontsize=16)         
-        axs_path.tick_params(axis='both', which='major', labelsize=14)
-
-        # goal distance plot
-        fig_goal, axs_goal = plt.subplots(figsize=(12, 10))
-        fig_goal.suptitle("Goal Distance Comp", fontsize=20)
-        axs_goal.set_xlabel('Start-Goal Distance', fontsize=16)
-        axs_goal.set_ylabel('Goal Distance', fontsize=16)
-        axs_goal.tick_params(axis='both', which='major', labelsize=14)
-
-        for idx in range(len(length_goal_list)):
-            model_name = os.path.split(self.args.model_dirs[idx])[1]
-            
-            unique_goal_length = np.unique(np.round(length_goal_list[idx], 1))
-            mean_path_length = []
-            std_path_length = []
-            mean_goal_distance = []
-            std_goal_distance = []
-            goal_counts = []
-            for x in unique_goal_length:
-                y_subset = length_path_list[idx][np.round(length_goal_list[idx], 1) == x]
-                mean_path_length.append(np.mean(y_subset))
-                std_path_length.append(np.std(y_subset))
-                mean_goal_distance.append(np.mean(y_subset))
-                std_goal_distance.append(np.std(y_subset))
-                goal_counts.append(len(y_subset))
-
-            ## plot with the distance to the goal depending on the length between goal and start
-            avg_increase = np.mean((length_path_list[idx] / length_goal_list[idx]) -1)
-            axs_path.plot(unique_goal_length, mean_path_length, label=f'{model_name} ({round(avg_increase, 5)*100:.2f} %))')
-            axs_path.fill_between(unique_goal_length, np.array(mean_path_length) - np.array(std_path_length), np.array(mean_path_length) + np.array(std_path_length), alpha=0.2)
-
-            ## plot to compare the increase in path length depending in on the distance between goal and start
-            goal_success = np.sum(goal_distance_list[idx] < self.args.tolerance) / len(goal_distance_list[idx])        
-            axs_goal.plot(unique_goal_length, mean_goal_distance, label=f'{model_name} ({round(goal_success, 5)*100:.2f} %)')
-            axs_goal.fill_between(unique_goal_length, np.array(mean_goal_distance) - np.array(std_goal_distance), np.array(mean_goal_distance) + np.array(std_goal_distance), alpha=0.2)
-        
-        axs_path.legend()
-        axs_goal.legend()
-        plt.tight_layout()
-        fig_path.savefig(os.path.join(self.args.data_dir, "path_length_comp.png"))
-        fig_goal.savefig(os.path.join(self.args.data_dir, "goal_distance_comp.png"))
-        plt.show() 
-        
-        return
+        return self.length_goal, self.length_path, self.goal_distances
 
 
 if __name__ == "__main__":
@@ -399,7 +295,7 @@ if __name__ == "__main__":
                             "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth"
                         ])
     parser.add_argument('-d', '--data_dir',  type=str, help='Path to data directory (should contain bgr, depth and odom data)', 
-                        default="/home/pascal/SemNav/env/anymal/2023_03_23_rsl/")
+                        default="/home/pascal/SemNav/env/anymal/2023_03_23_rsl")
     parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     parser.add_argument('--goal_frame_advances', nargs='+', type=int, help='Number of frames to advance the goal',

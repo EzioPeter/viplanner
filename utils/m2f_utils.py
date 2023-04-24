@@ -63,9 +63,9 @@ class M2FWrapper:
 
     def run_image(self, img: np.ndarray) -> np.ndarray:
         """
-        Run m2f on image and return semantic image with viplanner classes (RGB format)
-        :param img: image
-        :return: semantic image
+        Run m2f on image (BGR format) and return semantic image with viplanner classes (RGB format)
+        :param img: image in BGR format
+        :return: semantic image in RGB format
         """
         # make the prediction
         predictions = self.predictor(img)
@@ -108,15 +108,16 @@ class M2FWrapper:
             image = cv2.imread(img_path)
             
             # make the prediction
-            panoptic_mask, _ = self.run_image(image)
+            panoptic_mask = self.run_image(image)
             
             # save image
             sem_img_path = os.path.join(sem_folder, img_name)
             cv2.imwrite(sem_img_path, cv2.cvtColor(panoptic_mask, cv2.COLOR_RGB2BGR))
             
             # show image
-            im.set_data(panoptic_mask)
-            plt.pause(0.001)
+            if show_pred:
+                im.set_data(panoptic_mask)
+                plt.pause(0.001)
         
         return
 

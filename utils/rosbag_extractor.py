@@ -197,7 +197,8 @@ def main(args):
                 continue
             
             im = bridge.compressed_imgmsg_to_cv2(msg)
-            im = cv2.cvtColor(im, cv2.COLOR_BayerRGGB2BGR)
+            if "bayer_rggb8" in msg.format:
+                im = cv2.cvtColor(im, cv2.COLOR_BayerRGGB2BGR)
             cv2.imwrite(os.path.join(args.output_dir, "bgr", "frame_" + f"{int(bgr_counter)}".zfill(5) + ".png"), im)
             odom_bgr[bgr_counter, :] = np.array([
                 transform_stamp.transform.translation.x,

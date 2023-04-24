@@ -181,7 +181,7 @@ class PlannerData(Dataset):
             
         # transform semantic image
         image = self.transform(image).type(torch.float32)
-        assert image.max() <= 1.0, "Image is not normalized"
+        assert image.round(decimals=1).max() <= 1.0, f"Image '{self.sem_rgb_filename[idx]}' is not normalized with max value {image.max().item()}"
         
         if self.pair_augment[idx]:
             image = self.flip_transform.forward(image)
@@ -233,6 +233,9 @@ class DistanceSchemeIdx:
         self.pair_behind_robot: List[bool] = []
         self.depth_img_list: List[str] = []
         self.sem_rgb_img_list: List[str] = []
+        
+        # flags
+        self.has_data: bool = False
         return
     
     def update_buffers(
@@ -252,6 +255,8 @@ class DistanceSchemeIdx:
         self.pair_behind_robot.append(behind_robot)
         self.depth_img_list.append(depth_filename)
         self.sem_rgb_img_list.append(sem_rgb_filename)
+        
+        self.has_data = True if len(self.odom_list) > 0 else False
         return
         
     def get_data(
@@ -260,6 +265,8 @@ class DistanceSchemeIdx:
         nb_front: bool,
         nb_back: bool
     ) -> Tuple[List[pp.LieTensor], List[pp.LieTensor], List[str], List[str], np.ndarray]:
+        
+        assert self.has_data, f"DistanceSchemeIdx for distance {self.distance} has no data"
         
         # get all pairs that are within the fov
         idx_fov = np.where(self.pair_within_fov)[0]
@@ -420,7 +427,7 @@ class PlannerDataGenerator(Dataset):
         
         Filtering only performed according to the position of the depth camera, due to the close position of depth and semantic camera.
         """
-        print("[INFO] Filter odom points within the inflation range of the obstacles in the cost map...")
+        print("[INFO] Filter odom points within the inflation range of the obstacles in the cost map...", end="")
         
         norm_inds, _ = self.cost_map.Pos2Ind(self.odom_array_depth[:, None, :3])
         cost_grid = self.cost_map.cost_array.T.expand(self.odom_array_depth.shape[0], 1, -1, -1)
@@ -581,7 +588,7 @@ class PlannerDataGenerator(Dataset):
         odom_goal_distances = dict(nx.all_pairs_dijkstra_path_length(self.graph, cutoff=self._cfg.max_goal_distance, weight='distance'))
         
         # init dataclass for each entry in the distance scheme
-        self.category_scheme_pairs = dict([(distance, DistanceSchemeIdx(distance=distance)) for distance in self._cfg.distance_scheme.keys()])
+        self.category_scheme_pairs: Dict[float, DistanceSchemeIdx] = dict([(distance, DistanceSchemeIdx(distance=distance)) for distance in self._cfg.distance_scheme.keys()])
         
         # iterate over all odom points        
         for odom_idx in tqdm(range(self.nb_odom_points), desc="Start-End Pairs Generation"):
@@ -744,6 +751,10 @@ class PlannerDataGenerator(Dataset):
         
         current_idx = 0
         for distance, distance_percentage in self._cfg.distance_scheme.items():
+            if not self.category_scheme_pairs[distance].has_data:
+                print(f"[WARN] No samples for distance {distance} in ENV {os.path.split(self.root)[-1]}")
+                continue
+            
             # get number of samples
             buffer_data = self.category_scheme_pairs[distance].get_data(
                 nb_fov  =int(ratio_fov_samples   * distance_percentage * max_sample_number),
@@ -876,6 +887,7 @@ class PlannerDataGenerator(Dataset):
         pose_sem = self.odom_array_sem_rgb[odom_idx].data.cpu().numpy()
         
         sem_rgb_image_warped = self.compute_overlay(pose_dep, pose_sem, depth_img, sem_rgb_image, self.pix_depth_cam_frame, self.K_sem_rgb)
+        assert sem_rgb_image_warped.dtype == np.uint8, "sem_rgb_image_warped has to be uint8"
         
         # DEBUG
         if self.debug:
@@ -891,7 +903,7 @@ class PlannerDataGenerator(Dataset):
         sem_rgb_filename = os.path.split(sem_rgb_filename)[1]
         sem_rgb_image_path = os.path.join(self.root, "img_warp", sem_rgb_filename)
         sem_rgb_image_warped = cv2.cvtColor(sem_rgb_image_warped, cv2.COLOR_RGB2BGR)  # convert to BGR for cv2
-        cv2.imwrite(sem_rgb_image_path, sem_rgb_image_warped)
+        assert cv2.imwrite(sem_rgb_image_path, sem_rgb_image_warped)
         
         return sem_rgb_image_path
 
@@ -923,7 +935,7 @@ class PlannerDataGenerator(Dataset):
             # save depth image
             depth_img = (depth_img * self._cfg.depth_scale).astype("uint16")
             if depth_filename.endswith(".png"):
-                cv2.imwrite(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]), depth_img)
+                assert cv2.imwrite(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]), depth_img)
             else:
                 np.save(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]), depth_img)
             new_depth_filename_list.append(os.path.join(depth_noise_edge_dir, os.path.split(depth_filename)[1]))

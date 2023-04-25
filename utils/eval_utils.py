@@ -11,27 +11,39 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List
+from typing import List, Optional
 import yaml
+import torch
 
 # viplanner
 try: 
     from config.learning_cfg import Loader as TrainCfgLoader
+    from traj_cost_opt import TrajCost
 except ModuleNotFoundError:  # compatability with VIPlanner within isaac sim
     from omni.isaac.anymal.viplanner.src.config.learning_cfg import Loader as TrainCfgLoader
+    from omni.isaac.anymal.viplanner.src.traj_cost_opt.traj_cost import TrajCost
 
 
 class BaseEvaluator:
     def __init__(
         self,
         tolerance: float,
+        cost_map_dir: Optional[str] = None,
+        cost_map_name: Optional[str] = None,
     ) -> None:
         
         # args
         self.tolerance = tolerance
+        self.cost_map_dir = cost_map_dir
+        self.cost_map_name = cost_map_name
         
         # parameters
         self._nbr_paths: int = 0
+        
+        # load cost_map
+        self._use_cost_map: bool = False
+        if all([self.cost_map_dir, self.cost_map_name]):
+            self._load_cost_map()
         return
 
     ##
@@ -54,7 +66,8 @@ class BaseEvaluator:
         self.length_goal: np.ndarray    = np.zeros((self._nbr_paths))
         self.length_path: np.ndarray    = np.zeros((self._nbr_paths))
         self.goal_distances: np.ndarray = np.zeros((self._nbr_paths))
-    
+        if self._use_cost_map:
+            self.loss_obstacles: np.ndarray = np.zeros((self._nbr_paths))
     
     ##
     # Reset
@@ -65,6 +78,21 @@ class BaseEvaluator:
         self.eval_stats = {}
         return
     
+    ##
+    # Cost Map
+    ##
+    
+    def _load_cost_map(self) -> None:
+        self._traj_cost: TrajCost = TrajCost(gpu_id=None)  # use cpu for evaluation
+        self._traj_cost.SetMap(self.cost_map_dir, self.cost_map_name)
+        self._use_cost_map = True
+        return
+
+    def _get_cost_map_loss(self, path: np.ndarray, idx: int) -> float:
+        waypoints = torch.tensor(path, dtype=torch.float32)
+        self.loss_obstacles[idx] = self._traj_cost.cost_of_recorded_path(waypoints).numpy()
+        return
+        
     ##
     # Eval Statistics
     ##
@@ -88,6 +116,18 @@ class BaseEvaluator:
             "avg_distance_to_goal_all": avg_distance_to_goal,
             "avg_distance_to_goal_success": avg_distance_to_goal_success,         
         }
+        
+        if self._use_cost_map:
+            avg_obs_loss = sum(self.loss_obstacles) / len(self.loss_obstacles)
+            avg_obs_loss_success = sum(self.loss_obstacles[goal_reached]) / sum(goal_reached)
+            
+            print(
+                f"Obstacle loss (all):          {avg_obs_loss} \n"
+                f"Obstacle loss (success):      {avg_obs_loss_success}"
+            )
+            
+            self.eval_stats["avg_obs_loss_all"] = avg_obs_loss
+            self.eval_stats["avg_obs_loss_success"] = avg_obs_loss_success
         return
 
 
@@ -124,6 +164,9 @@ class BaseEvaluator:
         mean_goal_distance = []
         std_goal_distance = []
         goal_counts = []
+        mean_obs_loss = []
+        std_obs_loss = []
+        goal_length_obs_exists = []
         for x in unique_goal_length:
             y_path_subset = ((self.length_path[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x] - x) / x) * 100   # deviation from goal length in percent for successful paths
             if len(y_path_subset) != 0:
@@ -135,6 +178,13 @@ class BaseEvaluator:
             mean_goal_distance.append(np.mean(y_goal_subset))
             std_goal_distance.append(np.std(y_goal_subset))
             goal_counts.append(len(y_goal_subset))
+            
+            if self._use_cost_map:
+                y_obs_subset = self.loss_obstacles[np.round(self.length_goal, 1) == x]
+                if len(y_obs_subset) != 0:
+                    mean_obs_loss.append(np.mean(y_obs_subset))
+                    std_obs_loss.append(np.std(y_obs_subset))
+                    goal_length_obs_exists.append(x)
 
         ## plot with the distance to the goal depending on the length between goal and start
         avg_increase = np.mean((self.length_path / self.length_goal) -1)
@@ -154,7 +204,7 @@ class BaseEvaluator:
         else:
             plt.close()
 
-        ## plot to compare the increase in path length depending in on the distance between goal and start
+        ## plot to compare the increase in path length depending on the distance between goal and start
         goal_success_mean = np.sum(goal_success_bool) / len(self.goal_distances)
         
         # Create a figure and two axis objects, with the second one sharing the x-axis of the first
@@ -186,6 +236,26 @@ class BaseEvaluator:
             plt.show() 
         else:
             plt.close()
+        
+        if self._use_cost_map:
+            ## plot to compare the obs loss depending on the distance between goal and start
+            avg_obs_loss = np.mean(self.loss_obstacles)
+            
+            fig, ax = plt.subplots(figsize=(12, 10))
+            fig.suptitle("Obstacle Loss", fontsize=20)
+            ax.plot(goal_length_obs_exists, mean_obs_loss, color='blue', label='Average obs loss')
+            ax.fill_between(goal_length_obs_exists, np.array(mean_obs_loss) - np.array(std_obs_loss), np.array(mean_obs_loss) + np.array(std_obs_loss), color='blue', alpha=0.2, label='Uncertainty')
+            ax.set_xlabel('Start-Goal Distance', fontsize=16)
+            ax.set_ylabel('Obstacle Loss', fontsize=16)
+            ax.set_title(f"Avg obstacle loss {round(avg_obs_loss, 5):.5f}", fontsize=16)
+            ax.tick_params(axis='both', which='major', labelsize=14)
+            ax.legend()
+            fig.savefig(os.path.join(eval_dir, "obs_cost.png"))
+            if show:
+                plt.show()
+            else:
+                plt.close()
+        
         return
     
     def plt_comparison(
@@ -195,6 +265,7 @@ class BaseEvaluator:
         goal_distance_list: List[np.ndarray],
         model_dirs: List[str],
         save_dir: str,
+        obs_loss_list: Optional[List[np.ndarray]] = None,
     ) -> None:
         # path increase plot
         fig_path, axs_path = plt.subplots(figsize=(12, 10))
@@ -210,6 +281,15 @@ class BaseEvaluator:
         axs_goal.set_ylabel('Goal Distance [m]', fontsize=16)
         axs_goal.tick_params(axis='both', which='major', labelsize=14)
 
+        if self._use_cost_map:
+            assert obs_loss_list is not None, "If cost map is used, obs_loss_list must be provided"
+            # obs loss plot
+            fig_obs, axs_obs = plt.subplots(figsize=(12, 10))
+            fig_obs.suptitle("Obstacle Loss Plot", fontsize=20)
+            axs_obs.set_xlabel('Start-Goal Distance [m]', fontsize=16)
+            axs_obs.set_ylabel('Obs Loss', fontsize=16)
+            axs_obs.tick_params(axis='both', which='major', labelsize=14)
+        
         for idx in range(len(length_goal_list)):
             model_name = os.path.split(model_dirs[idx])[1]
             
@@ -221,6 +301,10 @@ class BaseEvaluator:
             std_path_extension      = []
             mean_goal_distance      = []
             std_goal_distance       = []
+            mean_obs_loss           = []
+            std_obs_loss            = []
+            goal_length_obs_exists  = []
+
             for x in unique_goal_length:
                 y_path_subset = ((length_path_list[idx][goal_success_bool][np.round(length_goal_list[idx][goal_success_bool], 1) == x] - x) / x) * 100
                 if len(y_path_subset) != 0:
@@ -232,6 +316,13 @@ class BaseEvaluator:
                 mean_goal_distance.append(np.mean(y_goal_subset))
                 std_goal_distance.append(np.std(y_goal_subset))
 
+                if self._use_cost_map:
+                    y_obs_subset = obs_loss_list[idx][np.round(length_goal_list[idx], 1) == x]
+                    if len(y_obs_subset) != 0:
+                        mean_obs_loss.append(np.mean(y_obs_subset))
+                        std_obs_loss.append(np.std(y_obs_subset))
+                        goal_length_obs_exists.append(x)
+                 
             ## plot to compare the increase in path length depending in on the distance between goal and start for the successful paths
             avg_increase = np.mean((length_path_list[idx] / length_goal_list[idx]) -1)
             axs_path.plot(goal_length_path_exists, mean_path_extension, label=f'{model_name} ({round(avg_increase, 5)*100:.2f} %))')
@@ -242,10 +333,20 @@ class BaseEvaluator:
             axs_goal.plot(unique_goal_length, mean_goal_distance, label=f'{model_name} ({round(goal_success, 5)*100:.2f} %)')
             axs_goal.fill_between(unique_goal_length, np.array(mean_goal_distance) - np.array(std_goal_distance), np.array(mean_goal_distance) + np.array(std_goal_distance), alpha=0.2)
         
+            if self._use_cost_map:
+                ## plot with the distance to the goal depending on the length between goal and start
+                avg_obs_loss = np.mean(obs_loss_list[idx])        
+                axs_obs.plot(goal_length_obs_exists, mean_obs_loss, label=f'{model_name} ({round(avg_obs_loss, 5):.5f} %)')
+                axs_obs.fill_between(goal_length_obs_exists, np.array(mean_obs_loss) - np.array(std_obs_loss), np.array(mean_obs_loss) + np.array(std_obs_loss), alpha=0.2)       
+
         axs_path.legend()
         axs_goal.legend()
         fig_path.savefig(os.path.join(save_dir, "path_length_comp.png"))
         fig_goal.savefig(os.path.join(save_dir, "goal_distance_comp.png"))
+        if self._use_cost_map:
+            axs_obs.legend()
+            axs_obs.savefig(os.path.join(save_dir, "obs_loss_comp.png"))
+
         plt.show()
         return
 

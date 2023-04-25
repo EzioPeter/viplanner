@@ -1,15 +1,20 @@
 #!/anaconda3/envs/pytorch/bin python3
 import torch
-import pypose as pp
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
+from typing import Optional
 
 torch.set_default_dtype(torch.float32)
 
 # visual-imperative-planning
-from cost_maps import CostMapPCD
 from .traj_opt import TrajOpt
+try:
+    from cost_maps import CostMapPCD
+    import pypose as pp  # only used for training
+    import wandb  # only used for training
+except ModuleNotFoundError or ImportError:  # compatibility with isaac sim   # TODO: Remove when made to python package
+    from omni.isaac.anymal.viplanner.src.cost_maps.cost_to_pcd import CostMapPCD
+
 
 class TrajCost:
     
@@ -17,7 +22,7 @@ class TrajCost:
     
     def __init__(
         self, 
-        gpu_id=0, 
+        gpu_id: Optional[int] = 0, 
         log_data: bool = False,
         w_obs: float = 0.25,
         w_height: float = 1.0,
@@ -66,47 +71,48 @@ class TrajCost:
         dataset: str = "train",
     ):
         batch_size, num_p, _ = waypoints.shape
-        if self.is_map:
-            world_ps = self.TransformPoints(odom, waypoints)
-            norm_inds, _ = self.cost_map.Pos2Ind(world_ps)
-            
-            # Obstacle Cost
-            cost_grid = self.cost_map.cost_array.T.expand(batch_size, 1, -1, -1)
-            oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
-            oloss_M = oloss_M.to(torch.float32)
-            oloss_M_weighted = torch.sum(oloss_M, axis=1)
-            oloss = torch.mean(oloss_M_weighted)
-            
-            if self.debug:
-                import numpy as np
-                # indexes in the cost map
-                start_xy = torch.tensor([self.cost_map.start_x, self.cost_map.start_y], dtype=torch.float64, device=world_ps.device).expand(1, 1, -1)
-                H = (world_ps.tensor()[:, :, 0:2] - start_xy) / self.cost_map.voxel_size
-                cost_values = self.cost_map.cost_array[H[0, :, 0].cpu().numpy().astype(np.int64), H[0, :, 1].cpu().numpy().astype(np.int64)]
+        
+        assert self.is_map, "Map has to be set for cost calculation"
+        world_ps = self.TransformPoints(odom, waypoints)
+        norm_inds, _ = self.cost_map.Pos2Ind(world_ps)
+        
+        # Obstacle Cost
+        cost_grid = self.cost_map.cost_array.T.expand(batch_size, 1, -1, -1)
+        oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
+        oloss_M = oloss_M.to(torch.float32)
+        oloss_M_weighted = torch.sum(oloss_M, axis=1)
+        oloss = torch.mean(oloss_M_weighted)
+        
+        if self.debug:
+            import numpy as np
+            # indexes in the cost map
+            start_xy = torch.tensor([self.cost_map.start_x, self.cost_map.start_y], dtype=torch.float64, device=world_ps.device).expand(1, 1, -1)
+            H = (world_ps.tensor()[:, :, 0:2] - start_xy) / self.cost_map.voxel_size
+            cost_values = self.cost_map.cost_array[H[0, :, 0].cpu().numpy().astype(np.int64), H[0, :, 1].cpu().numpy().astype(np.int64)]
 
-                import matplotlib.pyplot as plt
-                fix, (ax1, ax2, ax3) = plt.subplots(1, 3)
-                sc1 = ax1.scatter(world_ps.data[0][:, 0].cpu().numpy(), world_ps.data[0][:, 1].cpu().numpy(), c=oloss_M[0].cpu().numpy(), cmap='rainbow')
-                sc2 = ax2.scatter(H[0, :, 0].cpu().numpy(), H[0, :, 1].cpu().numpy(), c=cost_values.cpu().numpy(), cmap='rainbow')
-                ax3.imshow(self.cost_map.cost_array.cpu().numpy())
-                
-                import open3d as o3d
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(world_ps.data[0][:, :3].cpu().numpy())
-                pcd.colors = o3d.utility.Vector3dVector(sc1.to_rgba(oloss_M[0].cpu().numpy())[:, :3])
-                # pcd.colors = o3d.utility.Vector3dVector(sc2.to_rgba(cost_values[0].cpu().numpy())[:, :3])
-                o3d.visualization.draw_geometries([self.cost_map.pcd_tsdf, pcd])
-                
-            # Terrian Height loss
-            height_grid = self.cost_map.ground_array.T.expand(batch_size, 1, -1, -1)
-            hloss_M = F.grid_sample(height_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
-            hloss_M = torch.abs(world_ps[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # world_ps - odom to have them on the ground to be comparable to the height map
-            hloss_M = torch.sum(hloss_M, axis=1)
-            hloss = torch.mean(hloss_M)
+            import matplotlib.pyplot as plt
+            fix, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            sc1 = ax1.scatter(world_ps.data[0][:, 0].cpu().numpy(), world_ps.data[0][:, 1].cpu().numpy(), c=oloss_M[0].cpu().numpy(), cmap='rainbow')
+            sc2 = ax2.scatter(H[0, :, 0].cpu().numpy(), H[0, :, 1].cpu().numpy(), c=cost_values.cpu().numpy(), cmap='rainbow')
+            ax3.imshow(self.cost_map.cost_array.cpu().numpy())
             
-            if self.log_data:
-                wandb.log({f"hloss_{dataset}_step": hloss}, step=log_step)
-                wandb.log({f"oloss_{dataset}_step": oloss}, step=log_step)
+            import open3d as o3d
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(world_ps.data[0][:, :3].cpu().numpy())
+            pcd.colors = o3d.utility.Vector3dVector(sc1.to_rgba(oloss_M[0].cpu().numpy())[:, :3])
+            # pcd.colors = o3d.utility.Vector3dVector(sc2.to_rgba(cost_values[0].cpu().numpy())[:, :3])
+            o3d.visualization.draw_geometries([self.cost_map.pcd_tsdf, pcd])
+            
+        # Terrian Height loss
+        height_grid = self.cost_map.ground_array.T.expand(batch_size, 1, -1, -1)
+        hloss_M = F.grid_sample(height_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
+        hloss_M = torch.abs(world_ps[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # world_ps - odom to have them on the ground to be comparable to the height map
+        hloss_M = torch.sum(hloss_M, axis=1)
+        hloss = torch.mean(hloss_M)
+        
+        if self.log_data:
+            wandb.log({f"hloss_{dataset}_step": hloss}, step=log_step)
+            wandb.log({f"oloss_{dataset}_step": oloss}, step=log_step)
 
         # Goal Cost - Control Cost
         gloss_M = torch.norm(goal[:, :3] - waypoints[:, -1, :], dim=1)
@@ -134,3 +140,27 @@ class TrajCost:
         
         # TODO: kinodynamics cost
         return self.w_obs*oloss + self.w_height*hloss + self.w_motion*mloss + self.w_goal*gloss, fear_labels.float()
+    
+    def cost_of_recorded_path(
+        self,
+        waypoints: torch.Tensor,
+    ) -> None:
+        """Cost of recorded path - for evaluation only
+
+        Args:
+            waypoints (torch.Tensor): Path coordinates in world frame
+            goal (torch.Tensor): Gaol coordinates in world frame
+        """        
+        assert self.is_map, "Map has to be loaded for evaluation"
+        norm_inds, _ = self.cost_map.Pos2Ind(waypoints)
+        
+        # Obstacle Cost
+        cost_grid = self.cost_map.cost_array.T
+        oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
+        oloss_M = oloss_M.to(torch.float32)
+        oloss_M_weighted = torch.sum(oloss_M, axis=1)
+        oloss = torch.mean(oloss_M_weighted)
+        
+        return oloss
+    
+# EoF

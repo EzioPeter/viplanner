@@ -458,7 +458,7 @@ class Trainer:
 
                 test_loss += loss.item()
 
-                if is_visual and len(preds_viz * batch_idx) < self._cfg.n_visualize:
+                if is_visual and len(preds_viz) * batch_idx < self._cfg.n_visualize:
                     if batch_idx == 0:
                         odom_viz = odom.cpu()
                         goal_viz = goal.cpu()
@@ -477,6 +477,15 @@ class Trainer:
                 preds_viz   = torch.vstack(preds_viz)
                 wp_viz      = torch.vstack(wp_viz)
                 image_viz   = torch.vstack(image_viz)
+
+                # limit again to number of visualizations since before added as mulitple of batch size
+                preds_viz   = preds_viz[:self._cfg.n_visualize]
+                wp_viz      = wp_viz[:self._cfg.n_visualize]
+                image_viz   = image_viz[:self._cfg.n_visualize]
+                odom_viz    = odom_viz[:self._cfg.n_visualize]
+                goal_viz    = goal_viz[:self._cfg.n_visualize]
+                fear_viz    = fear_viz[:self._cfg.n_visualize]
+                augment_viz = augment_viz[:self._cfg.n_visualize]
                 
                 # visual trajectory and images
                 self.data_traj_viz[env_id].VizTrajectory(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, fov_angle=fov_angle, augment_viz=augment_viz)

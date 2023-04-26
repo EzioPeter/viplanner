@@ -9,7 +9,6 @@
 
 # python
 import os
-import numpy as np
 import yaml
 
 # imperative-cost-map

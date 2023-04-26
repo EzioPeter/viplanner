@@ -313,7 +313,7 @@ class DistanceSchemeIdx:
         if idx_augment:
             idx_augment = np.hstack(idx_augment)
             odom = torch.vstack([odom[idx], odom[idx_augment]])
-            goal = torch.vstack([goal[idx], goal[idx_augment]])
+            goal = torch.vstack([goal[idx], goal[idx_augment].tensor() * torch.tensor([[1, -1, 1, 1, 1, 1, 1]])])
             depth_img_list = [self.depth_img_list[j] for j in idx.tolist()] + [self.depth_img_list[i] for i in idx_augment.tolist()]
             sem_rgb_img_list   = [self.sem_rgb_img_list[j] for j in idx.tolist()]   + [self.sem_rgb_img_list[i]   for i in idx_augment.tolist()]
             augment = np.hstack([np.zeros(len(idx)), np.ones(len(idx_augment))])

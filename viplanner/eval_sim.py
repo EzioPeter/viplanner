@@ -18,6 +18,7 @@ if __name__ == "__main__":
                         default="/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_fov0.91_back0.03_front0.06_decoderS/")
     parser.add_argument('-n', '--nb_viz', type=int, help='Number of trajectores that should be visualized (default: number in model cfg)')
     args = parser.parse_args()
+    print(args)
     
     # load config
     train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(args.model_dir, "model.yaml"))

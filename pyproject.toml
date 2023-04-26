@@ -26,7 +26,6 @@ dependencies = [
     "PyYAML==6.0",
     "tqdm",
     "matplotlib",
-    "opencv-python-headless",
     "networkx",
     "scipy",
     # 'detectron2 @ git+https://github.com/facebookresearch/detectron2.git',  # FIXME: install not working automatically
@@ -36,13 +35,18 @@ dependencies = [
     "wandb==0.14.0",
     # m2f
     'cython',
-    'scipy',
     'shapely',
     'timm',  # ==3.2
     'h5py',
     'submitit',
     'scikit-image',
     'panopticapi @ git+https://github.com/cocodataset/panopticapi.git',
+]
+
+[project.optional-dependencies]
+sim = [
+    "opencv-python-headless",
+
 ]
 
 [project.urls]

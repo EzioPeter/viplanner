@@ -17,9 +17,9 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 
 # viplanner src
-from .viplanner.plannernet import DualAutoEncoder, get_m2f_cfg
-from .viplanner.traj_cost_opt.traj_opt import TrajOpt
-from .viplanner.config.learning_cfg import TrainCfg
+from viplanner.plannernet import DualAutoEncoder, get_m2f_cfg
+from viplanner.traj_cost_opt.traj_opt import TrajOpt
+from viplanner.config.learning_cfg import TrainCfg
 
 torch.set_default_dtype(torch.float32)
 

@@ -6,11 +6,7 @@ from typing import Optional
 # visual-imperative-planner
 from .PlannerNet import PlannerNet
 from .rgb_encoder import RGBEncoder, PRE_TRAIN_POSSIBLE
-# make application possible in ROSnode and IsaacSim 
-try:
-    from config import TrainCfg
-except ImportError:
-    from ..config import TrainCfg
+from viplanner.config import TrainCfg
 
 
 class AutoEncoder(nn.Module):

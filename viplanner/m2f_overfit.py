@@ -55,8 +55,8 @@ from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
 
 # viplanner
-from config import Mask2FormerCfg, SegmentsCfg
-from third_party.mask2former.mask2former import (
+from viplanner.config import Mask2FormerCfg, SegmentsCfg
+from viplanner.third_party.mask2former.mask2former import (
     COCOInstanceNewBaselineDatasetMapper,
     COCOPanopticNewBaselineDatasetMapper,
     InstanceSegEvaluator,
@@ -66,7 +66,7 @@ from third_party.mask2former.mask2former import (
     SemanticSegmentorWithTTA,
     add_maskformer2_config,
 )
-from third_party.mask2former.datasets.prepare_coco_semantic_annos_from_panoptic_annos import separate_coco_semantic_from_panoptic
+from viplanner.third_party.mask2former.datasets.prepare_coco_semantic_annos_from_panoptic_annos import separate_coco_semantic_from_panoptic
 
 
 class Trainer(DefaultTrainer):
@@ -393,7 +393,7 @@ class M2FOverfit:
             image_root=os.path.join(self.segments_cfg.export_file_path, "train"),
             panoptic_root=os.path.join(self.segments_cfg.export_file_path, "annotations", "images"),
             panoptic_json=os.path.join(self.segments_cfg.export_file_path, "annotations", "panoptic_zurich.json"),
-        )       
+        )
         print('[INFO] Dataset registered!')
 
     def overfit(self) -> None:
@@ -418,7 +418,7 @@ class M2FOverfit:
         cfg.merge_from_list(["MODEL.WEIGHTS", self.m2f_cfg.model_file])
 
         # change to the new datasets
-        cfg["DATASETS"]["TRAIN"] = (self.name_coco_train, self.name_zurich_train, )
+        cfg["DATASETS"]["TRAIN"] = (self.name_zurich_train, )  # (self.name_coco_train, self.name_zurich_train, )
         cfg["DATASETS"]["TEST"]  = (self.name_coco_val, )
         # change batchsize and epochs
         cfg['SOLVER']['IMS_PER_BATCH'] = self.m2f_cfg.batch_size
@@ -442,7 +442,9 @@ class M2FOverfit:
 
     def main(self):
         cfg = self.setup()
-
+        print('[INFO] Config setup done!')
+        self.prepare_datasets()
+        
         if self.m2f_cfg.eval_only:
             model = Trainer.build_model(cfg)
             DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
@@ -464,7 +466,6 @@ if __name__ == '__main__':
     m2f_cfg = Mask2FormerCfg()
     segments_cfg = SegmentsCfg()    
     overfit = M2FOverfit(m2f_cfg=m2f_cfg, segments_cfg=segments_cfg)
-    overfit.prepare_datasets()
     overfit.overfit()
     
 # EoF

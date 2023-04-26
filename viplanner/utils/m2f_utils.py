@@ -15,7 +15,8 @@ import argparse
 from tqdm import tqdm
 
 # viplanner
-from config import VIPlannerSemMetaHandler, get_class_for_id, Mask2FormerCfg
+from viplanner.config import VIPlannerSemMetaHandler, get_class_for_id, Mask2FormerCfg
+from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 
 # m2f
 from detectron2.config import get_cfg
@@ -23,7 +24,6 @@ from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.utils.logger import setup_logger
 from detectron2.engine.defaults import DefaultPredictor
 
-from third_party.mask2former.mask2former import add_maskformer2_config
 
 class M2FWrapper:
     def __init__(self, m2f_cfg: Mask2FormerCfg):

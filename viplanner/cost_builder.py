@@ -13,8 +13,8 @@ import numpy as np
 import yaml
 
 # imperative-cost-map
-from config import CostMapConfig
-from cost_maps import SemCostMap, TsdfCostMap, CostMapPCD
+from viplanner.config import CostMapConfig
+from viplanner.cost_maps import SemCostMap, TsdfCostMap, CostMapPCD
 
 
 def main(cfg: CostMapConfig, final_viz: bool = True):

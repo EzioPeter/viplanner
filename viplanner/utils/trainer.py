@@ -23,11 +23,11 @@ from typing import Tuple, List, Optional
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
-from config import TrainCfg
-from plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg, PRE_TRAIN_POSSIBLE
-from utils.torchutil import EarlyStopScheduler, count_parameters
-from dataset import PlannerData, PlannerDataGenerator, MultiEpochsDataLoader
-from traj_cost_opt import TrajCost, TrajViz
+from viplanner.config import TrainCfg
+from viplanner.plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg, PRE_TRAIN_POSSIBLE
+from viplanner.utils.torchutil import EarlyStopScheduler, count_parameters
+from viplanner.dataset import PlannerData, PlannerDataGenerator, MultiEpochsDataLoader
+from viplanner.traj_cost_opt import TrajCost, TrajViz
 
 
 class Trainer:

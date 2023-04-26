@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from typing import Optional
 
 # visual-planning-learning
-from cost_maps import CostMapPCD
+from viplanner.cost_maps import CostMapPCD
 from .traj_cost import TrajCost
              
 class TrajViz:

@@ -21,8 +21,8 @@ from cv_bridge import CvBridge
 from rosbag_merge.bag_stream import main as bag_merger
 
 # viplanner
-from config import Mask2FormerCfg
-from utils.m2f_utils import M2FWrapper
+from viplanner.config import Mask2FormerCfg
+from viplanner.utils.m2f_utils import M2FWrapper
 
 
 def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):

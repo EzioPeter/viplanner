@@ -16,12 +16,8 @@ import yaml
 import torch
 
 # viplanner
-try: 
-    from config.learning_cfg import Loader as TrainCfgLoader
-    from traj_cost_opt import TrajCost
-except ModuleNotFoundError:  # compatability with VIPlanner within isaac sim
-    from omni.isaac.anymal.viplanner.src.config.learning_cfg import Loader as TrainCfgLoader
-    from omni.isaac.anymal.viplanner.src.traj_cost_opt.traj_cost import TrajCost
+from viplanner.config.learning_cfg import Loader as TrainCfgLoader
+from viplanner.traj_cost_opt import TrajCost
 
 
 class BaseEvaluator:

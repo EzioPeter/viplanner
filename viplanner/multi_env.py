@@ -5,8 +5,8 @@ import torch
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
-from config import TrainCfg, DataCfg
-from utils.trainer import Trainer
+from viplanner.config import TrainCfg, DataCfg
+from viplanner.utils.trainer import Trainer
 
 
 if __name__ == "__main__":
@@ -66,16 +66,16 @@ if __name__ == "__main__":
     matterport_overfit_hierarch: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
-        env_list=["2n8kARJN3HM", "2n8kARJN3HM"],
+        env_list=["JeFG25nYj2p", "JeFG25nYj2p"],
         test_env_id=1,
-        file_name="overfit_resnet50",
-        hierarchical=True,
+        file_name="test",
+        hierarchical=False,
     )
-    # trainer = Trainer(matterport_overfit_hierarch)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()
+    trainer = Trainer(matterport_overfit_hierarch)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()
     
     matterport_overfit: TrainCfg = TrainCfg(
         sem=True,

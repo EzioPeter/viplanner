@@ -20,7 +20,7 @@ from segments.utils import export_dataset
 from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
 
 # viplanner
-from config import VIPlannerSemMetaHandler, _COCO_MAPPING_UNIQUE, SegmentsCfg
+from viplanner.config import VIPlannerSemMetaHandler, _COCO_MAPPING_UNIQUE, SegmentsCfg
 
 
 def main(cfg: SegmentsCfg) -> None:

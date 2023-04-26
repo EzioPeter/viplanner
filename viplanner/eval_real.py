@@ -19,12 +19,12 @@ from typing import List
 import scipy.spatial.transform as tf
 
 # viplanner
-from config import TrainCfg, Mask2FormerCfg
-from utils.trainer import Trainer
-from utils.m2f_utils import M2FWrapper
-from traj_cost_opt import TrajOpt, TrajCost, TrajViz
-from dataset import PlannerDataGenerator
-from utils.eval_utils import BaseEvaluator
+from viplanner.config import TrainCfg, Mask2FormerCfg
+from viplanner.utils.trainer import Trainer
+from viplanner.utils.m2f_utils import M2FWrapper
+from viplanner.traj_cost_opt import TrajOpt, TrajCost, TrajViz
+from viplanner.dataset import PlannerDataGenerator
+from viplanner.utils.eval_utils import BaseEvaluator
 
 # set random seed for reproducibility
 torch.manual_seed(12)

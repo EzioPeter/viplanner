@@ -8,12 +8,12 @@ torch.set_default_dtype(torch.float32)
 
 # visual-imperative-planning
 from .traj_opt import TrajOpt
+from viplanner.cost_maps import CostMapPCD
 try:
-    from cost_maps import CostMapPCD
     import pypose as pp  # only used for training
     import wandb  # only used for training
-except ModuleNotFoundError or ImportError:  # compatibility with isaac sim   # TODO: Remove when made to python package
-    from omni.isaac.anymal.viplanner.src.cost_maps.cost_to_pcd import CostMapPCD
+except ModuleNotFoundError or ImportError:  # eval in issac sim  # TODO: check if all can be installed in Isaac Sim
+    print("[Warning] pypose or wandb not found, only use for evaluation")
 
 
 class TrajCost:

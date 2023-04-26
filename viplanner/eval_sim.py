@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import argparse
 
 # imperative-planning-learning
-from config import TrainCfg
-from utils.trainer import Trainer
+from viplanner.config import TrainCfg
+from viplanner.utils.trainer import Trainer
 
 
 if __name__ == "__main__":

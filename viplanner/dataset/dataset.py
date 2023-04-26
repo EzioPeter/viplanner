@@ -32,9 +32,10 @@ import torchvision.transforms as transforms
 from skimage.util import random_noise
 import random
 import shutil
+
 # implerative-planner-learning
-from config import DataCfg
-from cost_maps import CostMapPCD
+from viplanner.config import DataCfg
+from viplanner.cost_maps import CostMapPCD
 
 # set default dtype to float32
 torch.set_default_dtype(torch.float32)

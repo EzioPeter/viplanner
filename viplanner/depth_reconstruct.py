@@ -18,7 +18,7 @@ import scipy.spatial.transform as tf
 from tqdm import tqdm
 
 # imperative-cost-map
-from config import ReconstructionCfg, VIPlannerSemMetaHandler
+from viplanner.config import ReconstructionCfg, VIPlannerSemMetaHandler
 
 class DepthReconstruction:
     """

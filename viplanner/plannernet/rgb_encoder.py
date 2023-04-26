@@ -17,18 +17,10 @@ except ImportError:
     print("[Warning] Pre-trained ResNet50 models cannot be used since detectron2 not found")
 
 try:
-    from third_party.mask2former.mask2former import add_maskformer2_config
+    from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 except ImportError:
-    # compatibility with VIPlanner ROSnode
-    try:
-        from model_src.mask2former.mask2former import add_maskformer2_config
-    except ImportError:
-        # compatibility with VIPlanner Isaac Sim Extension
-        try:
-            from omni.isaac.anymal.viplanner.src.third_party.mask2former.mask2former import add_maskformer2_config
-        except ImportError:
-            PRE_TRAIN_POSSIBLE = False
-            print("[Warning] Pre-trained ResNet50 models cannot be used since mask2former not found")
+    PRE_TRAIN_POSSIBLE = False
+    print("[Warning] Pre-trained ResNet50 models cannot be used since mask2former not found")
 
 
 def get_m2f_cfg(cfg_path: str):  # -> CfgNode:

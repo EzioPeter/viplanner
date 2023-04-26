@@ -18,7 +18,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 
 # imperative-cost-map
-from config import GeneralCostMapConfig, TsdfCostMapConfig
+from viplanner.config import GeneralCostMapConfig, TsdfCostMapConfig
 
 
 class TsdfCostMap:

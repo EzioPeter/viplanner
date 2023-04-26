@@ -20,7 +20,7 @@ import multiprocessing as mp
 from functools import partial
 
 # imperative-cost-map
-from config import SemCostMapConfig, GeneralCostMapConfig, OBSTACLE_LOSS, VIPlannerSemMetaHandler
+from viplanner.config import SemCostMapConfig, GeneralCostMapConfig, OBSTACLE_LOSS, VIPlannerSemMetaHandler
 
 
 class SemCostMap:

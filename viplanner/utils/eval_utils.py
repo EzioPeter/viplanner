@@ -164,8 +164,11 @@ class BaseEvaluator:
         std_obs_loss = []
         goal_length_obs_exists = []
         for x in unique_goal_length:
-            y_path_subset = ((self.length_path[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x] - x) / x) * 100   # deviation from goal length in percent for successful paths
+            y_path_subset = self.length_path[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+            y_straight_path_length_subset = x - self.goal_distances[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+
             if len(y_path_subset) != 0:
+                y_path_subset = ((y_path_subset - y_straight_path_length_subset) / y_straight_path_length_subset) * 100   # deviation from goal length - goal distance in percent for successful paths
                 mean_path_extension.append(np.mean(y_path_subset))
                 std_path_extension.append(np.std(y_path_subset))
                 goal_length_path_exists.append(x)
@@ -302,8 +305,11 @@ class BaseEvaluator:
             goal_length_obs_exists  = []
 
             for x in unique_goal_length:
-                y_path_subset = ((length_path_list[idx][goal_success_bool][np.round(length_goal_list[idx][goal_success_bool], 1) == x] - x) / x) * 100
+                y_path_subset = self.length_path[idx][goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+                y_straight_path_length_subset = x - self.goal_distances[idx][goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+
                 if len(y_path_subset) != 0:
+                    y_path_subset = ((y_path_subset - y_straight_path_length_subset) / y_straight_path_length_subset) * 100   # deviation from goal length - goal distance in percent for successful paths
                     mean_path_extension.append(np.mean(y_path_subset))
                     std_path_extension.append(np.std(y_path_subset))
                     goal_length_path_exists.append(x)

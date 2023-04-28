@@ -31,7 +31,8 @@ class TrajCost:
         obstalce_thred: float = 0.75,
     ) -> None:
         # init map and optimizer
-        self.cost_map = CostMapPCD(gpu_id)
+        self.gpu_id = gpu_id
+        self.cost_map: CostMapPCD = None
         self.opt = TrajOpt()
         self.is_map = False
         
@@ -57,7 +58,7 @@ class TrajCost:
         return world_ps
     
     def SetMap(self, root_path, map_name):
-        self.cost_map.ReadTSDFMap(root_path, map_name)
+        self.cost_map = CostMapPCD.ReadTSDFMap(root_path, map_name, self.gpu_id)
         self.is_map = True
         return
 

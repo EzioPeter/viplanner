@@ -93,7 +93,7 @@ class SemCostMap:
         grid_loss = self._dense_grid_loss(grid_loss)
 
         print("COST-MAP CREATION DONE")
-        return [grid_loss, self.pcd_filtered.points, self.height_map], [self._start_x, self._start_y]
+        return [grid_loss, self.pcd_filtered.points, self.height_map], [float(self._start_x), float(self._start_y)]
 
             
     """Helper functions"""
@@ -378,7 +378,7 @@ class SemCostMap:
         # intended traversable area is best traversed with maximum distance to any area with higher cost
         # apply distance transform to nearest obstacle to enforce smallest loss when distance is max
         traversable_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[0])
-        grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], 0.1, False) * -1
+        grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], abs(self._cfg_sem.negative_reward), False) * -1
 
         # outside of the mesh is an obstacle and all points over obstacle theshold of grid loss are obstacles 
         obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold)

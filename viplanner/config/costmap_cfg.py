@@ -9,8 +9,24 @@
 
 # python
 import os
+import yaml
 from typing import Optional
 from dataclasses import dataclass
+
+class Loader(yaml.SafeLoader):
+    pass
+def construct_GeneralCostMapConfig(loader, node):
+    return GeneralCostMapConfig(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.GeneralCostMapConfig', construct_GeneralCostMapConfig)
+def construct_ReconstructionCfg(loader, node):
+    return ReconstructionCfg(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.ReconstructionCfg', construct_ReconstructionCfg)
+def construct_SemCostMapConfig(loader, node):
+    return SemCostMapConfig(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.SemCostMapConfig', construct_SemCostMapConfig)
+def construct_TsdfCostMapConfig(loader, node):
+    return TsdfCostMapConfig(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.TsdfCostMapConfig', construct_TsdfCostMapConfig)
 
 
 @dataclass
@@ -66,6 +82,9 @@ class SemCostMapConfig:
     max_iterations: int = 1
     # obstacle threshold
     obstacle_threshold: float = 0.5  # 0.5 for matterport, 0.7 for carla
+    # negative reward for space with smallest cost (introduces a gradient in area with smallest loss value, steering towards center)
+    # NOTE: at the end cost map is elevated by that amount to ensure that the smallest cost is 0
+    negative_reward: float = 0.5
     # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
     round_decimal_traversable: int = 2
     # compute height map
@@ -127,4 +146,8 @@ class CostMapConfig:
     
     # visualize cost map
     visualize: bool = True
+
+    # FILLED BY CODE -> DO NOT CHANGE ###
+    x_start: float = None
+    y_start: float = None
 # EoF

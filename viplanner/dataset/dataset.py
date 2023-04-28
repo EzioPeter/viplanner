@@ -435,7 +435,10 @@ class PlannerDataGenerator(Dataset):
         norm_inds = norm_inds.to(cost_grid.device)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32).to("cpu")
-        points_free_space = oloss_M < self._cfg.obs_cost_height
+        if self.semantics or self.rgb:
+            points_free_space = oloss_M < self._cfg.obs_cost_height + abs(self.cost_map.cfg.sem_cost_map.negative_reward)
+        else:
+            points_free_space = oloss_M < self._cfg.obs_cost_height
 
         if self.debug:
             # plot odom
@@ -538,7 +541,7 @@ class PlannerDataGenerator(Dataset):
         y_interp = origin_point[:, None, 1] + (neighbor_points[:, 1] - origin_point[:, 1])[:, None] * np.linspace(0, 1, num=num_intermediate+1, endpoint=False)[1:]
         inter_points = np.stack((x_interp.reshape(-1), y_interp.reshape(-1)), axis=1)
         # get the indicies of the interpolated points in the occupancy map
-        occupancy_idx = (inter_points - np.array([self.cost_map.start_x, self.cost_map.start_y])) / self.cost_map.voxel_size
+        occupancy_idx = (inter_points - np.array([self.cost_map.cfg.x_start, self.cost_map.cfg.y_start])) / self.cost_map.cfg.general.resolution
         
         # check occupancy for collisions at the interpolated points
         collision = occupancy_map[occupancy_idx[:, 0].astype(np.int64), occupancy_idx[:, 1].astype(np.int64)]

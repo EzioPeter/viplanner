@@ -452,7 +452,12 @@ class PlannerDataGenerator(Dataset):
                     small_sphere.paint_uniform_color([0.4, 1.0, 0.1])  # green
                 else:
                     small_sphere.paint_uniform_color([1.0, 0.4, 0.1])  # red
-                odom_vis_list.append(copy.deepcopy(small_sphere).translate((self.odom_array_depth[i, 0], self.odom_array_depth[i, 1], self.odom_array_depth[i, 2])))
+                if self.semantics or self.rgb:
+                    z_height = self.odom_array_depth.tensor()[i, 2] + abs(self.cost_map.cfg.sem_cost_map.negative_reward)
+                else:
+                    z_height = self.odom_array_depth.tensor()[i, 2]
+                
+                odom_vis_list.append(copy.deepcopy(small_sphere).translate((self.odom_array_depth.tensor()[i, 0], self.odom_array_depth.tensor()[i, 1], z_height)))
 
             odom_vis_list.append(self.cost_map.pcd_tsdf)
             o3d.visualization.draw_geometries(odom_vis_list)  
@@ -524,8 +529,10 @@ class PlannerDataGenerator(Dataset):
         
         # get occpuancy map from tsdf map
         cost_array = self.cost_map.tsdf_array.cpu().numpy()
-        occupancy_map = (cost_array > self._cfg.obs_cost_height).astype(np.uint8)
-        
+        if self.semantics or self.rgb:
+            occupancy_map = (cost_array > self._cfg.obs_cost_height + abs(self.cost_map.cfg.sem_cost_map.negative_reward)).astype(np.uint8)
+        else:
+            occupancy_map = (cost_array > self._cfg.obs_cost_height).astype(np.uint8)
         # construct kdtree to find nearest neighbors of points
         odom_points = self.odom_array_depth.data[:, :2].data.cpu().numpy()
         kdtree = KDTree(odom_points)

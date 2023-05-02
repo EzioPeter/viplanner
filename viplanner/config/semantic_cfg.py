@@ -18,7 +18,7 @@ class SegmentsCfg:
     api_key: str = "ee0a626ee7c160e6c841dcd59743b811bf25c774"
     # dataset 
     dataset_name: str = "leggedrobotics/urban_navigation"
-    version: str = "v0.2"
+    version: str = "v0.3"
     # export parameters
     export_format: str = "coco-panoptic"
     export_dir: str = "zurich_own"
@@ -36,7 +36,7 @@ class Mask2FormerCfg:
     # path to model config file
     config: str = "coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml"
     # path to model weights file
-    model: str =  "coco/panoptic/swin/model_final_9fd0ae.pkl"
+    model: str = 'm2f_overfit/model_0004999.pth' # "coco/panoptic/swin/model_final_9fd0ae.pkl"
     # output directory
     output: str = "m2f_overfit"
     
@@ -45,7 +45,7 @@ class Mask2FormerCfg:
     batch_size: int = 4
     epochs: int = 40
     coco_data: str = "coco"
-    coco_nb_images: Optional[int] = 10000  # None for all images
+    coco_nb_images: Optional[int] = 5000  # None for all images
     resume: bool = True
     eval_only: bool = False
     machine_rank: int = 0

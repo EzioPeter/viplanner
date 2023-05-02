@@ -10,11 +10,8 @@ Script to convert the segments.ai dataset to COCO panoptic format
 # python
 import os
 import json
-import cv2
-import numpy as np
 import shutil
 from tqdm import tqdm
-from scipy.spatial import KDTree
 from segments import SegmentsClient, SegmentsDataset
 from segments.utils import export_dataset
 from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
@@ -68,40 +65,26 @@ def main(cfg: SegmentsCfg) -> None:
 
     # modify annotations
     annotations = []
-    for annotation_dict in annotation_file["annotations"]:
+    for idx, annotation_dict in enumerate(tqdm(annotation_file["annotations"], desc="Converting Annotations")):
         segments_new = annotation_dict
         rm_idx = []
         for idx, segment in enumerate(annotation_dict['segments_info']):
-            if segment["category_id"] == unknown_class_id:
+            if (segment["category_id"] - 1) == unknown_class_id:
                 rm_idx.append(idx)
             else:
-                segments_new['segments_info'][idx]["category_id"] = map_vip_id_to_coco_id[segment["category_id"]]
+                segments_new['segments_info'][idx]["category_id"] = map_vip_id_to_coco_id[segment["category_id"] -1]
         segments_new["file_name"] = segments_new["file_name"].replace('_label_ground-truth_coco-panoptic', "")
         segments_new['segments_info'] = [single_segment for idx, single_segment in enumerate(segments_new['segments_info']) if idx not in rm_idx]
         annotations.append(segments_new)
     panoptic_file = {'info': annotation_file['info'], 'categories': COCO_CATEGORIES, 'images': annotation_file["images"], 'annotations': annotations}
     json.dump(panoptic_file, open(f"{target_dir}/panoptic_zurich.json", "w"))
     
-    # convert images
-    tree = KDTree(np.array(list(sem_handler.class_color.values())))
-    for single_img in tqdm(img_list, desc="Converting images"):
-        image = cv2.imread(os.path.join(img_dir, single_img))
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        # identify the closest color to the pixel --> color can be different according to different instances
-        rgb_arr = np.reshape(image, (-1, 3))
-        _, indices = tree.query(rgb_arr, workers=-1)
-        indices = indices.reshape(image.shape[:2])
-        
-        image_converted = np.zeros_like(image)
-        for vip_id, coco_color in map_vip_id_to_coco_color.items():
-            image_converted[indices == vip_id] = coco_color
-        
-        image_converted = cv2.cvtColor(image_converted, cv2.COLOR_RGB2BGR)
-        assert cv2.imwrite(os.path.join(target_dir, "images", single_img.replace('_label_ground-truth_coco-panoptic', "")), image_converted)
-    
+    # move images
+    for single_img in tqdm(img_list, desc="Moving images"):
+        shutil.move(os.path.join(img_dir, single_img), os.path.join(target_dir, "images", single_img.replace('_label_ground-truth_coco-panoptic', "")))
+
     # cleanup 
-    for img in img_names:
+    for img in os.listdir(img_dir):
         if "label" in img:
             os.remove(os.path.join(img_dir, img))
     shutil.move(img_dir, os.path.join(cfg.export_dir_path, "segments", cfg.dataset_name.replace("/", "_"), "train"))

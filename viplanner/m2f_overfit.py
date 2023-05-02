@@ -418,7 +418,7 @@ class M2FOverfit:
         cfg.merge_from_list(["MODEL.WEIGHTS", self.m2f_cfg.model_file])
 
         # change to the new datasets
-        cfg["DATASETS"]["TRAIN"] = (self.name_zurich_train, )  # (self.name_coco_train, self.name_zurich_train, )
+        cfg["DATASETS"]["TRAIN"] = (self.name_coco_train, self.name_zurich_train, ) 
         cfg["DATASETS"]["TEST"]  = (self.name_coco_val, )
         # change batchsize and epochs
         cfg['SOLVER']['IMS_PER_BATCH'] = self.m2f_cfg.batch_size

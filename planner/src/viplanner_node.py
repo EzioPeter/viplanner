@@ -54,7 +54,7 @@ CAMERA_FLIP_MAT     = stf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True
 class VIPlannerNode:
     """VIPlanner ROS Node Class"""
 
-    debug: bool = True
+    debug: bool = False
 
     def __init__(self, cfg):
         super(VIPlannerNode, self).__init__()
@@ -134,11 +134,6 @@ class VIPlannerNode:
         # viz semantic image
         self.m2f_pub = rospy.Publisher("/m2f_sem_img", Image, queue_size=1)
          
-        # path visualization topics
-        if self.cfg.path_viz:
-            self.img_pub_dep = rospy.Publisher(self.cfg.viz_path_depth_topic, Image, queue_size=10)
-            self.img_pub_sem = rospy.Publisher(self.cfg.viz_path_sem_topic, Image, queue_size=10)
-            self.traj_viz: Optional[TrajViz] = None
         rospy.loginfo("VIPlanner Ready.")
         return
 
@@ -158,9 +153,6 @@ class VIPlannerNode:
                     self.initPixArray(cur_depth_image.shape)
                 crop_image, overlap_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
                 time_warp = time.time() - start
-
-                # for anymal c
-                crop_image = cur_rgb_image
 
                 if overlap_ratio < self.cfg.overlap_ratio_thres:
                     rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}")
@@ -237,25 +229,16 @@ class VIPlannerNode:
     def imageWarp(self, rgb_img: np.ndarray, depth_img: np.ndarray, pose_rgb: np.ndarray, pose_depth: np.ndarray) -> np.ndarray:
         # get 3D points of depth image
         depth_rot = stf.Rotation.from_quat(pose_depth[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT # convert orientation from ROS camera to robotics=world frame
-        if True:  # for anymal c where depth is not flipped 
+        if not self.cfg.image_flip: # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped
             depth_rot = depth_rot @ CAMERA_FLIP_MAT
-            
-        print("depth_rot", stf.Rotation.from_matrix(depth_rot).as_euler("xyz", degrees=True))
         dep_im_reshaped = depth_img.reshape(-1, 1)
         points = dep_im_reshaped * (depth_rot @ self.pix_depth_cam_frame.T).T + pose_depth[:3]
         
-        # # transform points to semantic camera frame
-        # if self.cfg.image_flip:
-        #     points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T @ (points - pose_rgb[:3]).T).T
-        #     rgb_rot = (stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T
-        #     print("rgb_rot", stf.Rotation.from_matrix(rgb_rot).as_euler("xyz", degrees=True))
-        # else:
-        #     points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T @ (points - pose_rgb[:3]).T).T
-        #     rgb_rot = (stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT).T
-        #     print("rgb_rot", stf.Rotation.from_matrix(rgb_rot).as_euler("xyz", degrees=True))        
+        # transform points to semantic camera frame
+        points_sem_cam_frame = ((stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT).T @ (points - pose_rgb[:3]).T).T
         
         # normalize points
-        # points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
+        points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
         points_sem_cam_frame_norm = points / points[:, 0][:, np.newaxis]
        
         # reorder points be camera convention (z-forward)
@@ -273,6 +256,10 @@ class VIPlannerNode:
         
         # DEBUG
         if self.debug:
+            print("depth_rot", stf.Rotation.from_matrix(depth_rot).as_euler("xyz", degrees=True))
+            rgb_rot = stf.Rotation.from_quat(pose_rgb[3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT
+            print("rgb_rot", stf.Rotation.from_matrix(rgb_rot).as_euler("xyz", degrees=True))       
+            
             import matplotlib.pyplot as plt
             f, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
             ax1.imshow(depth_img)
@@ -280,7 +267,7 @@ class VIPlannerNode:
             ax3.imshow(rgb_warped / 255)
             ax4.imshow(depth_img)
             ax4.imshow(rgb_warped / 255, alpha=0.5)
-            plt.savefig("/root/git/viplanner_ros/planner/depth_sem_warp.png")
+            plt.savefig(os.path.join(os.getcwd(), "depth_sem_warp.png"))
             # plt.show()  
             plt.close()  
         
@@ -395,10 +382,7 @@ class VIPlannerNode:
         
         # RGB image
         try:
-            rgb_img = self.bridge.imgmsg_to_cv2(rgb_msg, "bgr8")
-            if not self.cfg.image_flip:
-                # rotate image 90 degrees coutner clockwise
-                self.rgb_img = cv2.rotate(rgb_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            image = self.bridge.imgmsg_to_cv2(rgb_msg, "bgr8")
         except cv_bridge.CvBridgeError as e:
             print(e)
 
@@ -418,9 +402,6 @@ class VIPlannerNode:
         try:
             rgb_arr = np.frombuffer(rgb_msg.data, np.uint8)
             image = cv2.imdecode(rgb_arr, cv2.IMREAD_COLOR)
-            # rotate image 90 degrees coutner clockwise
-            if not self.cfg.image_flip:
-                image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
         except cv_bridge.CvBridgeError as e:
             print(e)
 
@@ -463,12 +444,11 @@ class VIPlannerNode:
         if self.cfg.depth_uint_type:
             image = image / 1000.0
         image[image > self.cfg.max_depth] = 0.0
-        # if self.cfg.image_flip:
-        #     image = PIL.Image.fromarray(image)
-        #     self.depth_img = np.array(image.transpose(PIL.Image.Transpose.ROTATE_180))
-        # else:
-        #     self.depth_img = image
-        self.depth_img = image
+        if self.cfg.image_flip:
+            image = PIL.Image.fromarray(image)
+            self.depth_img = np.array(image.transpose(PIL.Image.Transpose.ROTATE_180))
+        else:
+            self.depth_img = image
         
         # transform goal into robot frame
         if self.is_goal_init:
@@ -485,13 +465,15 @@ class VIPlannerNode:
             tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, self.cfg.robot_id)
             self.cam_offset = tf_robot_depth[0:3]
             self.cam_rot = stf.Rotation.from_quat(tf_robot_depth[3:7]).as_matrix() @ ROS_TO_ROBOTICS_MAT
-            # for anymal c
-            self.cam_rot = self.cam_rot @ CAMERA_FLIP_MAT
-            print("CAM ROT", stf.Rotation.from_matrix(self.cam_rot).as_euler("xyz", degrees=True))
+            if not self.cfg.image_flip:  # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped
+                self.cam_rot = self.cam_rot @ CAMERA_FLIP_MAT
             goal_robot_frame = np.array([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z])
             goal_cam_frame = self.cam_rot.T @ (goal_robot_frame - self.cam_offset).T
             self.goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]
-        
+            
+            if self.debug:
+                print("CAM ROT", stf.Rotation.from_matrix(self.cam_rot).as_euler("xyz", degrees=True)) 
+                       
         # declare ready for planning
         self.ready_for_planning_depth = True
         self.is_goal_processed  = True
@@ -600,22 +582,8 @@ if __name__ == '__main__':
     parser.add_argument('joyGoal_scale',   type=float,   default=0.5,                        
         help='distance for joystick goal'
     )
-    # Visualization config
-    parser.add_argument('path_viz',         type=bool,   default=False,
-        help='Publish TrajViz images to path evaluation'
-    )
-    parser.add_argument('viz_path_depth_topic',     type=str,     default='/viz_path_depth', 
-        help='publish path projected in depth image'
-    )
-    parser.add_argument('viz_path_sem_topic',     type=str,     default='/viz_path_sem', 
-        help='publish path projected in semantic image'
-    )
 
     args = parser.parse_args()
-
-    # import only if needed (currently error on Jetson)
-    if args.path_viz:
-        from model_src.viplanner.traj_cost_opt.traj_viz import TrajViz
 
     # model save path
     args.model_save      = os.path.join(pack_path, args.model_save)

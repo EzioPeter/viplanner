@@ -1,5 +1,5 @@
 <launch>
-    <arg name="config_viplanner"     default="legged_sim"/>
+    <arg name="config_viplanner"     default="anymal_c"/>
     <arg name="use_path_follow"      default="true"/>
     <arg name="enable_visualization" default="true"/>
 

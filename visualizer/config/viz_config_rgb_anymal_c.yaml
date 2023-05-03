@@ -5,10 +5,8 @@ domain:                 rgb
 
 # ros topics
 vizTopic:               /viz_path_rgb
-# imgTopic:               /wide_angle_camera_front/image_raw/compressed
-# infoTopic:              /wide_angle_camera_front/camera_info
-imgTopic:              /depth_camera_front/color/image_raw/compressed
-infoTopic:         /depth_camera_front/color/camera_info
+imgTopic:               /depth_camera_front/color/image_raw/compressed
+infoTopic:              /depth_camera_front/color/camera_info
 goalTopic:              /mp_waypoint
 pathTopic:              /path
 

@@ -28,7 +28,3 @@ angular_thred:          0.3
 track_dist:             0.5
 # smart joystick
 joyGoal_scale:          2.5
-# visualization
-path_viz:               False
-viz_path_sem_topic:     /viz_path_sem
-viz_path_depth_topic:   /viz_path_depth

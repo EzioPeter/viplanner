@@ -54,7 +54,9 @@ class SemCostMap:
         # load pcd and filter it
         print("COST-MAP INIT START")
         print(f"start loading and filtering point cloud from: {self._cfg_general.ply_file}")
-        self.pcd = o3d.io.read_point_cloud(os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file))
+        pc_path = os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file)
+        assert os.path.exists(pc_path), f"point cloud file does not exist: {pc_path}"
+        self.pcd = o3d.io.read_point_cloud(pc_path)
 
         # filter for x and y coordinates
         if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):

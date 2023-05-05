@@ -82,13 +82,18 @@ def main(cfg: SegmentsCfg) -> None:
     # move images
     for single_img in tqdm(img_list, desc="Moving images"):
         shutil.move(os.path.join(img_dir, single_img), os.path.join(target_dir, "images", single_img.replace('_label_ground-truth_coco-panoptic', "")))
-
+  
+    train_img_dir = os.path.join(cfg.export_dir_path, "segments", cfg.dataset_name.replace("/", "_"), "train")
     # cleanup 
     for img in os.listdir(img_dir):
         if "label" in img:
             os.remove(os.path.join(img_dir, img))
-    shutil.move(img_dir, os.path.join(cfg.export_dir_path, "segments", cfg.dataset_name.replace("/", "_"), "train"))
-    
+    shutil.move(img_dir, train_img_dir)
+
+    # change images from png to jpg
+    for img in os.listdir(train_img_dir):
+        if img.endswith(".png"):
+            os.rename(os.path.join(train_img_dir, img), os.path.join(train_img_dir, img.replace(".png", ".jpg")))
     return
 
 

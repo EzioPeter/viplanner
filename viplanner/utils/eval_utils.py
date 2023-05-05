@@ -116,14 +116,20 @@ class BaseEvaluator:
         if self._use_cost_map:
             avg_obs_loss = sum(self.loss_obstacles) / len(self.loss_obstacles)
             avg_obs_loss_success = sum(self.loss_obstacles[goal_reached]) / sum(goal_reached)
+            max_obs_loss = max(self.loss_obstacles)
+            max_obs_loss_success = max(self.loss_obstacles[goal_reached])
             
             print(
                 f"Obstacle loss (all):          {avg_obs_loss} \n"
-                f"Obstacle loss (success):      {avg_obs_loss_success}"
+                f"Obstacle loss (success):      {avg_obs_loss_success} \n"
+                f"Max obstacle loss (all):      {max_obs_loss} \n"
+                f"Max obstacle loss (success):  {max_obs_loss_success}"
             )
             
             self.eval_stats["avg_obs_loss_all"] = avg_obs_loss
             self.eval_stats["avg_obs_loss_success"] = avg_obs_loss_success
+            self.eval_stats["max_obs_loss_all"] = max_obs_loss
+            self.eval_stats["max_obs_loss_success"] = max_obs_loss_success
         return
 
 

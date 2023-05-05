@@ -16,6 +16,7 @@ sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /
   ros-${ROS}-joy \
   ros-${ROS}-grid-map-core \
   ros-${ROS}-grid-map \
+  ros-${ROS}-ros-numpy \
  && rm -rf /var/lib/apt/lists/* \
  && rosdep init && rosdep update \
  && apt update && apt install -y \

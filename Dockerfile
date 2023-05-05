@@ -44,19 +44,10 @@ COPY bin/submodules/ros_1.sh /home/ros_1.sh
 RUN chmod +x /home/ros_1.sh
 RUN /home/ros_1.sh && rm /home/ros_1.sh
 
-# RUN ln -fs /usr/share/zoneinfo/Europe/Zurich /etc/localtime
-# RUN apt-get update ; DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-# RUN apt-get update ; apt-get install -y software-properties-common
-# RUN apt-add-repository -y ppa:deadsnakes/ppa; exit 0
-# RUN add-apt-repository -y ppa:graphics-drivers/ppa; exit 0
-# RUN apt-get update ; exit 0
-# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y python3.8 python3.8-dev python3.8-venv openscad libgomp1 git g++ bc
-# 
-# RUN mkdir -p /app/shared/
-# WORKDIR /app
-# 
-# RUN python3.8 -m venv /app/venv/
-# ENV PATH="/app/venv/bin:$PATH"
+#==
+# JoyStick Planner DEPENDENCIES
+#==
+RUN apt install libusb-dev
 
 #==
 # VIPlanner DEPENDENCIES

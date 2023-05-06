@@ -151,11 +151,16 @@ class VIPlannerNode:
                 start = time.time()
                 if self.pix_depth_cam_frame is None:
                     self.initPixArray(cur_depth_image.shape)
-                crop_image, overlap_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
+                crop_image, overlap_ratio, depth_zero_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
                 time_warp = time.time() - start
 
                 if overlap_ratio < self.cfg.overlap_ratio_thres:
-                    rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}")
+                    rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}, whith depth zero ratio {depth_zero_ratio}")
+                    self.pubPath(np.zeros((51, 3)), self.is_goal_init)
+                    continue
+                
+                if depth_zero_ratio > self.cfg.depth_zero_ratio_thres:
+                    rospy.logwarn_throttle(2.0, f"Waiting for new depth image since depth zero ratio is {depth_zero_ratio} > {self.cfg.depth_zero_ratio_thres}, whith overlap ratio {overlap_ratio}")
                     self.pubPath(np.zeros((51, 3)), self.is_goal_init)
                     continue
                 
@@ -232,6 +237,7 @@ class VIPlannerNode:
         if not self.cfg.image_flip: # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped
             depth_rot = depth_rot @ CAMERA_FLIP_MAT
         dep_im_reshaped = depth_img.reshape(-1, 1)
+        depth_zero_ratio = np.sum(np.round(dep_im_reshaped, 5) == 0) / len(dep_im_reshaped)
         points = dep_im_reshaped * (depth_rot @ self.pix_depth_cam_frame.T).T + pose_depth[:3]
         
         # transform points to semantic camera frame
@@ -239,7 +245,6 @@ class VIPlannerNode:
         
         # normalize points
         points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
-        points_sem_cam_frame_norm = points / points[:, 0][:, np.newaxis]
        
         # reorder points be camera convention (z-forward)
         points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]]  * np.array([-1, -1, 1])
@@ -272,7 +277,7 @@ class VIPlannerNode:
             plt.close()  
         
         # reshape to image
-        return rgb_warped, overlap_ratio
+        return rgb_warped, overlap_ratio, depth_zero_ratio
     
     """PATH PUB, GOLA SUB and FEAR DETECTION"""
 
@@ -517,6 +522,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('overlap_ratio_thres',type=float, default=0.7,                       
         help='overlap threshold betweens sem/rgb and depth image'
+    )
+    parser.add_argument('depth_zero_ratio_thres',type=float, default=0.7,                       
+        help='ratio of depth image that is non-zero'
     )
     # networks 
     parser.add_argument('model_save',       type=str,   default='models/vip_models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD',    

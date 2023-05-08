@@ -84,6 +84,7 @@ class VIPlannerNode:
         self.ready_for_planning_rgb_sem = False
         self.is_goal_processed          = False
         self.is_smartjoy                = False
+        self.goal_cam_frame_set         = False
         
         # planner status
         self.planner_status = Int16()
@@ -140,7 +141,7 @@ class VIPlannerNode:
     def spin(self):
         r = rospy.Rate(self.cfg.main_freq)
         while not rospy.is_shutdown():
-            if all((self.ready_for_planning_rgb_sem, self.ready_for_planning_depth, self.is_goal_init)):
+            if all((self.ready_for_planning_rgb_sem, self.ready_for_planning_depth, self.is_goal_init, self.goal_cam_frame_set)):
                 # copy current data
                 cur_rgb_image = self.sem_rgb_img.copy()
                 cur_depth_image = self.depth_img.copy()
@@ -470,7 +471,8 @@ class VIPlannerNode:
             goal_robot_frame = np.array([goal_robot_frame.point.x, goal_robot_frame.point.y, goal_robot_frame.point.z])
             goal_cam_frame = self.cam_rot.T @ (goal_robot_frame - self.cam_offset).T
             self.goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]
-            
+            self.goal_cam_frame_set = True
+
             if self.debug:
                 print("CAM ROT", stf.Rotation.from_matrix(self.cam_rot).as_euler("xyz", degrees=True)) 
                        

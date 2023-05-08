@@ -96,7 +96,7 @@ class VIPlannerNode:
         
         # process time
         self.vip_timer_data = Float32()
-        self.vip_timer_pub  = rospy.Publisher('/vip_timer', Float32, queue_size=10)
+        self.vip_timer_pub  = rospy.Publisher('/viplanner/timer', Float32, queue_size=10)
         
         # depth and rgb image message
         self.depth_header: Header = Header()
@@ -126,15 +126,15 @@ class VIPlannerNode:
         rospy.Subscriber(self.cfg.rgb_info_topic,   CameraInfo, callback=self.rgbCamInfoCallback)
         
         # planning status topics
-        self.status_pub = rospy.Publisher('/vip_planner_status', Int16, queue_size=10)
+        self.status_pub = rospy.Publisher('/viplanner/status', Int16, queue_size=10)
 
         # path topics
         self.path_pub  = rospy.Publisher(self.cfg.path_topic, Path, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.cfg.path_topic + "_fear", Path, queue_size=10)
 
         # viz semantic image
-        self.m2f_pub = rospy.Publisher("/m2f_sem_img", Image, queue_size=1)
-         
+        self.m2f_pub = rospy.Publisher("/viplanner/sem_image/compressed", CompressedImage, queue_size=3)
+        
         rospy.loginfo("VIPlanner Ready.")
         return
 
@@ -423,8 +423,18 @@ class VIPlannerNode:
         if self.vip_algo.train_cfg.sem:
             image = cv2.resize(image, (480, 360))
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            sem_msg = ros_numpy.msgify(Image, image, encoding="8UC3")
-            sem_msg.header.stamp = rospy.Time.now()
+            
+            # Convert the image to JPEG format
+            success, compressed_image = cv2.imencode('.jpg', image)
+            if not success:
+                rospy.logerr("Failed to compress semantic image")
+                return
+
+            # create compressed image and publish it
+            sem_msg = CompressedImage()
+            sem_msg.header = rgb_msg.header
+            sem_msg.format = "jpeg"
+            sem_msg.data = np.array(compressed_image).tostring()
             self.m2f_pub.publish(sem_msg)
         return
     
@@ -551,13 +561,13 @@ if __name__ == '__main__':
     parser.add_argument('rgb_info_topic',  type=str,    default='/wide_angle_camera_front/camera_info',
         help='rgb camera info topic (get intrinsic matrix)'
     )
-    parser.add_argument('goal_topic',      type=str,    default='/way_point',               
+    parser.add_argument('goal_topic',      type=str,    default='/mp_waypoint',               
         help='goal waypoint ros topic'
     )
-    parser.add_argument('path_topic',      type=str,    default='/path',                    
+    parser.add_argument('path_topic',      type=str,    default='/viplanner/path',                    
         help='VIP Path topic'
     )
-    parser.add_argument('m2f_timer_topic', type=str,    default='/m2f_timer', 
+    parser.add_argument('m2f_timer_topic', type=str,    default='/viplanner/m2f_timer', 
         help='Time needed for semantic segmentation'
     )
     parser.add_argument('depth_uint_type', type=bool,   default=False,                      

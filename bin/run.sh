@@ -41,6 +41,7 @@ RUN_COMMAND="docker run \
   --entrypoint="/bin/bash" \
   -eHOST_USERNAME=$(whoami) \
   -v$(pwd)/planner/model_src/viplanner:/viplanner \
+  -v/dev/input/js0:/dev/input/js0 \
   -v$HOME:$HOME \
   -v$(pwd)/.etc/shadow:/etc/shadow \
   -v$(pwd)/.etc/passwd:/etc/passwd \
@@ -51,4 +52,3 @@ $RUN_COMMAND
 echo -e "[run.sh]: \e[1;32mDocker terminal closed.\e[0m"
 
 rm -rf .etc
-  #  $ENTRYPOINT \

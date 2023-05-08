@@ -15,8 +15,8 @@ depth_info_topic:       /depth_camera_front/depth/camera_info
 rgb_topic:              /depth_camera_front/color/image_raw/compressed
 rgb_info_topic:         /depth_camera_front/color/camera_info
 goal_topic:             /mp_waypoint
-path_topic:             /path
-m2f_timer_topic:        /m2f_timer
+path_topic:             /viplanner/path
+m2f_timer_topic:        /viplanner/m2f_timer
 depth_uint_type:        True
 compressed:             True
 # frame ids

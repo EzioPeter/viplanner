@@ -4,15 +4,12 @@ max_depth:              15
 domain:                 depth
 
 # ros topics
-vizTopic:               /viz_path_depth
+vizTopic:               /viplanner/viz_path_depth
 imgTopic:               /depth_camera_front/depth/image_rect_raw
 infoTopic:              /depth_camera_front/depth/camera_info
 goalTopic:              /mp_waypoint
-pathTopic:              /path
+pathTopic:              /viplanner/path
 
 # frame ids
 robot_frame:            base
 odom_frame:             odom
-
-# visualization
-viz_path_sem_topic:     /viz_path_depth

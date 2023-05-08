@@ -4,6 +4,7 @@ image_flip:             False
 conv_dist:              0.5
 max_depth:              15
 overlap_ratio_thres:    0.80
+depth_zero_ratio_thres: 0.6
 # network model
 model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_anymal_c_ep100_inputDepSem_costSem_optimSGD_anymal_c
 m2f_cfg_file:           models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml 

@@ -32,6 +32,8 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, PointStamped
 import ros_numpy
 import cv_bridge
+import tf2_ros
+import tf2_geometry_msgs
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -73,8 +75,10 @@ class VIPlannerNode:
             self.m2f_timer_pub  = rospy.Publisher(self.cfg.m2f_timer_topic, Float32, queue_size=10)
 
         # init transforms
-        self.tf_listener = tf.TransformListener()
-        
+        # self.tf_listener = tf.TransformListener()
+        self.tf_buffer = tf2_ros.Buffer(rospy.Duration(100.0))  # tf buffer length
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)  
+
         # init bridge
         self.bridge = cv_bridge.CvBridge()
         
@@ -130,6 +134,7 @@ class VIPlannerNode:
 
         # path topics
         self.path_pub  = rospy.Publisher(self.cfg.path_topic, Path, queue_size=10)
+        self.path_viz_pub = rospy.Publisher(self.cfg.path_topic + "_viz", Path, queue_size=10)
         self.fear_path_pub = rospy.Publisher(self.cfg.path_topic + "_fear", Path, queue_size=10)
 
         # viz semantic image
@@ -304,6 +309,30 @@ class VIPlannerNode:
         # publish path
         self.fear_path_pub.publish(fear_path)
         self.path_pub.publish(path)
+
+        # Wait for the transform from path frame to target frame
+        trans = None
+        while trans is None:
+            try:
+                trans = self.tf_buffer.lookup_transform(self.cfg.world_id, path.header.frame_id, self.depth_header.stamp, rospy.Duration(1.0))
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.logerr('Failed to lookup transform from {} to {}'.format(path.header.frame_id, self.cfg.world_id))
+                continue
+
+        # Transform each pose in the path to the target frame
+        transformed_poses = []
+        for pose in path.poses:
+            transformed_pose = tf2_geometry_msgs.do_transform_pose(pose, trans)
+            transformed_poses.append(transformed_pose)
+
+        # Create a new path with transformed poses
+        transformed_path = Path()
+        transformed_path.header.frame_id = self.cfg.world_id
+        transformed_path.header.stamp = self.depth_header.stamp
+        transformed_path.poses = transformed_poses
+
+        self.path_viz_pub.publish(transformed_path)
+
         return
 
     def fearPathDetection(self, fear, is_forward):
@@ -369,10 +398,10 @@ class VIPlannerNode:
         return
 
     """RGB IMAGE AND DEPTH CALLBACKS"""
-    def poseCallback(self, frame_id: str, target_frame_id: Optional[str] = None):
+    def poseCallback(self, frame_id: str, img_stamp, target_frame_id: Optional[str] = None):
         target_frame_id = target_frame_id if target_frame_id else self.cfg.world_id
         try:            
-            self.tf_listener.waitForTransform(target_frame_id, frame_id, rospy.Time(0), rospy.Duration(4.0))
+            self.tf_listener.waitForTransform(target_frame_id, frame_id, img_stamp, rospy.Duration(4.0))
             t = self.tf_listener.getLatestCommonTime(target_frame_id, frame_id)
             pose = self.tf_listener.lookupTransform(target_frame_id, frame_id, t)
             pose = np.hstack(pose)
@@ -384,7 +413,7 @@ class VIPlannerNode:
         rospy.logdebug("Received rgb image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
 
         # image pose
-        pose = self.poseCallback(rgb_msg.header.frame_id)
+        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
         
         # RGB image
         try:
@@ -402,7 +431,7 @@ class VIPlannerNode:
     def imageCallbackCompressed(self, rgb_msg: CompressedImage):
         rospy.logdebug(f"Received rgb   image {rgb_msg.header.frame_id}: {rgb_msg.header.stamp.to_sec()}")
         # image pose
-        pose = self.poseCallback(rgb_msg.header.frame_id)
+        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
         
         # RGB Image
         try:
@@ -453,7 +482,7 @@ class VIPlannerNode:
 
         # image time and pose
         self.depth_header = depth_msg.header
-        self.depth_pose = self.poseCallback(depth_msg.header.frame_id)
+        self.depth_pose = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp)
         # DEPTH Image
         image = ros_numpy.numpify(depth_msg)
         image[~np.isfinite(image)] = 0
@@ -471,14 +500,13 @@ class VIPlannerNode:
             goal_robot_frame = self.goal_pose;
             if not self.goal_pose.header.frame_id == self.cfg.robot_id:
                 try:
-                    goal_robot_frame.header.stamp = self.tf_listener.getLatestCommonTime(self.goal_pose.header.frame_id,
-                                                                                         self.cfg.robot_id)
-                    goal_robot_frame = self.tf_listener.transformPoint(self.cfg.robot_id, goal_robot_frame)
-                except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                    trans = self.tf_buffer.lookup_transform(self.cfg.robot_id, self.goal_pose.header.frame_id, self.depth_header.stamp, rospy.Duration(1.0))
+                    goal_robot_frame = tf2_geometry_msgs.do_transform_point(self.goal_pose, trans)
+                except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                     rospy.logerr(f"Goal: Fail to transfer {self.goal_pose.header.frame_id} into {self.cfg.robot_id}")
                     return
             # get transform from robot frame to depth camera frame
-            tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, self.cfg.robot_id)
+            tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp, self.cfg.robot_id)
             self.cam_offset = tf_robot_depth[0:3]
             self.cam_rot = stf.Rotation.from_quat(tf_robot_depth[3:7]).as_matrix() @ ROS_TO_ROBOTICS_MAT
             if not self.cfg.image_flip:  # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped

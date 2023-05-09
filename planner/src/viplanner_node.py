@@ -19,7 +19,7 @@ import copy
 import time
 import numpy as np
 import scipy.spatial.transform as stf
-from typing import Optional
+from typing import Optional, Tuple
 import PIL
 
 # ROS
@@ -29,7 +29,7 @@ import tf
 from std_msgs.msg import Float32, Int16, Header
 from sensor_msgs.msg import Image, Joy, CameraInfo, CompressedImage
 from nav_msgs.msg import Path
-from geometry_msgs.msg import PoseStamped, PointStamped
+from geometry_msgs.msg import PoseStamped, PointStamped, PoseWithCovarianceStamped
 import ros_numpy
 import cv_bridge
 import tf2_ros
@@ -75,7 +75,6 @@ class VIPlannerNode:
             self.m2f_timer_pub  = rospy.Publisher(self.cfg.m2f_timer_topic, Float32, queue_size=10)
 
         # init transforms
-        # self.tf_listener = tf.TransformListener()
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(100.0))  # tf buffer length
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)  
 
@@ -120,7 +119,7 @@ class VIPlannerNode:
         # subscribe to further topics
         rospy.Subscriber(self.cfg.goal_topic, PointStamped, self.goalCallback)
         rospy.Subscriber("/joy", Joy, self.joyCallback, queue_size=10)
-
+        
         # camera info subscribers
         self.K_depth: np.ndarray = np.zeros((3,3))
         self.K_rgb: np.ndarray   = np.zeros((3,3))
@@ -285,11 +284,11 @@ class VIPlannerNode:
         # reshape to image
         return rgb_warped, overlap_ratio, depth_zero_ratio
     
-    """PATH PUB, GOLA SUB and FEAR DETECTION"""
+    """PATH PUB, GOAL and ODOM SUB and FEAR DETECTION"""
 
     def pubPath(self, waypoints, is_goal_init=True):
-        path = Path()
-        fear_path = Path()
+        # create path
+        poses = []
         if is_goal_init:
             for p in waypoints:
                 # gte individual pose in depth frame
@@ -297,42 +296,60 @@ class VIPlannerNode:
                 pose.pose.position.x = p[0]
                 pose.pose.position.y = p[1]
                 pose.pose.position.z = p[2]
-                # append to path
-                path.poses.append(pose)
-        # add header
-        path.header.frame_id = fear_path.header.frame_id = self.cfg.robot_id
-        path.header.stamp = fear_path.header.stamp = self.depth_header.stamp
-        # publish fear path
-        if self.is_fear_reaction:
-            fear_path.poses = copy.deepcopy(path.poses)
-            path.poses = path.poses[:1]
-        # publish path
-        self.fear_path_pub.publish(fear_path)
-        self.path_pub.publish(path)
+                poses.append(pose)
 
-        # Wait for the transform from path frame to target frame
+        # Wait for the transform from base frame to odom frame
         trans = None
         while trans is None:
             try:
-                trans = self.tf_buffer.lookup_transform(self.cfg.world_id, path.header.frame_id, self.depth_header.stamp, rospy.Duration(1.0))
+                trans = self.tf_buffer.lookup_transform(self.cfg.world_id, self.cfg.robot_id, self.depth_header.stamp, rospy.Duration(1.0))
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
-                rospy.logerr('Failed to lookup transform from {} to {}'.format(path.header.frame_id, self.cfg.world_id))
+                rospy.logerr('Failed to lookup transform from {} to {}'.format(self.cfg.robot_id, self.cfg.world_id))
                 continue
 
-        # Transform each pose in the path to the target frame
+        # Transform each pose from base to odom frame
         transformed_poses = []
-        for pose in path.poses:
+        transformed_poses_np = np.zeros(waypoints.shape)
+        for idx, pose in enumerate(poses):
             transformed_pose = tf2_geometry_msgs.do_transform_pose(pose, trans)
             transformed_poses.append(transformed_pose)
+            transformed_poses_np[idx] = np.array([transformed_pose.pose.position.x, transformed_pose.pose.position.y, transformed_pose.pose.position.z])
+        
+        success, curr_depth_cam_odom_pose = self.poseCallback(self.depth_header.frame_id, rospy.Time(0))
+        
+        # remove all waypoints already passed
+        front_poses = np.linalg.norm(transformed_poses_np - transformed_poses_np[0], axis=1) > np.linalg.norm(curr_depth_cam_odom_pose[:3] - transformed_poses_np[0])
+        poses = [pose for idx, pose in enumerate(poses) if front_poses[idx]]
+        transformed_poses = [pose for idx, pose in enumerate(transformed_poses) if front_poses[idx]]
 
-        # Create a new path with transformed poses
-        transformed_path = Path()
-        transformed_path.header.frame_id = self.cfg.world_id
-        transformed_path.header.stamp = self.depth_header.stamp
-        transformed_path.poses = transformed_poses
+        # print(transformed_poses_np)
+        # print(np.linalg.norm(transformed_poses_np - transformed_poses_np[0], axis=1))
+        # print(np.linalg.norm(curr_depth_cam_odom_pose[:3] - transformed_poses_np[0]))        
+        # print(front_poses)
 
-        self.path_viz_pub.publish(transformed_path)
-
+        # add header
+        base_path       = Path()
+        base_fear_path  = Path()
+        odom_path       = Path()
+        
+        # assign header
+        base_path.header.frame_id = base_fear_path.header.frame_id = self.cfg.robot_id
+        odom_path.header.frame_id = self.cfg.world_id
+        base_path.header.stamp    = base_fear_path.header.stamp = odom_path.header.stamp = self.depth_header.stamp
+        
+        # assign poses
+        if self.is_fear_reaction:
+            base_fear_path.poses = poses
+            base_path.poses = poses[:1]
+        else:
+            base_path.poses = poses
+        odom_path.poses = transformed_poses
+        
+        # publish path
+        self.fear_path_pub.publish(base_fear_path)
+        self.path_pub.publish(base_path)
+        self.path_viz_pub.publish(odom_path)
+        
         return
 
     def fearPathDetection(self, fear, is_forward):
@@ -398,22 +415,27 @@ class VIPlannerNode:
         return
 
     """RGB IMAGE AND DEPTH CALLBACKS"""
-    def poseCallback(self, frame_id: str, img_stamp, target_frame_id: Optional[str] = None):
+    def poseCallback(self, frame_id: str, img_stamp, target_frame_id: Optional[str] = None) -> Tuple[bool, np.ndarray]:
         target_frame_id = target_frame_id if target_frame_id else self.cfg.world_id
         try:            
-            self.tf_listener.waitForTransform(target_frame_id, frame_id, img_stamp, rospy.Duration(4.0))
-            t = self.tf_listener.getLatestCommonTime(target_frame_id, frame_id)
-            pose = self.tf_listener.lookupTransform(target_frame_id, frame_id, t)
-            pose = np.hstack(pose)
+            # Wait for the transform to become available
+            transform = self.tf_buffer.lookup_transform(target_frame_id, frame_id, img_stamp, rospy.Duration(4.0))
+            # Extract the translation and rotation from the transform
+            translation = transform.transform.translation
+            rotation = transform.transform.rotation
+            pose = np.array([translation.x, translation.y, translation.z, rotation.x, rotation.y, rotation.z, rotation.w])            
+            return True, pose
         except (tf.Exception, tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr(f"Fail to transfer {frame_id} into {target_frame_id} frame.")
-        return pose
+            return False, np.zeros(7)
             
     def imageCallback(self, rgb_msg: Image):
         rospy.logdebug("Received rgb image %s: %d"%(rgb_msg.header.frame_id,   rgb_msg.header.seq))
 
         # image pose
-        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        success, pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        if not success:
+            return
         
         # RGB image
         try:
@@ -431,7 +453,9 @@ class VIPlannerNode:
     def imageCallbackCompressed(self, rgb_msg: CompressedImage):
         rospy.logdebug(f"Received rgb   image {rgb_msg.header.frame_id}: {rgb_msg.header.stamp.to_sec()}")
         # image pose
-        pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        success, pose = self.poseCallback(rgb_msg.header.frame_id, rgb_msg.header.stamp)
+        if not success:
+            return
         
         # RGB Image
         try:
@@ -482,7 +506,10 @@ class VIPlannerNode:
 
         # image time and pose
         self.depth_header = depth_msg.header
-        self.depth_pose = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp)
+        success, self.depth_pose = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp)
+        if not success:
+            return
+        
         # DEPTH Image
         image = ros_numpy.numpify(depth_msg)
         image[~np.isfinite(image)] = 0
@@ -506,7 +533,9 @@ class VIPlannerNode:
                     rospy.logerr(f"Goal: Fail to transfer {self.goal_pose.header.frame_id} into {self.cfg.robot_id}")
                     return
             # get transform from robot frame to depth camera frame
-            tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp, self.cfg.robot_id)
+            success, tf_robot_depth = self.poseCallback(depth_msg.header.frame_id, depth_msg.header.stamp, self.cfg.robot_id)
+            if not success:
+                return
             self.cam_offset = tf_robot_depth[0:3]
             self.cam_rot = stf.Rotation.from_quat(tf_robot_depth[3:7]).as_matrix() @ ROS_TO_ROBOTICS_MAT
             if not self.cfg.image_flip:  # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped
@@ -597,6 +626,9 @@ if __name__ == '__main__':
     )
     parser.add_argument('m2f_timer_topic', type=str,    default='/viplanner/m2f_timer', 
         help='Time needed for semantic segmentation'
+    )
+    parser.add_argument('state_estimator_topic', type=str,    default='/state_estimator/pose_in_odom', 
+        help='Pose in world frame topic'
     )
     parser.add_argument('depth_uint_type', type=bool,   default=False,                      
         help="image in uint type or not"

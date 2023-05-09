@@ -48,7 +48,7 @@ using namespace std;
 using namespace Eigen;
 
 static const double mesh_size = 0.3;
-static const int n_waypoints = 51;
+static const int max_waypoints = 50;
 Eigen::Matrix3d CAM_TO_ROBOT_FRAME = [] {
     Eigen::Matrix3d m;
     m << 0, 0, 1,
@@ -209,14 +209,7 @@ public:
     void pathCallback(const nav_msgs::Path::ConstPtr& path_msg)
     {
         // Create an Eigen matrix with the same number of rows as the path
-        Eigen::MatrixXf path_mat_new(path_msg->poses.size(), 3);
-
-        // check if path length is same as expected length
-        if (path_mat_new.rows() != n_waypoints)
-        {
-            ROS_ERROR("Path length is not same as expected length");
-            return;
-        }
+        Eigen::MatrixXf path_mat_new(max_waypoints, 3);
 
         // Copy the x, y, and z coordinates from the path message into the matrix
         for (int i = 0; i < path_msg->poses.size(); i++)
@@ -395,7 +388,7 @@ private:
     // variables
     cv::Mat image_;
     Eigen::Vector3f goal_;
-    Eigen::Matrix<float, n_waypoints, 3> path_mat_;
+    Eigen::Matrix<float, max_waypoints, 3> path_mat_;
     cv::Mat intrinsics_ = cv::Mat::eye(3, 3, CV_64F);
     geometry_msgs::Pose pose_;
 };

@@ -292,7 +292,10 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--model_dirs', nargs='+', type=str, help='Path to model directory',
                         default=[
                             "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD",
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth"
+                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
+                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_decoderS",
+                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_obs03_sdecoder",
+                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_obs04_sdecoder",
                         ])
     parser.add_argument('-d', '--data_dir',  type=str, help='Path to data directory (should contain bgr, depth and odom data)', 
                         default="/home/pascal/SemNav/env/anymal/2023_03_23_rsl")

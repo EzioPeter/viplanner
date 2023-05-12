@@ -1,6 +1,3 @@
 [submodule "model_src/viplanner"]
 	path = planner/model_src/viplanner
 	url = git@github.com:pascal-roth/viplanner.git
-[submodule "joystick_planner"]
-	path = joystick_planner
-	url = git@bitbucket.org:leggedrobotics/joystick_planner.git

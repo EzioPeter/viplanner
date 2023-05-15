@@ -262,9 +262,9 @@ class DistanceSchemeIdx:
         
     def get_data(
         self,
-        nb_fov: bool,
-        nb_front: bool,
-        nb_back: bool
+        nb_fov: int,
+        nb_front: int,
+        nb_back: int
     ) -> Tuple[List[pp.LieTensor], List[pp.LieTensor], List[str], List[str], np.ndarray]:
         
         assert self.has_data, f"DistanceSchemeIdx for distance {self.distance} has no data"
@@ -665,6 +665,23 @@ class PlannerDataGenerator(Dataset):
 
                 # plot goal
                 o3d.visualization.draw_geometries(odom_vis_list)
+        
+        if self.debug:
+            small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
+            odom_vis_list = []
+            
+            for distance in self._cfg.distance_scheme.keys():
+                odoms = torch.vstack(self.category_scheme_pairs[distance].odom_list)
+                odoms = odoms.tensor().cpu().numpy()[:, :3]
+                for odom in odoms:
+                    odom_vis_list.append(copy.deepcopy(small_sphere).translate((odom[0], odom[1], odom[2])))
+            
+            # viz cost map
+            odom_vis_list.append(self.cost_map.pcd_tsdf)
+
+            # plot goal
+            o3d.visualization.draw_geometries(odom_vis_list)
+                            
         return
 
     def reduce_pairs(
@@ -698,20 +715,21 @@ class PlannerDataGenerator(Dataset):
             within_curr_distance_idx = distances < distance
             if sum(within_curr_distance_idx) == 0:
                 continue
-            selected_idx = np.random.choice(goal_idx[within_curr_distance_idx], 1, replace=False)
+            selected_idx = np.random.choice(goal_idx[within_curr_distance_idx], min(3, sum(within_curr_distance_idx)), replace=False)
             # remove the selected goals from the list for further selection
             distances = distances[~within_curr_distance_idx]
             goal_idx = goal_idx[~within_curr_distance_idx]
 
-            self.category_scheme_pairs[distance].update_buffers(
-                odom=self.odom_array_depth[odom_idx], 
-                goal=goals[selected_idx.item()],
-                within_fov=within_fov,
-                front_of_robot=front_of_robot,
-                behind_robot=behind_robot,
-                depth_filename=self.depth_filename_list[odom_idx],
-                sem_rgb_filename=warp_img_path
-            )   
+            for idx in selected_idx:
+                self.category_scheme_pairs[distance].update_buffers(
+                    odom=self.odom_array_depth[odom_idx], 
+                    goal=goals[idx],
+                    within_fov=within_fov,
+                    front_of_robot=front_of_robot,
+                    behind_robot=behind_robot,
+                    depth_filename=self.depth_filename_list[odom_idx],
+                    sem_rgb_filename=warp_img_path
+                ) 
         return
               
     def get_goal_categories(self, goal_odom_frame: pp.LieTensor):
@@ -749,7 +767,7 @@ class PlannerDataGenerator(Dataset):
         
         # max sample number
         if self._cfg.max_train_pairs:
-            max_sample_number = int(self._cfg.max_train_pairs / self._cfg.ratio)  
+            max_sample_number = min(int(self._cfg.max_train_pairs / self._cfg.ratio), int(self.odom_used * self._cfg.pairs_per_image)) 
         else: 
             max_sample_number = int(self.odom_used * self._cfg.pairs_per_image)  
 
@@ -767,10 +785,10 @@ class PlannerDataGenerator(Dataset):
                 continue
             
             # get number of samples
-            buffer_data = self.category_scheme_pairs[distance].get_data(
-                nb_fov  =int(ratio_fov_samples   * distance_percentage * max_sample_number),
-                nb_front=int(ratio_front_samples * distance_percentage * max_sample_number),
-                nb_back =int(ratio_back_samples  * distance_percentage * max_sample_number),
+            buffer_data  = self.category_scheme_pairs[distance].get_data(
+                nb_fov   = int(ratio_fov_samples   * distance_percentage * max_sample_number),
+                nb_front = int(ratio_front_samples * distance_percentage * max_sample_number),
+                nb_back  = int(ratio_back_samples  * distance_percentage * max_sample_number),
             )
             nb_samples = buffer_data[0].shape[0]
             

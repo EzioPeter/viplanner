@@ -11,7 +11,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List, Optional
+from typing import List, Optional, Union
 import yaml
 import torch
 
@@ -84,10 +84,16 @@ class BaseEvaluator:
         self._use_cost_map = True
         return
 
-    def _get_cost_map_loss(self, path: np.ndarray, idx: int) -> float:
-        waypoints = torch.tensor(path, dtype=torch.float32)
-        self.loss_obstacles[idx] = self._traj_cost.cost_of_recorded_path(waypoints).numpy()
-        return
+    def _get_cost_map_loss(self, path: Union[torch.Tensor, np.ndarray], idx: int) -> float:
+        if isinstance(path, np.ndarray):
+            waypoints = torch.tensor(path, dtype=torch.float32)
+        else:
+            waypoints = path.to(dtype=torch.float32)
+        
+        loss = self._traj_cost.cost_of_recorded_path(waypoints).numpy()
+        if self._traj_cost.cost_map.cfg.semantics:
+            loss -= self._traj_cost.cost_map.cfg.sem_cost_map.negative_reward
+        return loss
         
     ##
     # Eval Statistics
@@ -311,8 +317,8 @@ class BaseEvaluator:
             goal_length_obs_exists  = []
 
             for x in unique_goal_length:
-                y_path_subset = self.length_path[idx][goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
-                y_straight_path_length_subset = x - self.goal_distances[idx][goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+                y_path_subset = length_path_list[idx][goal_success_bool][np.round(length_path_list[idx][goal_success_bool], 1) == x]
+                y_straight_path_length_subset = x - goal_distance_list[idx][goal_success_bool][np.round(length_path_list[idx][goal_success_bool], 1) == x]
 
                 if len(y_path_subset) != 0:
                     y_path_subset = ((y_path_subset - y_straight_path_length_subset) / y_straight_path_length_subset) * 100   # deviation from goal length - goal distance in percent for successful paths
@@ -353,7 +359,7 @@ class BaseEvaluator:
         fig_goal.savefig(os.path.join(save_dir, "goal_distance_comp.png"))
         if self._use_cost_map:
             axs_obs.legend()
-            axs_obs.savefig(os.path.join(save_dir, "obs_loss_comp.png"))
+            fig_obs.savefig(os.path.join(save_dir, "obs_loss_comp.png"))
 
         plt.show()
         return

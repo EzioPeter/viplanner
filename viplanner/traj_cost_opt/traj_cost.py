@@ -148,18 +148,14 @@ class TrajCost:
 
         Args:
             waypoints (torch.Tensor): Path coordinates in world frame
-            goal (torch.Tensor): Gaol coordinates in world frame
         """        
         assert self.is_map, "Map has to be loaded for evaluation"
-        norm_inds, _ = self.cost_map.Pos2Ind(waypoints)
+        norm_inds, _ = self.cost_map.Pos2Ind(waypoints.unsqueeze(0))
         
         # Obstacle Cost
-        cost_grid = self.cost_map.cost_array.T
+        cost_grid = self.cost_map.cost_array.T.expand(1, 1, -1, -1)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32)
-        oloss_M_weighted = torch.sum(oloss_M, axis=1)
-        oloss = torch.mean(oloss_M_weighted)
-        
-        return oloss
+        return torch.mean(oloss_M)
     
 # EoF

@@ -36,13 +36,13 @@ class Mask2FormerCfg:
     # path to model config file
     config: str = "coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml"
     # path to model weights file
-    model: str = 'm2f_overfit/model_0004999.pth' # "coco/panoptic/swin/model_final_9fd0ae.pkl"
+    model: str = 'm2f_overfit/model_zurich_70_0049999.pth' # "coco/panoptic/swin/model_final_9fd0ae.pkl"
     # output directory
     output: str = "m2f_overfit"
     
     # training parameters
     num_gpus: int = 1
-    batch_size: int = 4
+    batch_size: int = 1
     epochs: int = 40
     coco_data: str = "coco"
     coco_nb_images: Optional[int] = 5000  # None for all images

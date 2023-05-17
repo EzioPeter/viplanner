@@ -45,12 +45,12 @@ class DataCfg:
     "maximum depth for depth image"
 
     # odom (=start) point selection
-    max_goal_distance: float = max_depth
+    max_goal_distance: float = 15.0
     min_goal_distance: float = 0.5
     "maximium and minimum distance between odom and goal"
     distance_scheme: dict = field(default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05})
     "select goal points for the samples according to the scheme: {distance: percentage of goals}, distances have to be increasing and max distance has to be equal to max_goal_distance"
-    obs_cost_height: float = 0.3
+    obs_cost_height: float = 0.8
     "all odom points with cost of more than obs_cost_height are discarded (negative cost of cost_map will be automatically added)"
     fov_scale: float = 1.0
     "scaling of the field of view (only goals within fov are considered)"

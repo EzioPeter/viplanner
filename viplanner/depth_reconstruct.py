@@ -146,8 +146,10 @@ class DepthReconstruction:
                          self._pcd.colors.extend(np.vstack(sem_map_all) / 255.0)
                 
                 # reset buffer lists
+                del points_all
                 points_all = []
                 if self._cfg.semantics:
+                    del sem_map_all
                     sem_map_all = []
                     
                 # apply downsampling

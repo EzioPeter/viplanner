@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--dataset_dir', type=str, help='Directory of the dataset',
                         default="/home/pascal/SemNav/imperative_learning/data/nomoko_zurich/rgb")
     parser.add_argument('-s', '--sem_dir_name', type=str, help='Name of the new directory for the semantic images',
-                        default="semantics")
+                        default="semantics_zurich_fit")
     args = parser.parse_args()
     
     # run on directory

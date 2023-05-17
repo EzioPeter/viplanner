@@ -84,7 +84,7 @@ class BaseEvaluator:
         self._use_cost_map = True
         return
 
-    def _get_cost_map_loss(self, path: Union[torch.Tensor, np.ndarray], idx: int) -> float:
+    def _get_cost_map_loss(self, path: Union[torch.Tensor, np.ndarray]) -> float:
         if isinstance(path, np.ndarray):
             waypoints = torch.tensor(path, dtype=torch.float32)
         else:

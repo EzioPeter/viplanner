@@ -94,7 +94,10 @@ class Trainer:
         else: 
             train_loader_list, val_loader_list = self._get_dataloader()
 
-        wandb.watch(self.net)
+        try:
+            wandb.watch(self.net)
+        except:
+            print("[WARNING: Wandb model watch failed")
         
         for epoch in range(self._cfg.epochs):
             train_loss = 0; val_loss = 0
@@ -105,7 +108,10 @@ class Trainer:
             train_loss /= len(train_loader_list)
             val_loss /= len(train_loader_list)
             
-            wandb.log({"train_loss": train_loss, "val_loss": val_loss, "epoch": epoch})
+            try:
+                wandb.log({"train_loss": train_loss, "val_loss": val_loss, "epoch": epoch})
+            except:
+                print("[WARNING: Wandb logging failed")
             
             # if val_loss < best_loss:
             if val_loss < self.best_loss:
@@ -179,7 +185,10 @@ class Trainer:
             yaml.dump(save_dict, file, allow_unicode=True, default_flow_style=False)
 
         # logging
-        wandb.finish() 
+        try:
+            wandb.finish() 
+        except:
+            pass
         
         # plot hierarchical losses
         if self._cfg.hierarchical:
@@ -249,13 +258,16 @@ class Trainer:
         dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
         os.makedirs(dir_path, exist_ok=True)
         
-        wandb.init(
-            project=self._cfg.wb_project,
-            entity=self._cfg.wb_entity,
-            name=self._cfg._get_model_save(),
-            config=self._cfg.__dict__,
-            dir=dir_path
-        )
+        try:
+            wandb.init(
+                project=self._cfg.wb_project,
+                entity=self._cfg.wb_entity,
+                name=self._cfg._get_model_save(),
+                config=self._cfg.__dict__,
+                dir=dir_path
+            )
+        except:
+            print("[WARNING: Wandb not available")    
         return
     
     def _load_model(self, resume: bool = False) -> None:

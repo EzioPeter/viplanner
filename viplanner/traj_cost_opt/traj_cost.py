@@ -109,10 +109,6 @@ class TrajCost:
         hloss_M = torch.sum(hloss_M, axis=1)
         hloss = torch.mean(hloss_M)
         
-        if self.log_data:
-            wandb.log({f"hloss_{dataset}_step": hloss}, step=log_step)
-            wandb.log({f"oloss_{dataset}_step": oloss}, step=log_step)
-
         # Goal Cost - Control Cost
         gloss_M = torch.norm(goal[:, :3] - waypoints[:, -1, :], dim=1)
         gloss = torch.mean(gloss_M)
@@ -126,9 +122,14 @@ class TrajCost:
         mloss = torch.mean(mloss)
         
         if self.log_data:
-            wandb.log({f"gloss_{dataset}_step": gloss}, step=log_step)
-            wandb.log({f"mloss_{dataset}_step": mloss}, step=log_step)
-
+            try:
+                wandb.log({f"hloss_{dataset}_step": hloss}, step=log_step)
+                wandb.log({f"oloss_{dataset}_step": oloss}, step=log_step)
+                wandb.log({f"gloss_{dataset}_step": gloss}, step=log_step)
+                wandb.log({f"mloss_{dataset}_step": mloss}, step=log_step)
+            except:
+                print("wandb log failed")
+                
         # Fear labels
         goal_dists = torch.cumsum(wp_ds, dim=1, dtype=wp_ds.dtype)
         floss_M = torch.clone(oloss_M)[:, 1:]

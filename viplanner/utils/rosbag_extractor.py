@@ -19,6 +19,7 @@ import tqdm
 import rospy
 import rosbag
 from sensor_msgs.msg import Image, CompressedImage
+from geometry_msgs.msg import PointStamped
 from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge
 import tf2_ros
@@ -140,6 +141,7 @@ def main(args):
     odom_base = np.ndarray((bag.get_message_count(args.topic_state), 9))  # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
     odom_depth = np.ndarray((bag.get_message_count(args.topic_depth), 9))  # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
     odom_bgr = np.ndarray((bag.get_message_count(args.topic_bgr), 9))  # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
+    odom_goal = np.ndarray((bag.get_message_count(args.topic_goal), 5))  # x, y, z, t_sec, t_nsec
     
     # get intrinsics
     K_depth, height_depth, width_depth = get_intrinsics(bag, topics, args.topic_depth)
@@ -158,15 +160,16 @@ def main(args):
     bgr_counter = 0
     depth_counter = 0
     state_counter = 0
+    goal_counter = 0
     
     # get transform between odom and cameras
     check_roscore()  # roscore needs to run to use tf_buffer
     tf_buffer = setup_tf_buffer(bag)
     
     # configure process bar
-    pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state)))
+    pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state) + bag.get_message_count(args.topic_goal)))
     
-    for topic, msg, t in bag.read_messages(topics=[args.topic_depth, args.topic_bgr, args.topic_state]):
+    for topic, msg, t in bag.read_messages(topics=[args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal]):
         topic_type = msg._type
         if topic_type == Image._type:  # DEPTH
             try:
@@ -226,10 +229,20 @@ def main(args):
                 t.nsecs
             ])
             state_counter += 1
-                
+        
+        elif topic_type == PointStamped._type:  # GOAL / WAYPOINT        
+            odom_goal[goal_counter, :] = np.array([
+                msg.point.x,
+                msg.point.y,
+                msg.point.z,
+                t.secs,
+                t.nsecs
+            ])
+            goal_counter += 1
+
         # update progress bar
         pbar.update(1)
-        pbar.set_description(f'Processing messages (bgr: {bgr_counter}, depth: {depth_counter}, state: {state_counter})')
+        pbar.set_description(f'Processing messages (bgr: {bgr_counter}, depth: {depth_counter}, state: {state_counter}, goal: {goal_counter})')
                
     bag.close()
     pbar.close()
@@ -237,8 +250,8 @@ def main(args):
     # save timestamps
     np.savetxt(os.path.join(args.output_dir, "odom_depth.txt"), odom_depth[:depth_counter])
     np.savetxt(os.path.join(args.output_dir, "odom_bgr.txt"), odom_bgr[:bgr_counter])
-    np.savetxt(os.path.join(args.output_dir, "odom_base.txt"), odom_base)
-    
+    np.savetxt(os.path.join(args.output_dir, "odom_base.txt"), odom_base[:state_counter])
+    np.savetxt(os.path.join(args.output_dir, "odom_goal.txt"), odom_goal[:goal_counter])
     print("SUCCESS")
     return
 
@@ -256,8 +269,8 @@ if __name__ == '__main__':
                         help="Image topic.")
     parser.add_argument("-ts", "--topic_state", default="/state_estimator/odometry",
                         help="Image topic.")
-    parser.add_argument("-n", "--nb_msg", type=int, default=1000, 
-                        help="Total number of msgs extracted from the ROS bag")
+    parser.add_argument("-tg", "--topic_goal", default="/mp_waypoint",
+                        help="Topic where the way-/goalpoints are published.")
     args = parser.parse_args()
 
     main(args)

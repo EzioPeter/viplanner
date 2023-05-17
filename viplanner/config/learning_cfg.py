@@ -146,7 +146,7 @@ class TrainCfg:
     pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
     pre_train_freeze: bool = True
     "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
-    decoder_small: bool = True
+    decoder_small: bool = False
     "small decoder with less parameters"
     
     # training configurations

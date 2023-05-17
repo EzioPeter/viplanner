@@ -15,7 +15,9 @@ import torch
 import os
 import argparse
 import yaml
-from typing import Optional
+import torch
+import pypose as pp
+from typing import Optional, Union
 torch.set_default_dtype(torch.float32)
 
 # viplanner
@@ -88,11 +90,13 @@ class CostMapPCD:
             o3d.visualization.draw_geometries([self.pcd_viz])
         return
 
-    def Pos2Ind(self, points):
+    def Pos2Ind(self, points: Union[torch.Tensor, pp.LieTensor]):
         # points [torch shapes [num_p, 3]]
         start_xy = torch.tensor([self.cfg.x_start, self.cfg.y_start], dtype=torch.float64, device=points.device).expand(1, 1, -1)
-        H = (points.tensor()[:, :, 0:2] - start_xy) / self.cfg.general.resolution
-        # H = torch.round(H)
+        if isinstance(points, pp.LieTensor):
+            H = (points.tensor()[:, :, 0:2] - start_xy) / self.cfg.general.resolution
+        else:
+            H = (points[:, :, 0:2] - start_xy) / self.cfg.general.resolution
         mask = torch.logical_and((H > 0).all(axis=2), (H < torch.tensor([self.num_x, self.num_y], device=points.device)[None,None,:]).all(axis=2))
         return self.NormInds(H), H[mask, :]
 

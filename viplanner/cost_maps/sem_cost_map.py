@@ -412,6 +412,7 @@ class SemCostMap:
             axs[1, 0].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=0, mode='constant')) + math.e) - 1, cmap='jet')
             axs[1, 1].set_title('grid loss y-grad')
             axs[1, 1].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=1, mode='constant')) + math.e) - 1, cmap='jet')
+            plt.colorbar()
             plt.show()
 
         return loss_smooth

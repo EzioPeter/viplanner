@@ -316,9 +316,9 @@ if __name__ == "__main__":
     carla: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem_neg05",
-        env_list=["town01", "town01"],
+        env_list=["town01_more_data_train", "town01_more_data_train"],
         test_env_id=1,
-        file_name="neg05",
+        file_name="more_data_neg05",
         data_cfg=DataCfg(
             max_goal_distance=10.0,
         ),
@@ -396,6 +396,37 @@ if __name__ == "__main__":
     # trainer.save_config()
     # torch.cuda.empty_cache() 
 
+    """ COMBINED TRAINING """
+    env_list_combi = [
+        "2azQ1b91cZZ",
+        "JeFG25nYj2p",
+        "Vvot9Ly1tCj",
+        "town01_more_data_train",
+        "ur6pFq6Qu1A",
+        "B6ByNegPMKs",        
+        "8WUmhLawc2A",
+        "town01_more_data_train",
+        "2n8kARJN3HM"
+    ]
+    carla: TrainCfg = TrainCfg(
+        sem=True,
+        cost_map_name="cost_map_sem_neg05",
+        env_list=env_list_combi,
+        test_env_id=8,
+        file_name="combi_more_data_neg05",
+        data_cfg=DataCfg(
+            max_goal_distance=10.0,
+        ),
+        n_visualize=128,
+        wb_project="SemNav-Carla"
+    )  
+    trainer = Trainer(carla)
+    # trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache() 
+        
+    
     """ ANYMAL-C Training """
     env_list_anymal_c = [
         "2azQ1b91cZZ_anymal_c",
@@ -529,11 +560,11 @@ if __name__ == "__main__":
         n_visualize=128,
         wb_project="SemNav-Carla",
     )  
-    trainer = Trainer(carla_anymal_c)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache() 
+    # trainer = Trainer(carla_anymal_c)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache() 
 
     carla_anymal_c_out_fov: TrainCfg = TrainCfg(
         sem=True,
@@ -555,7 +586,7 @@ if __name__ == "__main__":
     # trainer.save_config()
     # torch.cuda.empty_cache() 
         
-    carla_anymal_c_neg05: TrainCfg = TrainCfg(
+    carla_anymal_c_neg10: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem_neg10",
         env_list=["town01_anymal_c_new", "town01_anymal_c_new"],
@@ -565,11 +596,11 @@ if __name__ == "__main__":
         wb_project="SemNav-Carla",
 
     )  
-    trainer = Trainer(carla_anymal_c_neg05)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()
+    # trainer = Trainer(carla_anymal_c_neg10)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()
 
     carla_anymal_c_out_fov_neg05: TrainCfg = TrainCfg(
         sem=True,
@@ -595,10 +626,9 @@ if __name__ == "__main__":
     env_list_combi = [
         "2azQ1b91cZZ_anymal_c",
         "JeFG25nYj2p_anymal_c",
-        "town01_anymal_c_new",
         "Vvot9Ly1tCj_anymal_c",
-        "ur6pFq6Qu1A_anymal_c",
         "town01_anymal_c_new",
+        "ur6pFq6Qu1A_anymal_c",
         "B6ByNegPMKs_anymal_c",        
         "8WUmhLawc2A_anymal_c",
         "town01_anymal_c_new",
@@ -616,11 +646,11 @@ if __name__ == "__main__":
         env_list=env_list_combi,
     )  
     
-    trainer = Trainer(matterport_anymal_c_neg05_combi)
-    trainer.train()
-    trainer.test()
-    trainer.save_config()
-    torch.cuda.empty_cache()     
+    # trainer = Trainer(matterport_anymal_c_neg05_combi)
+    # trainer.train()
+    # trainer.test()
+    # trainer.save_config()
+    # torch.cuda.empty_cache()     
     
     """ RGB TRAINING """
     

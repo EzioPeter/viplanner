@@ -311,7 +311,7 @@ class Trainer:
         print('OPTIMIZER AND SCHEDULER CONFIGURED')
         return 
     
-    def _get_dataloader(self, train: bool = True, step: Optional[int] = None) -> None:
+    def _get_dataloader(self, train: bool = True, step: Optional[int] = None, allow_augmentation: bool = True) -> None:
         train_loader_list: List[Data.DataLoader] = []
         val_loader_list: List[Data.DataLoader] = []
         
@@ -352,7 +352,8 @@ class Trainer:
                     generate_split=train,
                     ratio_back_samples=self.back_ratio,
                     ratio_front_samples=self.front_ratio,
-                    ratio_fov_samples=self.fov_ratio
+                    ratio_fov_samples=self.fov_ratio,
+                    allow_augmentation=allow_augmentation
                 )
             else:
                 generator.split_samples(
@@ -361,7 +362,8 @@ class Trainer:
                     generate_split=train,
                     ratio_back_samples=self.back_ratio,
                     ratio_front_samples=self.front_ratio,
-                    ratio_fov_samples=self.fov_ratio
+                    ratio_fov_samples=self.fov_ratio,
+                    allow_augmentation=allow_augmentation,
                 )
 
             if os.getenv('EXPERIMENT_DIRECTORY'):

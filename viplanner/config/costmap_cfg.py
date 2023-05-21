@@ -37,7 +37,7 @@ class ReconstructionCfg:
     # directory where the environment with the depth (and semantic) images is located
     data_dir: str = "/home/pascal/SemNav/imperative_learning/data"
     # environment name
-    env: str = "town01_more_data_reconstruct"  #  ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
+    env: str = "town01"  #  ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"

@@ -155,7 +155,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # show costmap
-    map = CostMapPCD.ReadCostMap(args.env, args.map)
+    map = CostMapPCD.ReadTSDFMap(args.env, args.map)
     map.ShowTSDFMap()
     
 # EoF

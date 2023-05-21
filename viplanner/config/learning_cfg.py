@@ -35,6 +35,7 @@ class DataCfg:
     
     # real world data used --> images have to be rotated by 180 degrees
     real_world_data: bool = False 
+    carla: bool = True
     
     # identification suffix of the cameras for semantic and depth images
     depth_suffix = "_cam0"

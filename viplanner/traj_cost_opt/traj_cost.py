@@ -140,6 +140,22 @@ class TrajCost:
         
         # TODO: kinodynamics cost
         return self.w_obs*oloss + self.w_height*hloss + self.w_motion*mloss + self.w_goal*gloss, fear_labels.float()
+
+    def obs_cost_eval(self, odom, waypoints):
+        batch_size, num_p, _ = waypoints.shape
+        world_ps = self.TransformPoints(odom, waypoints)
+        norm_inds, _ = self.cost_map.Pos2Ind(world_ps)
+        
+        # Obstacle Cost
+        cost_grid = self.cost_map.cost_array.T.expand(batch_size, 1, -1, -1)
+        oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
+        oloss_M = oloss_M.to(torch.float32)
+        if self.cost_map.cfg.semantics:
+            neg_reward = self.cost_map.cfg.sem_cost_map.negative_reward
+            oloss_M = oloss_M - neg_reward
+            oloss_M[oloss_M < 0] = 0.0
+        oloss_M_weighted = torch.mean(oloss_M, axis=1)
+        return oloss_M_weighted, torch.max(oloss_M, axis=1)[0]
     
     def cost_of_recorded_path(
         self,

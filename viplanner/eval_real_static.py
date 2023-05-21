@@ -274,7 +274,7 @@ class RealWorldEvaluator(BaseEvaluator):
         os.makedirs(eval_dir, exist_ok=True)
 
         np.savetxt(os.path.join(eval_dir, "length_path.txt"), self.length_path)
-        np.savetxt(os.path.join(eval_dir, "self.length_goal.txt"), self.length_goal)
+        np.savetxt(os.path.join(eval_dir, "length_goal.txt"), self.length_goal)
         np.savetxt(os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances)
 
         # plot data

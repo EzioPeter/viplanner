@@ -1,3 +1,6 @@
+# model files
+ros/planner/models/*
+
 # wandb
 wandb/
 
@@ -134,3 +137,20 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+build
+
+# Catkin workspace
+devel/
+install/
+logs/
+.catkin_workspace
+.catkin_tools
+.vscode
+*.png
+*.ply
+*.out
+*.pt
+data/
+*~
+*.bag
+.DS_Store

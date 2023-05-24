@@ -1,6 +1,6 @@
 # VIPlanner: Visual-Imperative-Planner
 
-VIPlanner is a robust learning-based local path planner based on RGB and depth images.
+VIPlanner is a robust learning-based local path planner based on semantic and depth images.
 Fully trained in simulation, the planner can be applied in with additional training in dynamic indoor as well outdoor environments.
 We provide it as an extenstion for [NVIDIA Isaac-Sim](https://developer.nvidia.com/isaac-sim) within the [Orbit](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip) project.
 Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is available [here](https://github.com/pascal-roth/viplanner_ros) for direct integration on any robot (tested and developed on ANYmal D). 
@@ -9,6 +9,7 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
 
 **Authors:** [Pascal Roth](https://github.com/pascal-roth), [Fan Yang](https://github.com/MichaelFYang), [Julian Nubert](https://juliannubert.com/), [Marco Hutter](https://rsl.ethz.ch/the-lab/people/person-detail.MTIxOTEx.TGlzdC8yNDQxLC0xNDI1MTk1NzM1.html)
 
+**Keywords:** Visual Navigation, Local Planning, Imperative Learning
 
 
 ## Install
@@ -36,4 +37,16 @@ Note that for an ediable install for packages without setup.py, PEP660 has to be
 
 
 ### Inference
+
+
+### License
+
+This code belongs to Robotic Systems Lab, ETH Zurich. 
+All right reserved
+
+**Author: Pascal Roth<br />
+Maintainer: Pascal Roth, rothpa@ethz.ch**
+
+The VIPlanner package has been tested under ROS Noetic on Ubuntu 20.04.
+This is research code, expect that it changes often and any fitness for a particular purpose is disclaimed.
 

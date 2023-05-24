@@ -1,6 +1,9 @@
 # model files
 ros/planner/models/*
 
+# devel files
+dev/
+
 # wandb
 wandb/
 

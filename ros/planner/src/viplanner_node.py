@@ -44,8 +44,8 @@ pack_path = rospack.get_path('viplanner_node')
 sys.path.append(pack_path)
 
 # visual imperative planner
-from model_src.vip_inference import VIPlannerInference
-from model_src.m2f_inference import Mask2FormerInference
+from .vip_inference import VIPlannerInference
+from .m2f_inference import Mask2FormerInference
 from utils.rosutil import ROSArgparse
 
 # conversion matrix from ROS camera convention (z-forward, y-down, x-right) to robotics convention (x-forward, y-left, z-up)

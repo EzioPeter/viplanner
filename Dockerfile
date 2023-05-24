@@ -62,8 +62,8 @@ RUN pip install trimesh
 #==
 # VIPlanner
 #==
-COPY planner/model_src/viplanner /viplanner
-COPY planner/model_src/viplanner/viplanner/third_party/mask2former /mask2former
+COPY viplanner /viplanner
+COPY viplanner/viplanner/third_party/mask2former /mask2former
 
 # install mask2former
 RUN pip install -r /mask2former/requirements.txt

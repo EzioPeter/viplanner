@@ -1,3 +1,0 @@
-[submodule "model_src/viplanner"]
-	path = planner/model_src/viplanner
-	url = git@github.com:pascal-roth/viplanner.git

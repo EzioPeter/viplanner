@@ -297,7 +297,7 @@ class BaseEvaluator:
             assert obs_loss_list is not None, "If cost map is used, obs_loss_list must be provided"
             # obs loss plot
             fig_obs, axs_obs = plt.subplots(figsize=(12, 10))
-            fig_obs.suptitle("Mean Obstacle Loss Along Path", fontsize=24)
+            # fig_obs.suptitle("Mean Obstacle Loss Along Path", fontsize=24)
             axs_obs.set_xlabel('Start-Goal Distance [m]', fontsize=20)
             axs_obs.set_ylabel('Mean Obstacle Loss', fontsize=20)
             axs_obs.tick_params(axis='both', which='major', labelsize=16)

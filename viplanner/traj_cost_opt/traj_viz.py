@@ -155,7 +155,18 @@ class TrajViz:
         o3d.visualization.draw_geometries(visual_list)
         return
 
-    def VizImages(self, preds, waypoints, odom, goal, fear, images, visual_offset=0.35, mesh_size=0.3, is_shown=True):
+    def VizImages(
+            self, 
+            preds: torch.Tensor, 
+            waypoints: torch.Tensor, 
+            odom: torch.Tensor, 
+            goal: torch.Tensor, 
+            fear, 
+            images: torch.Tensor, 
+            visual_offset=0.35, 
+            mesh_size=0.3, 
+            is_shown=True
+        ):
         batch_size = len(waypoints)
         preds_ws = TrajCost.TransformPoints(odom, preds).tensor().cpu().detach().numpy()
         wp_ws = TrajCost.TransformPoints(odom, waypoints).tensor().cpu().detach().numpy()

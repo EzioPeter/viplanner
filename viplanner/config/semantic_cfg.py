@@ -36,7 +36,7 @@ class Mask2FormerCfg:
     # path to model config file
     config: str = "coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml"
     # path to model weights file
-    model: str = 'm2f_overfit/model_zurich_70_0049999.pth' # "coco/panoptic/swin/model_final_9fd0ae.pkl"
+    model: str = "coco/panoptic/swin/model_final_9fd0ae.pkl"  # 'm2f_overfit/model_zurich_70_0049999.pth' # 
     # output directory
     output: str = "m2f_overfit"
     

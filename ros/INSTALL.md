@@ -58,7 +58,7 @@ TODO: currently still in https://github.com/pascal-roth/viplanner_jetson  - tran
 
 ## Known Issues
 
-## General
+### General
 
 - Setuptools version during install. VIPlanner requires are rather recent version of setuptools (>64.0.0) which can lead to problems with the mask2former install. It is recommended to always install mask2former first and then upgrade setuptools to the version needed for the VIPlanner. Otherwise following errors can be observed:
   - ERROR:

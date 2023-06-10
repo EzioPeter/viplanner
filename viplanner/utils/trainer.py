@@ -39,17 +39,13 @@ class Trainer:
         self._cfg = cfg
         
         # set model save/load path
-        self.model_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg._get_model_save())
-        os.makedirs(self.model_dir, exist_ok=True)
-        self.model_path = os.path.join(self.model_dir, "model.pt")
+        os.makedirs(self._cfg.curr_model_dir, exist_ok=True)
+        self.model_path = os.path.join(self._cfg.curr_model_dir, "model.pt")
         if self._cfg.hierarchical:
-            self.model_dir_hierarch = os.path.join(self.model_dir, "hierarchical")
+            self.model_dir_hierarch = os.path.join(self._cfg.curr_model_dir, "hierarchical")
             os.makedirs(self.model_dir_hierarch, exist_ok=True)
             self.hierach_losses = {}
             
-        # set data root directory  --> to make it work on euler cluster
-        self.data_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "data")
-        
         # image transforms
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -210,7 +206,7 @@ class Trainer:
             if (train and idx == self._cfg.test_env_id) or (not train and idx != self._cfg.test_env_id):
                 continue
             
-            data_path = os.path.join(self.data_dir, env_name)
+            data_path = os.path.join(self._cfg.data_dir, env_name)
 
             # get trajectory cost map
             traj_cost = TrajCost(
@@ -255,16 +251,15 @@ class Trainer:
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
         os.environ["WANDB_MODE"] = "online"
-        dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
-        os.makedirs(dir_path, exist_ok=True)
+        os.makedirs(self._cfg.log_dir, exist_ok=True)
         
         try:
             wandb.init(
                 project=self._cfg.wb_project,
                 entity=self._cfg.wb_entity,
-                name=self._cfg._get_model_save(),
+                name=self._cfg.get_model_save(),
                 config=self._cfg.__dict__,
-                dir=dir_path
+                dir=self._cfg.log_dir,
             )
         except:
             print("[WARNING: Wandb not available")    
@@ -274,8 +269,8 @@ class Trainer:
         if self._cfg.sem or self._cfg.rgb:
             if self._cfg.rgb and self._cfg.pre_train_sem:
                 assert PRE_TRAIN_POSSIBLE, "Pretrained model not available since either detectron2 not installed or mask2former not found in thrid_party folder"
-                pre_train_cfg = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_cfg)
-                pre_train_weights = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
+                pre_train_cfg = os.path.join(self._cfg.all_model_dir, self._cfg.pre_train_cfg)
+                pre_train_weights = os.path.join(self._cfg.all_model_dir, self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
                 m2f_cfg = get_m2f_cfg(pre_train_cfg)
                 self.pixel_mean = m2f_cfg.MODEL.PIXEL_MEAN
                 self.pixel_std  = m2f_cfg.MODEL.PIXEL_STD
@@ -366,7 +361,7 @@ class Trainer:
                     allow_augmentation=allow_augmentation,
                 )
 
-            if os.getenv('EXPERIMENT_DIRECTORY'):
+            if self._cfg.load_in_ram:
                 if train:
                     train_data.load_data_in_memory()
                 val_data.load_data_in_memory()

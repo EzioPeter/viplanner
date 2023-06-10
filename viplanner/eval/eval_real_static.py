@@ -35,7 +35,8 @@ CAMERA_FLIP_MAT     = tf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True)
 
 
 class RealWorldEvaluator(BaseEvaluator):
-
+    # TODO: inherit from RealWorldDataHandler 
+    
     def __init__(self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg) -> None:
         """
         Make prediction on real world images and evaluate the generated pathes. Expected args:

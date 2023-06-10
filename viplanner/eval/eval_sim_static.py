@@ -75,7 +75,6 @@ class SimEvaluator(BaseEvaluator):
                 self.reset()
                 del self.trainer.net
                 # load new config
-                self.trainer.model_dir = model_dir
                 self.trainer.model_path = os.path.join(model_dir, "model.pt")
                 train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dir, "model.yaml"))
                 train_config.env_list = [self.environment]
@@ -191,8 +190,8 @@ class SimEvaluator(BaseEvaluator):
         self.loss_max_obstacles = self.loss_max_obstacles[sort_indices] 
         
         # make directory and save data
-        _, model_name = os.path.split(self.trainer.model_dir)
-        data_dir = os.path.join(self.trainer.data_dir, self.trainer._cfg.env_list[self.trainer._cfg.test_env_id])
+        _, model_name = os.path.split(self.trainer._cfg.curr_model_dir)
+        data_dir = os.path.join(self.trainer._cfg.data_dir, self.trainer._cfg.env_list[self.trainer._cfg.test_env_id])
         eval_dir = os.path.join(data_dir, f"eval_{model_name}")
         os.makedirs(eval_dir, exist_ok=True)
 
@@ -207,24 +206,24 @@ class SimEvaluator(BaseEvaluator):
         
         # get statistics
         self.eval_statistics()
-        self.save_eval_results(self.trainer.model_dir, save_name=os.path.split(data_dir)[-1])
+        self.save_eval_results(self.trainer._cfg.curr_model_dir, save_name=os.path.split(data_dir)[-1])
         
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels')
     parser.add_argument('-m', '--model_dirs', nargs='+', type=str, help='Path to model directory',
                         default=[
-                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_neg05",
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_combi_more_data_neg05",
+                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_neg05",
+                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_combi_more_data_neg05",
                             "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
                         ])
     parser.add_argument('-n', '--model_names', nargs='+', type=str, help='Model name',
                     default=[
-                        "Our Method",
+                        "VIPlanner",
                         "iPlanner",
                     ])
     parser.add_argument('-env', '--environment', type=str, help='Environment name',
-                default="town01_more_data_train")  # "2n8kARJN3HM")  # 
+                default="2n8kARJN3HM")  # "town01_more_data_train")  # 
     parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     args = parser.parse_args()

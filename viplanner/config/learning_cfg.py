@@ -10,6 +10,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional
 import yaml
+import os
 
 # define own loader class to include DataCfg
 class Loader(yaml.SafeLoader):
@@ -92,13 +93,16 @@ class TrainCfg:
     # high level configurations
     sem: bool = True 
     rgb: bool = False
-    "use semantic image"
+    "use semantic/ rgb image"
     file_name: Optional[str] = None
-    "appendix to the filename if needed"      
+    "appendix to the model filename if needed"      
     seed: int = 0
     "random seed"  
     gpu_id: int = 0 
-    "GPU id"      
+    "GPU id"
+    file_path: str = "/home/pascal/SemNav/imperative_learning"   
+    "file path to models and data directory, can be overwritten by environment variable EXPERIMENT_DIRECTORY (e.g. for cluster)"
+    # NOTE: since the environment variable is intended for cluster usage, some visualizations will be automatically switched off
     
     # data and dataloader configurations
     cost_map_name: str = "cost_map_sem" # "cost_map_sem" 
@@ -123,6 +127,8 @@ class TrainCfg:
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
     num_workers: int = 4
     "number of workers for dataloader"     
+    load_in_ram: bool = False
+    "if true, all samples will be loaded into RAM s.t. do not have to be reloaded for each epoch"
     
     # loss configurations
     fear_ahead_dist: float =2.5 
@@ -147,6 +153,7 @@ class TrainCfg:
     pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
     pre_train_freeze: bool = True
     "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
+    # NOTE: `pre_train_cfg` and `pre_train_weights` are assumed to be found under `file_path/models` (see above)
     decoder_small: bool = False
     "small decoder with less parameters"
     
@@ -191,7 +198,7 @@ class TrainCfg:
     wb_api_key: str = "8d9b2277691e6b27dc2861ce2bc7c0148113c3ce"
     
     # functions
-    def _get_model_save(self, epoch: Optional[int] = None):
+    def get_model_save(self, epoch: Optional[int] = None):
         input_domain = "DepSem" if self.sem else "Dep"
         cost_name = "Geom" if self.cost_map_name == "cost_map_geom" else "Sem"
         optim = "SGD" if self.optimizer == "sgd" else "Adam"
@@ -200,6 +207,22 @@ class TrainCfg:
         hierarch = f"_hierarch" if self.hierarchical else ""
         return f"plannernet_env{self.env_list[0]}_ep{epoch}_input{input_domain}_cost{cost_name}_optim{optim}{hierarch}{name}"
 
+    @property
+    def all_model_dir(self):
+        return os.path.join(os.getenv('EXPERIMENT_DIRECTORY', self.file_path), "models")
+    
+    @property
+    def curr_model_dir(self):
+        return os.path.join(self.all_model_dir, self.get_model_save())
+
+    @property   
+    def data_dir(self):
+        return os.path.join(os.getenv('EXPERIMENT_DIRECTORY', self.file_path), "data")
+    
+    @property
+    def log_dir(self):
+        return os.path.join(os.getenv('EXPERIMENT_DIRECTORY', self.file_path), "logs")
+    
     @classmethod
     def from_yaml(cls, yaml_path: str):
         # open yaml file and load config

@@ -6,63 +6,79 @@
 @brief      VIPlanner Semantic Meta Data
 """
 
-OBSTACLE_LOSS = 1
-TRAVERSABLE_LOSS = 0
-ROAD_LOSS = 0.6
-TERRAIN_LOSS = 0.3
+OBSTACLE_LOSS = 2.0
+TRAVERSABLE_INTENDED_LOSS = 0
+TRAVERSABLE_UNINTENDED_LOSS = 0.5
+ROAD_LOSS = 1.5
+TERRAIN_LOSS = 1.0
 # NOTE: only obstacle loss should be over obscale_loss defined in costmap_cfg.py
 
 # original coco meta
 VIPLANNER_SEM_META = [
-    # ground
-    {
-        'name': 'road',
-        'loss': ROAD_LOSS,
-        'color': [204, 204, 0],
-        'ground': True,
-    }, 
+    ### TRAVERSABLE SPACE ###
+    # traversable intended
     {
         'name': 'sidewalk',
-        'loss': TRAVERSABLE_LOSS,
+        'loss': TRAVERSABLE_INTENDED_LOSS,
         'color': [0, 255, 0],
         'ground': True,
     },
     {
         'name': 'crosswalk',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 204, 0],
-        'ground': True,
-    },
-    {
-        'name': 'floor',
-        'loss': TRAVERSABLE_LOSS,
+        'loss': TRAVERSABLE_INTENDED_LOSS,
         'color': [0, 102, 0],
         'ground': True,
     },
     {
-        'name': 'gravel',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 51, 0],
-        'ground': True,
-    },
-    {
-        'name': 'sand',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [153, 255, 153],
-        'ground': True,
-    },
-    {
-        'name': 'snow',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [107, 142, 35],
+        'name': 'floor',
+        'loss': TRAVERSABLE_INTENDED_LOSS,
+        'color': [0, 204, 0],
         'ground': True,
     },
     {
         'name': 'stairs',
-        'loss': TRAVERSABLE_LOSS,
+        'loss': TRAVERSABLE_INTENDED_LOSS,
         'color': [0, 153, 0],
         'ground': True,
     },
+    # traversable not intended  # TODO: adjust colors
+    {
+        'name': 'gravel',
+        'loss': TRAVERSABLE_UNINTENDED_LOSS,
+        'color': [204, 255, 0],
+        'ground': True,
+    },
+    {
+        'name': 'sand',
+        'loss': TRAVERSABLE_UNINTENDED_LOSS,
+        'color': [153, 204, 0],
+        'ground': True,
+    },
+    {
+        'name': 'snow',
+        'loss': TRAVERSABLE_UNINTENDED_LOSS,
+        'color': [204, 102, 0],
+        'ground': True,
+    },
+    {
+        'name': 'indoor_soft',  # human made thing, can be walked on
+        'color': [102, 153, 0],
+        'loss': TERRAIN_LOSS,
+        'ground': False,
+    },
+    {
+        'name': 'terrain',
+        'color': [255, 255, 0],
+        'loss': TERRAIN_LOSS,
+        'ground': True,
+    },
+    {
+        'name': 'road',
+        'loss': ROAD_LOSS,
+        'color': [255, 128, 0],
+        'ground': True,
+    }, 
+    ### OBSTACLES ###
     # human
     {
         'name': 'person',
@@ -72,32 +88,32 @@ VIPLANNER_SEM_META = [
     },
     {
         'name': 'anymal',
-        'color': [102, 0, 0],
+        'color': [204, 0, 0],
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
     # vehicle
     {
         'name': 'vehicle',
-        'color': [153, 76, 0],
+        'color': [153, 0, 0],
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
     {
         'name': 'on_rails',
-        'color': [51, 25, 0],
+        'color': [51, 0, 0],
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
     {
         'name': 'motorcycle',
-        'color': [204, 102, 0],
+        'color': [102, 0, 0],
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
     {
         'name': 'bicycle',
-        'color': [102, 51, 0],
+        'color': [102, 0, 0],
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
@@ -165,12 +181,6 @@ VIPLANNER_SEM_META = [
         'ground': False,
     },
     {
-        'name': 'terrain',
-        'color': [51, 255, 51],
-        'loss': TERRAIN_LOSS,
-        'ground': True,
-    },
-    {
         'name': 'water_surface',
         'color': [204, 0, 204],
         'loss': OBSTACLE_LOSS,
@@ -192,7 +202,7 @@ VIPLANNER_SEM_META = [
     # void outdoor
     {
         'name': 'dynamic',
-        'color': [32, 32, 32],
+        'color': [32, 0, 32],
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
@@ -221,12 +231,6 @@ VIPLANNER_SEM_META = [
         'loss': OBSTACLE_LOSS,
         'ground': False,
     },
-    {
-        'name': 'indoor_soft',  # human made thing, can be walked on
-        'color': [178, 255, 102],
-        'loss': ROAD_LOSS,
-        'ground': False,
-    }
 ]
 
 class VIPlannerSemMetaHandler:
@@ -301,22 +305,20 @@ if __name__ == '__main__':
     
     # class ordering array
     cls_order = [
-        ['sky', 'background', 'dynamic', 'static'],
-        ['building', 'wall', 'fence', 'ceiling', 'vegetation', 'water_surface'],  # 'bridge', 
-        ['pole', 'traffic_light', 'traffic_sign', 'bench', 'furniture'],
-        ['terrain', 'indoor_soft', 'sand', 'snow'],
-        ['sidewalk', 'crosswalk', 'stairs', 'floor', 'gravel'],
-        ['road', 'door'],
-        ['motorcycle', 'vehicle', 'bicycle', 'on_rails'],
-        ['anymal', 'person']
+        ['sky', 'background', 'ceiling', 'dynamic', 'static'],
+        ['building', 'wall', 'fence', 'vegetation', 'water_surface'],  # 'bridge', 
+        ['pole', 'traffic_light', 'traffic_sign', 'bench', 'furniture', 'door'],
+        ['gravel', 'sand', 'indoor_soft', 'terrain', 'snow', 'road'],
+        ['sidewalk', 'floor', 'stairs', 'crosswalk'],
+        ['person', 'anymal', 'vehicle', 'motorcycle', 'bicycle', 'on_rails'],
     ]
     
     # Create the 8x8 grid of subplots
-    fig, axs = plt.subplots(nrows=8, ncols=7, figsize=(10, 10))
+    fig, axs = plt.subplots(nrows=6, ncols=6, figsize=(10, 10))
 
     # Loop over each subplot and plot the data
-    for i in range(8):
-        for j in range(7):
+    for i in range(6):
+        for j in range(6):
             ax = axs[i][j] 
             
             # Remove the axis, axis ticks, border, ...

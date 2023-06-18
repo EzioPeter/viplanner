@@ -9,8 +9,24 @@
 
 # python
 import os
+import yaml
 from typing import Optional
 from dataclasses import dataclass
+
+class Loader(yaml.SafeLoader):
+    pass
+def construct_GeneralCostMapConfig(loader, node):
+    return GeneralCostMapConfig(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.GeneralCostMapConfig', construct_GeneralCostMapConfig)
+def construct_ReconstructionCfg(loader, node):
+    return ReconstructionCfg(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.ReconstructionCfg', construct_ReconstructionCfg)
+def construct_SemCostMapConfig(loader, node):
+    return SemCostMapConfig(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.SemCostMapConfig', construct_SemCostMapConfig)
+def construct_TsdfCostMapConfig(loader, node):
+    return TsdfCostMapConfig(**loader.construct_mapping(node))
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.TsdfCostMapConfig', construct_TsdfCostMapConfig)
 
 
 @dataclass
@@ -21,17 +37,17 @@ class ReconstructionCfg:
     # directory where the environment with the depth (and semantic) images is located
     data_dir: str = "/home/pascal/SemNav/imperative_learning/data"
     # environment name
-    env: str = "nomoko_zurich"  #  ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
+    env: str = "town01"  #  ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"
     # higher resolution depth images available for reconstruction  (meaning that the depth images are also taked by the semantic camera)
-    high_res_depth: bool = False
+    high_res_depth: bool = True
     
     # reconstruction parameters
     voxel_size: float = 0.1  # [m] 0.05 for matterport 0.1 for carla
     start_idx: int = 0  # start index for reconstruction
-    max_images: Optional[int] = 3000  # maximum number of images to reconstruct, if None, all images are used
+    max_images: Optional[int] = 1000  # maximum number of images to reconstruct, if None, all images are used
     depth_scale: float = 1000.0  # depth scale factor
     # semantic reconstruction
     semantics: bool = True
@@ -51,7 +67,7 @@ class ReconstructionCfg:
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
     # point-cloud filter parameters
-    ground_height: Optional[float] = None  # None for matterport  -0.5 for carla  -1.0 for nomoko
+    ground_height: Optional[float] = -0.5  # None for matterport  -0.5 for carla  -1.0 for nomoko
     robot_height: float = 0.70
     robot_height_factor: float = 3.0
     nb_neighbors: int = 100
@@ -65,7 +81,10 @@ class SemCostMapConfig:
     sigma_smooth: float = 2.0
     max_iterations: int = 1
     # obstacle threshold
-    obstacle_threshold: float = 0.5  # 0.5 for matterport, 0.7 for carla
+    obstacle_threshold: float = 0.7  # 0.5/ 0.6 for matterport, 0.7 for carla
+    # negative reward for space with smallest cost (introduces a gradient in area with smallest loss value, steering towards center)
+    # NOTE: at the end cost map is elevated by that amount to ensure that the smallest cost is 0
+    negative_reward: float = 0.5
     # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
     round_decimal_traversable: int = 2
     # compute height map
@@ -93,19 +112,19 @@ class TsdfCostMapConfig:
 class GeneralCostMapConfig:
     """General Cost Map Configuration"""
     # path to point cloud
-    root_path: str = "/home/pascal/SemNav/imperative_learning/data/nomoko_zurich"  #  JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM town01 2azQ1b91cZZ B6ByNegPMKs
+    root_path: str = "/home/pascal/SemNav/imperative_learning/data/town01_more_data_reconstruct"  #  JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM town01 2azQ1b91cZZ B6ByNegPMKs nomoko_zurich
     ply_file: str = "cloud.ply"
     # resolution of the cost map
-    resolution: float = 0.04  # [m]  (0.04 for matterport, 0.1 for carla)
+    resolution: float = 0.1  # [m]  (0.04 for matterport, 0.1 for carla)
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
     sigma_smooth: float = 1.5
     # cost map expansion
-    x_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    y_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    x_max: Optional[float] = None  # 346.22 # [m] if None, the maximum of the point cloud is used
-    y_max: Optional[float] = None  # 336.65 # [m] if None, the maximum of the point cloud is used
+    x_min: Optional[float] = -8.05  # [m] if None, the minimum of the point cloud is used
+    y_min: Optional[float] = -8.05  # [m] if None, the minimum of the point cloud is used
+    x_max: Optional[float] = 346.22 # [m] if None, the maximum of the point cloud is used
+    y_max: Optional[float] = 336.65 # [m] if None, the maximum of the point cloud is used
 
 
 @dataclass
@@ -116,7 +135,7 @@ class CostMapConfig:
     geometry: bool = False
     
     # name
-    map_name: str = "cost_map_sem"
+    map_name: str = "cost_map_sem_neg05"
     
     # general cost map configuration
     general: GeneralCostMapConfig = GeneralCostMapConfig()
@@ -127,4 +146,8 @@ class CostMapConfig:
     
     # visualize cost map
     visualize: bool = True
+
+    # FILLED BY CODE -> DO NOT CHANGE ###
+    x_start: float = None
+    y_start: float = None
 # EoF

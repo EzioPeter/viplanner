@@ -6,11 +6,6 @@
 
 @brief      cost map builder for imperative learning
 """
-
-# python
-import os
-import yaml
-
 # imperative-cost-map
 from viplanner.config import CostMapConfig
 from viplanner.cost_maps import SemCostMap, TsdfCostMap, CostMapPCD
@@ -36,18 +31,21 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
     else:
         raise ValueError("no cost map type selected")
     
+    # set coords in costmap config
+    cfg.x_start, cfg.y_start = coord
+
     # construct final cost map as pcd and save parameters
     print("======== Generate and Save costmap as Point-Cloud ===========")
-    cost_mapper = CostMapPCD()
-    cost_mapper.DirectLoadMap(data, coord, [cfg.general.resolution, cfg.general.clear_dist])
-    cost_mapper.SaveTSDFMap(cfg.general.root_path, cfg.map_name)
+    cost_mapper = CostMapPCD(
+        cfg=cfg,
+        tsdf_array=data[0],
+        viz_points=data[1],
+        ground_array=data[2],
+        load_from_file=False,
+    )
+    cost_mapper.SaveTSDFMap()
     if final_viz:
         cost_mapper.ShowTSDFMap(cost_map=True)
-    
-    # save config parameters
-    yaml_path = os.path.join(cfg.general.root_path, "maps", "params", f"config_{cfg.map_name}.yaml")
-    with open(yaml_path, 'w+') as file:
-        yaml.dump(vars(cfg), file, allow_unicode=True, default_flow_style=False)
     return
 
 

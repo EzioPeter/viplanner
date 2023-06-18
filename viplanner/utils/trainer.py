@@ -39,17 +39,13 @@ class Trainer:
         self._cfg = cfg
         
         # set model save/load path
-        self.model_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg._get_model_save())
-        os.makedirs(self.model_dir, exist_ok=True)
-        self.model_path = os.path.join(self.model_dir, "model.pt")
+        os.makedirs(self._cfg.curr_model_dir, exist_ok=True)
+        self.model_path = os.path.join(self._cfg.curr_model_dir, "model.pt")
         if self._cfg.hierarchical:
-            self.model_dir_hierarch = os.path.join(self.model_dir, "hierarchical")
+            self.model_dir_hierarch = os.path.join(self._cfg.curr_model_dir, "hierarchical")
             os.makedirs(self.model_dir_hierarch, exist_ok=True)
             self.hierach_losses = {}
             
-        # set data root directory  --> to make it work on euler cluster
-        self.data_dir = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "data")
-        
         # image transforms
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -94,7 +90,10 @@ class Trainer:
         else: 
             train_loader_list, val_loader_list = self._get_dataloader()
 
-        wandb.watch(self.net)
+        try:
+            wandb.watch(self.net)
+        except:
+            print("[WARNING: Wandb model watch failed")
         
         for epoch in range(self._cfg.epochs):
             train_loss = 0; val_loss = 0
@@ -105,7 +104,10 @@ class Trainer:
             train_loss /= len(train_loader_list)
             val_loss /= len(train_loader_list)
             
-            wandb.log({"train_loss": train_loss, "val_loss": val_loss, "epoch": epoch})
+            try:
+                wandb.log({"train_loss": train_loss, "val_loss": val_loss, "epoch": epoch})
+            except:
+                print("[WARNING: Wandb logging failed")
             
             # if val_loss < best_loss:
             if val_loss < self.best_loss:
@@ -179,7 +181,10 @@ class Trainer:
             yaml.dump(save_dict, file, allow_unicode=True, default_flow_style=False)
 
         # logging
-        wandb.finish() 
+        try:
+            wandb.finish() 
+        except:
+            pass
         
         # plot hierarchical losses
         if self._cfg.hierarchical:
@@ -201,7 +206,7 @@ class Trainer:
             if (train and idx == self._cfg.test_env_id) or (not train and idx != self._cfg.test_env_id):
                 continue
             
-            data_path = os.path.join(self.data_dir, env_name)
+            data_path = os.path.join(self._cfg.data_dir, env_name)
 
             # get trajectory cost map
             traj_cost = TrajCost(
@@ -246,24 +251,26 @@ class Trainer:
         # logging
         os.environ["WANDB_API_KEY"] = self._cfg.wb_api_key
         os.environ["WANDB_MODE"] = "online"
-        dir_path = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "logs")
-        os.makedirs(dir_path, exist_ok=True)
+        os.makedirs(self._cfg.log_dir, exist_ok=True)
         
-        wandb.init(
-            project=self._cfg.wb_project,
-            entity=self._cfg.wb_entity,
-            name=self._cfg._get_model_save(),
-            config=self._cfg.__dict__,
-            dir=dir_path
-        )
+        try:
+            wandb.init(
+                project=self._cfg.wb_project,
+                entity=self._cfg.wb_entity,
+                name=self._cfg.get_model_save(),
+                config=self._cfg.__dict__,
+                dir=self._cfg.log_dir,
+            )
+        except:
+            print("[WARNING: Wandb not available")    
         return
     
     def _load_model(self, resume: bool = False) -> None:
         if self._cfg.sem or self._cfg.rgb:
             if self._cfg.rgb and self._cfg.pre_train_sem:
                 assert PRE_TRAIN_POSSIBLE, "Pretrained model not available since either detectron2 not installed or mask2former not found in thrid_party folder"
-                pre_train_cfg = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_cfg)
-                pre_train_weights = os.path.join(os.getenv('EXPERIMENT_DIRECTORY', "/home/pascal/SemNav/imperative_learning"), "models", self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
+                pre_train_cfg = os.path.join(self._cfg.all_model_dir, self._cfg.pre_train_cfg)
+                pre_train_weights = os.path.join(self._cfg.all_model_dir, self._cfg.pre_train_weights) if self._cfg.pre_train_weights else None
                 m2f_cfg = get_m2f_cfg(pre_train_cfg)
                 self.pixel_mean = m2f_cfg.MODEL.PIXEL_MEAN
                 self.pixel_std  = m2f_cfg.MODEL.PIXEL_STD
@@ -299,7 +306,7 @@ class Trainer:
         print('OPTIMIZER AND SCHEDULER CONFIGURED')
         return 
     
-    def _get_dataloader(self, train: bool = True, step: Optional[int] = None) -> None:
+    def _get_dataloader(self, train: bool = True, step: Optional[int] = None, allow_augmentation: bool = True) -> None:
         train_loader_list: List[Data.DataLoader] = []
         val_loader_list: List[Data.DataLoader] = []
         
@@ -340,7 +347,8 @@ class Trainer:
                     generate_split=train,
                     ratio_back_samples=self.back_ratio,
                     ratio_front_samples=self.front_ratio,
-                    ratio_fov_samples=self.fov_ratio
+                    ratio_fov_samples=self.fov_ratio,
+                    allow_augmentation=allow_augmentation
                 )
             else:
                 generator.split_samples(
@@ -349,10 +357,11 @@ class Trainer:
                     generate_split=train,
                     ratio_back_samples=self.back_ratio,
                     ratio_front_samples=self.front_ratio,
-                    ratio_fov_samples=self.fov_ratio
+                    ratio_fov_samples=self.fov_ratio,
+                    allow_augmentation=allow_augmentation,
                 )
 
-            if os.getenv('EXPERIMENT_DIRECTORY'):
+            if self._cfg.load_in_ram:
                 if train:
                     train_data.load_data_in_memory()
                 val_data.load_data_in_memory()

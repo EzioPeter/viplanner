@@ -262,9 +262,10 @@ class DistanceSchemeIdx:
         
     def get_data(
         self,
-        nb_fov: bool,
-        nb_front: bool,
-        nb_back: bool
+        nb_fov: int,
+        nb_front: int,
+        nb_back: int,
+        augment: bool = True,
     ) -> Tuple[List[pp.LieTensor], List[pp.LieTensor], List[str], List[str], np.ndarray]:
         
         assert self.has_data, f"DistanceSchemeIdx for distance {self.distance} has no data"
@@ -281,7 +282,10 @@ class DistanceSchemeIdx:
             idx_fov = np.array([], dtype=np.int64)
         elif len(idx_fov) < nb_fov:
             print(f"[INFO] for distance {self.distance} not enough 'within_fov' samples ({len(idx_fov)} instead of {nb_fov})")
-            idx_augment.append(np.random.choice(idx_fov, nb_fov-len(idx_fov), replace=False if nb_fov-len(idx_fov) < len(idx_fov) else True))
+            if augment:
+                idx_augment.append(np.random.choice(idx_fov, nb_fov-len(idx_fov), replace=False if nb_fov-len(idx_fov) < len(idx_fov) else True))
+            else:
+                idx_fov = np.random.choice(idx_fov, len(idx_fov), replace=False)
         else:
             idx_fov = np.random.choice(idx_fov, nb_fov, replace=False)
             
@@ -290,7 +294,10 @@ class DistanceSchemeIdx:
             idx_front = np.array([], dtype=np.int64)
         elif len(idx_front) < nb_front:
             print(f"[INFO] for distance {self.distance} not enough 'front_of_robot' samples ({len(idx_front)} instead of {nb_front})")
-            idx_augment.append(np.random.choice(idx_front, nb_front-len(idx_front), replace=False if nb_front-len(idx_front) < len(idx_front) else True))
+            if augment:
+                idx_augment.append(np.random.choice(idx_front, nb_front-len(idx_front), replace=False if nb_front-len(idx_front) < len(idx_front) else True))
+            else:
+                idx_front = np.random.choice(idx_front, len(idx_front), replace=False)
         else:
             idx_front = np.random.choice(idx_front, nb_front, replace=False)
         
@@ -299,7 +306,10 @@ class DistanceSchemeIdx:
             idx_back = np.array([], dtype=np.int64)
         elif len(idx_back) < nb_back:
             print(f"[INFO] for distance {self.distance} not enough 'behind_robot' samples ({len(idx_back)} instead of {nb_back})")
-            idx_augment.append(np.random.choice(idx_back, nb_back-len(idx_back), replace=False if nb_back-len(idx_back) < len(idx_back) else True))
+            if augment:
+                idx_augment.append(np.random.choice(idx_back, nb_back-len(idx_back), replace=False if nb_back-len(idx_back) < len(idx_back) else True))
+            else:
+                idx_back = np.random.choice(idx_back, len(idx_back), replace=False)
         else:
             idx_back = np.random.choice(idx_back, nb_back, replace=False)        
         
@@ -435,8 +445,25 @@ class PlannerDataGenerator(Dataset):
         norm_inds = norm_inds.to(cost_grid.device)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32).to("cpu")
-        points_free_space = oloss_M < self._cfg.obs_cost_height
+        if self.semantics or self.rgb:
+            points_free_space = oloss_M < self._cfg.obs_cost_height + abs(self.cost_map.cfg.sem_cost_map.negative_reward)
+        else:
+            points_free_space = oloss_M < self._cfg.obs_cost_height
 
+        if self._cfg.carla:
+            # for CARLA filter large open spaces
+            # Extract the x and y coordinates from the odom poses
+            x_coords = self.odom_array_depth.tensor()[:, 0]
+            y_coords = self.odom_array_depth.tensor()[:, 1]
+
+            # Filter the point cloud based on the square coordinates
+            mask_area_1 = ((y_coords >= 100.5) & (y_coords <= 325.5) & (x_coords >= 208.9) & (x_coords <= 317.8))
+            mask_area_2 = ((y_coords >= 12.7) & (y_coords <= 80.6) & (x_coords >= 190.3) & (x_coords <= 315.8))
+            mask_area_3 = ((y_coords >= 10.0) & (y_coords <= 80.0) & (x_coords >= 123.56) & (x_coords <= 139.37))
+            
+            combined_mask = mask_area_1 | mask_area_2 | mask_area_3 | ~points_free_space.squeeze(1)
+            points_free_space = (~combined_mask).unsqueeze(1)
+        
         if self.debug:
             # plot odom
             odom_vis_list = []
@@ -449,7 +476,12 @@ class PlannerDataGenerator(Dataset):
                     small_sphere.paint_uniform_color([0.4, 1.0, 0.1])  # green
                 else:
                     small_sphere.paint_uniform_color([1.0, 0.4, 0.1])  # red
-                odom_vis_list.append(copy.deepcopy(small_sphere).translate((self.odom_array_depth[i, 0], self.odom_array_depth[i, 1], self.odom_array_depth[i, 2])))
+                if self.semantics or self.rgb:
+                    z_height = self.odom_array_depth.tensor()[i, 2] + abs(self.cost_map.cfg.sem_cost_map.negative_reward)
+                else:
+                    z_height = self.odom_array_depth.tensor()[i, 2]
+                
+                odom_vis_list.append(copy.deepcopy(small_sphere).translate((self.odom_array_depth.tensor()[i, 0], self.odom_array_depth.tensor()[i, 1], z_height)))
 
             odom_vis_list.append(self.cost_map.pcd_tsdf)
             o3d.visualization.draw_geometries(odom_vis_list)  
@@ -521,8 +553,10 @@ class PlannerDataGenerator(Dataset):
         
         # get occpuancy map from tsdf map
         cost_array = self.cost_map.tsdf_array.cpu().numpy()
-        occupancy_map = (cost_array > self._cfg.obs_cost_height).astype(np.uint8)
-        
+        if self.semantics or self.rgb:
+            occupancy_map = (cost_array > self._cfg.obs_cost_height + abs(self.cost_map.cfg.sem_cost_map.negative_reward)).astype(np.uint8)
+        else:
+            occupancy_map = (cost_array > self._cfg.obs_cost_height).astype(np.uint8)
         # construct kdtree to find nearest neighbors of points
         odom_points = self.odom_array_depth.data[:, :2].data.cpu().numpy()
         kdtree = KDTree(odom_points)
@@ -538,7 +572,7 @@ class PlannerDataGenerator(Dataset):
         y_interp = origin_point[:, None, 1] + (neighbor_points[:, 1] - origin_point[:, 1])[:, None] * np.linspace(0, 1, num=num_intermediate+1, endpoint=False)[1:]
         inter_points = np.stack((x_interp.reshape(-1), y_interp.reshape(-1)), axis=1)
         # get the indicies of the interpolated points in the occupancy map
-        occupancy_idx = (inter_points - np.array([self.cost_map.start_x, self.cost_map.start_y])) / self.cost_map.voxel_size
+        occupancy_idx = (inter_points - np.array([self.cost_map.cfg.x_start, self.cost_map.cfg.y_start])) / self.cost_map.cfg.general.resolution
         
         # check occupancy for collisions at the interpolated points
         collision = occupancy_map[occupancy_idx[:, 0].astype(np.int64), occupancy_idx[:, 1].astype(np.int64)]
@@ -566,7 +600,7 @@ class PlannerDataGenerator(Dataset):
         # DEBUG
         if self.debug:
             import matplotlib.pyplot as plt
-            nx.draw_networkx(self.graph, nx.get_node_attributes(self.graph,'pos'), node_size=10, with_labels=False)
+            nx.draw_networkx(self.graph, nx.get_node_attributes(self.graph,'pos'), node_size=10, with_labels=False, node_color=[0., 1., 0.])
             plt.show()
         return
     
@@ -655,6 +689,26 @@ class PlannerDataGenerator(Dataset):
 
                 # plot goal
                 o3d.visualization.draw_geometries(odom_vis_list)
+        
+        if self.debug:
+            small_sphere = o3d.geometry.TriangleMesh.create_sphere(self.mesh_size/3.0) # successful trajectory points
+            odom_vis_list = []
+            
+            for distance in self._cfg.distance_scheme.keys():
+                odoms = torch.vstack(self.category_scheme_pairs[distance].odom_list)
+                odoms = odoms.tensor().cpu().numpy()[:, :3]
+                counter = 0
+                for idx, odom in enumerate(odoms):
+                    odom_vis_list.append(copy.deepcopy(small_sphere).translate((odom[0], odom[1], odom[2])))
+                    counter += 1
+                    if counter > 10:
+                        break
+            # viz cost map
+            odom_vis_list.append(self.cost_map.pcd_tsdf)
+
+            # plot goal
+            o3d.visualization.draw_geometries(odom_vis_list)
+                            
         return
 
     def reduce_pairs(
@@ -688,20 +742,21 @@ class PlannerDataGenerator(Dataset):
             within_curr_distance_idx = distances < distance
             if sum(within_curr_distance_idx) == 0:
                 continue
-            selected_idx = np.random.choice(goal_idx[within_curr_distance_idx], 1, replace=False)
+            selected_idx = np.random.choice(goal_idx[within_curr_distance_idx], min(3, sum(within_curr_distance_idx)), replace=False)
             # remove the selected goals from the list for further selection
             distances = distances[~within_curr_distance_idx]
             goal_idx = goal_idx[~within_curr_distance_idx]
 
-            self.category_scheme_pairs[distance].update_buffers(
-                odom=self.odom_array_depth[odom_idx], 
-                goal=goals[selected_idx.item()],
-                within_fov=within_fov,
-                front_of_robot=front_of_robot,
-                behind_robot=behind_robot,
-                depth_filename=self.depth_filename_list[odom_idx],
-                sem_rgb_filename=warp_img_path
-            )   
+            for idx in selected_idx:
+                self.category_scheme_pairs[distance].update_buffers(
+                    odom=self.odom_array_depth[odom_idx], 
+                    goal=goals[idx],
+                    within_fov=within_fov,
+                    front_of_robot=front_of_robot,
+                    behind_robot=behind_robot,
+                    depth_filename=self.depth_filename_list[odom_idx],
+                    sem_rgb_filename=warp_img_path
+                ) 
         return
               
     def get_goal_categories(self, goal_odom_frame: pp.LieTensor):
@@ -729,6 +784,7 @@ class PlannerDataGenerator(Dataset):
         ratio_fov_samples: Optional[float] = None,
         ratio_front_samples: Optional[float] = None,
         ratio_back_samples: Optional[float] = None,
+        allow_augmentation: bool = True,
     ) -> None:
         
         # checkk if ratios are given or defaults are used 
@@ -739,7 +795,7 @@ class PlannerDataGenerator(Dataset):
         
         # max sample number
         if self._cfg.max_train_pairs:
-            max_sample_number = int(self._cfg.max_train_pairs / self._cfg.ratio)  
+            max_sample_number = min(int(self._cfg.max_train_pairs / self._cfg.ratio), int(self.odom_used * self._cfg.pairs_per_image)) 
         else: 
             max_sample_number = int(self.odom_used * self._cfg.pairs_per_image)  
 
@@ -757,10 +813,11 @@ class PlannerDataGenerator(Dataset):
                 continue
             
             # get number of samples
-            buffer_data = self.category_scheme_pairs[distance].get_data(
-                nb_fov  =int(ratio_fov_samples   * distance_percentage * max_sample_number),
-                nb_front=int(ratio_front_samples * distance_percentage * max_sample_number),
-                nb_back =int(ratio_back_samples  * distance_percentage * max_sample_number),
+            buffer_data  = self.category_scheme_pairs[distance].get_data(
+                nb_fov   = int(ratio_fov_samples   * distance_percentage * max_sample_number),
+                nb_front = int(ratio_front_samples * distance_percentage * max_sample_number),
+                nb_back  = int(ratio_back_samples  * distance_percentage * max_sample_number),
+                augment=allow_augmentation, 
             )
             nb_samples = buffer_data[0].shape[0]
             
@@ -893,11 +950,15 @@ class PlannerDataGenerator(Dataset):
         # DEBUG
         if self.debug:
             import matplotlib.pyplot as plt
-            f, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
             ax1.imshow(depth_img)
             ax2.imshow(sem_rgb_image_warped / 255)
-            ax3.imshow(depth_img)
-            ax3.imshow(sem_rgb_image_warped / 255, alpha=0.5)
+            ax3.imshow(sem_rgb_image)
+            # ax3.imshow(depth_img)
+            # ax3.imshow(sem_rgb_image_warped / 255, alpha=0.5)
+            ax1.axis('off')
+            ax2.axis('off')
+            ax3.axis('off')
             plt.show()
         
         # save semantic image under the new path

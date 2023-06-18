@@ -54,7 +54,9 @@ class SemCostMap:
         # load pcd and filter it
         print("COST-MAP INIT START")
         print(f"start loading and filtering point cloud from: {self._cfg_general.ply_file}")
-        self.pcd = o3d.io.read_point_cloud(os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file))
+        pc_path = os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file)
+        assert os.path.exists(pc_path), f"point cloud file does not exist: {pc_path}"
+        self.pcd = o3d.io.read_point_cloud(pc_path)
 
         # filter for x and y coordinates
         if any([self._cfg_general.x_max, self._cfg_general.x_min, self._cfg_general.y_max, self._cfg_general.y_min]):
@@ -93,7 +95,7 @@ class SemCostMap:
         grid_loss = self._dense_grid_loss(grid_loss)
 
         print("COST-MAP CREATION DONE")
-        return [grid_loss, self.pcd_filtered.points, self.height_map], [self._start_x, self._start_y]
+        return [grid_loss, self.pcd_filtered.points, self.height_map], [float(self._start_x), float(self._start_y)]
 
             
     """Helper functions"""
@@ -378,7 +380,7 @@ class SemCostMap:
         # intended traversable area is best traversed with maximum distance to any area with higher cost
         # apply distance transform to nearest obstacle to enforce smallest loss when distance is max
         traversable_idx = np.where(np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[0])
-        grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], 0.1, False) * -1
+        grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], abs(self._cfg_sem.negative_reward), False) * -1
 
         # outside of the mesh is an obstacle and all points over obstacle theshold of grid loss are obstacles 
         obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold)
@@ -410,6 +412,7 @@ class SemCostMap:
             axs[1, 0].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=0, mode='constant')) + math.e) - 1, cmap='jet')
             axs[1, 1].set_title('grid loss y-grad')
             axs[1, 1].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=1, mode='constant')) + math.e) - 1, cmap='jet')
+            plt.colorbar()
             plt.show()
 
         return loss_smooth

@@ -11,7 +11,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List, Optional
+from typing import List, Optional, Union
 import yaml
 import torch
 
@@ -84,10 +84,16 @@ class BaseEvaluator:
         self._use_cost_map = True
         return
 
-    def _get_cost_map_loss(self, path: np.ndarray, idx: int) -> float:
-        waypoints = torch.tensor(path, dtype=torch.float32)
-        self.loss_obstacles[idx] = self._traj_cost.cost_of_recorded_path(waypoints).numpy()
-        return
+    def _get_cost_map_loss(self, path: Union[torch.Tensor, np.ndarray]) -> float:
+        if isinstance(path, np.ndarray):
+            waypoints = torch.tensor(path, dtype=torch.float32)
+        else:
+            waypoints = path.to(dtype=torch.float32)
+        
+        loss = self._traj_cost.cost_of_recorded_path(waypoints).numpy()
+        if self._traj_cost.cost_map.cfg.semantics:
+            loss -= self._traj_cost.cost_map.cfg.sem_cost_map.negative_reward
+        return loss
         
     ##
     # Eval Statistics
@@ -116,14 +122,20 @@ class BaseEvaluator:
         if self._use_cost_map:
             avg_obs_loss = sum(self.loss_obstacles) / len(self.loss_obstacles)
             avg_obs_loss_success = sum(self.loss_obstacles[goal_reached]) / sum(goal_reached)
+            max_obs_loss = max(self.loss_obstacles)
+            max_obs_loss_success = max(self.loss_obstacles[goal_reached])
             
             print(
                 f"Obstacle loss (all):          {avg_obs_loss} \n"
-                f"Obstacle loss (success):      {avg_obs_loss_success}"
+                f"Obstacle loss (success):      {avg_obs_loss_success} \n"
+                f"Max obstacle loss (all):      {max_obs_loss} \n"
+                f"Max obstacle loss (success):  {max_obs_loss_success}"
             )
             
             self.eval_stats["avg_obs_loss_all"] = avg_obs_loss
             self.eval_stats["avg_obs_loss_success"] = avg_obs_loss_success
+            self.eval_stats["max_obs_loss_all"] = max_obs_loss
+            self.eval_stats["max_obs_loss_success"] = max_obs_loss_success
         return
 
 
@@ -164,8 +176,11 @@ class BaseEvaluator:
         std_obs_loss = []
         goal_length_obs_exists = []
         for x in unique_goal_length:
-            y_path_subset = ((self.length_path[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x] - x) / x) * 100   # deviation from goal length in percent for successful paths
+            y_path_subset = self.length_path[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+            y_straight_path_length_subset = x - self.goal_distances[goal_success_bool][np.round(self.length_goal[goal_success_bool], 1) == x]
+
             if len(y_path_subset) != 0:
+                y_path_subset = ((y_path_subset - y_straight_path_length_subset) / y_straight_path_length_subset) * 100   # deviation from goal length - goal distance in percent for successful paths
                 mean_path_extension.append(np.mean(y_path_subset))
                 std_path_extension.append(np.std(y_path_subset))
                 goal_length_path_exists.append(x)
@@ -262,36 +277,42 @@ class BaseEvaluator:
         model_dirs: List[str],
         save_dir: str,
         obs_loss_list: Optional[List[np.ndarray]] = None,
+        model_names: Optional[List[str]] = None,
     ) -> None:
         # path increase plot
         fig_path, axs_path = plt.subplots(figsize=(12, 10))
-        fig_path.suptitle("Path Extension Comp", fontsize=20)
-        axs_path.set_xlabel('Start-Goal Distance [m]', fontsize=16)
-        axs_path.set_ylabel('Path Extension [%]', fontsize=16)         
-        axs_path.tick_params(axis='both', which='major', labelsize=14)
+        fig_path.suptitle("Path Extension", fontsize=24)
+        axs_path.set_xlabel('Start-Goal Distance [m]', fontsize=20)
+        axs_path.set_ylabel('Path Extension [%]', fontsize=20)         
+        axs_path.tick_params(axis='both', which='major', labelsize=16)
 
         # goal distance plot
         fig_goal, axs_goal = plt.subplots(figsize=(12, 10))
-        fig_goal.suptitle("Goal Distance Comp", fontsize=20)
-        axs_goal.set_xlabel('Start-Goal Distance [m]', fontsize=16)
-        axs_goal.set_ylabel('Goal Distance [m]', fontsize=16)
-        axs_goal.tick_params(axis='both', which='major', labelsize=14)
+        fig_goal.suptitle("Goal Distance", fontsize=24)
+        axs_goal.set_xlabel('Start-Goal Distance [m]', fontsize=20)
+        axs_goal.set_ylabel('Goal Distance [m]', fontsize=20)
+        axs_goal.tick_params(axis='both', which='major', labelsize=16)
 
         if self._use_cost_map:
             assert obs_loss_list is not None, "If cost map is used, obs_loss_list must be provided"
             # obs loss plot
             fig_obs, axs_obs = plt.subplots(figsize=(12, 10))
-            fig_obs.suptitle("Obstacle Loss Plot", fontsize=20)
-            axs_obs.set_xlabel('Start-Goal Distance [m]', fontsize=16)
-            axs_obs.set_ylabel('Obs Loss', fontsize=16)
-            axs_obs.tick_params(axis='both', which='major', labelsize=14)
+            # fig_obs.suptitle("Mean Obstacle Loss Along Path", fontsize=24)
+            axs_obs.set_xlabel('Start-Goal Distance [m]', fontsize=20)
+            axs_obs.set_ylabel('Mean Obstacle Loss', fontsize=20)
+            axs_obs.tick_params(axis='both', which='major', labelsize=16)
+        
+        bar_width = 0.8 / len(length_goal_list)
         
         for idx in range(len(length_goal_list)):
-            model_name = os.path.split(model_dirs[idx])[1]
+            if model_names is None:
+                model_name = os.path.split(model_dirs[idx])[1]
+            else:
+                model_name = model_names[idx]
             
             goal_success_bool = goal_distance_list[idx] < self.tolerance
 
-            unique_goal_length = np.unique(np.round(length_goal_list[idx], 1))
+            unique_goal_length = np.unique(np.round(length_goal_list[idx], 0))
             goal_length_path_exists = []
             mean_path_extension     = []
             std_path_extension      = []
@@ -301,47 +322,71 @@ class BaseEvaluator:
             std_obs_loss            = []
             goal_length_obs_exists  = []
 
+            unqiue_goal_length_used = []
+            
             for x in unique_goal_length:
-                y_path_subset = ((length_path_list[idx][goal_success_bool][np.round(length_goal_list[idx][goal_success_bool], 1) == x] - x) / x) * 100
+                
+                if x == 0:
+                    continue
+                
+                y_path_subset = length_path_list[idx][goal_success_bool][np.round(length_path_list[idx][goal_success_bool], 0) == x]
+                y_straight_path_length_subset = x - goal_distance_list[idx][goal_success_bool][np.round(length_path_list[idx][goal_success_bool], 0) == x]
+
                 if len(y_path_subset) != 0:
+                    y_path_subset = ((y_path_subset - y_straight_path_length_subset) / y_straight_path_length_subset) * 100   # deviation from goal length - goal distance in percent for successful paths
                     mean_path_extension.append(np.mean(y_path_subset))
                     std_path_extension.append(np.std(y_path_subset))
                     goal_length_path_exists.append(x)
                 
-                y_goal_subset = goal_distance_list[idx][np.round(length_goal_list[idx], 1) == x]
+                y_goal_subset = goal_distance_list[idx][np.round(length_goal_list[idx], 0) == x]
                 mean_goal_distance.append(np.mean(y_goal_subset))
                 std_goal_distance.append(np.std(y_goal_subset))
 
                 if self._use_cost_map:
-                    y_obs_subset = obs_loss_list[idx][np.round(length_goal_list[idx], 1) == x]
+                    y_obs_subset = obs_loss_list[idx][np.round(length_goal_list[idx], 0) == x]
                     if len(y_obs_subset) != 0:
                         mean_obs_loss.append(np.mean(y_obs_subset))
                         std_obs_loss.append(np.std(y_obs_subset))
                         goal_length_obs_exists.append(x)
+                    else:
+                        print(f"Warning: No obs loss for {model_name} at goal distance {x}")
+                
+                unqiue_goal_length_used.append(x)
                  
+            goal_length_path_exists = np.array(goal_length_path_exists)
+            unique_goal_length = np.array(unqiue_goal_length_used)
+            goal_length_obs_exists = np.array(goal_length_obs_exists)
+            
+            bar_pos = bar_width / 2 + idx * bar_width - 0.4
             ## plot to compare the increase in path length depending in on the distance between goal and start for the successful paths
             avg_increase = np.mean((length_path_list[idx] / length_goal_list[idx]) -1)
-            axs_path.plot(goal_length_path_exists, mean_path_extension, label=f'{model_name} ({round(avg_increase, 5)*100:.2f} %))')
-            axs_path.fill_between(goal_length_path_exists, np.array(mean_path_extension) - np.array(std_path_extension), np.array(mean_path_extension) + np.array(std_path_extension), alpha=0.2)
+            axs_path.bar(goal_length_path_exists + bar_pos, mean_path_extension, width=bar_width, label=f'{model_name} (avg {round(avg_increase, 5)*100:.2f} %))', alpha=0.8)  # yerr=std_path_extension, 
+            # axs_path.plot(goal_length_path_exists, mean_path_extension, label=f'{model_name} ({round(avg_increase, 5)*100:.2f} %))')
+            # axs_path.fill_between(goal_length_path_exists, np.array(mean_path_extension) - np.array(std_path_extension), np.array(mean_path_extension) + np.array(std_path_extension), alpha=0.2)
 
             ## plot with the distance to the goal depending on the length between goal and start
             goal_success = np.sum(goal_success_bool) / len(goal_distance_list[idx])        
-            axs_goal.plot(unique_goal_length, mean_goal_distance, label=f'{model_name} ({round(goal_success, 5)*100:.2f} %)')
-            axs_goal.fill_between(unique_goal_length, np.array(mean_goal_distance) - np.array(std_goal_distance), np.array(mean_goal_distance) + np.array(std_goal_distance), alpha=0.2)
+            axs_goal.bar(unique_goal_length + bar_pos, mean_goal_distance, width=bar_width, label=f'{model_name} (success rate {round(goal_success, 5)*100:.2f} %)', alpha=0.8)  #  yerr=std_goal_distance, 
+            # axs_goal.plot(unique_goal_length, mean_goal_distance, label=f'{model_name} ({round(goal_success, 5)*100:.2f} %)')
+            # axs_goal.fill_between(unique_goal_length, np.array(mean_goal_distance) - np.array(std_goal_distance), np.array(mean_goal_distance) + np.array(std_goal_distance), alpha=0.2)
         
             if self._use_cost_map:
                 ## plot with the distance to the goal depending on the length between goal and start
                 avg_obs_loss = np.mean(obs_loss_list[idx])        
-                axs_obs.plot(goal_length_obs_exists, mean_obs_loss, label=f'{model_name} ({round(avg_obs_loss, 5):.5f} %)')
-                axs_obs.fill_between(goal_length_obs_exists, np.array(mean_obs_loss) - np.array(std_obs_loss), np.array(mean_obs_loss) + np.array(std_obs_loss), alpha=0.2)       
+                axs_obs.bar(goal_length_obs_exists + bar_pos, mean_obs_loss, width=bar_width,  label=f'{model_name} (avg {round(avg_obs_loss, 5):.3f})', alpha=0.8)  # yerr=std_obs_loss,
+                # axs_obs.plot(goal_length_obs_exists, mean_obs_loss, label=f'{model_name} ({round(avg_obs_loss, 5):.5f} %)')
+                # axs_obs.fill_between(goal_length_obs_exists, np.array(mean_obs_loss) - np.array(std_obs_loss), np.array(mean_obs_loss) + np.array(std_obs_loss), alpha=0.2)       
 
-        axs_path.legend()
-        axs_goal.legend()
+        # plot threshold for successful path
+        axs_goal.axhline(y=0.5, color='red', linestyle='--', label="threshold")
+        
+        axs_path.legend(fontsize=20)
+        axs_goal.legend(fontsize=20)
         fig_path.savefig(os.path.join(save_dir, "path_length_comp.png"))
         fig_goal.savefig(os.path.join(save_dir, "goal_distance_comp.png"))
         if self._use_cost_map:
-            axs_obs.legend()
-            axs_obs.savefig(os.path.join(save_dir, "obs_loss_comp.png"))
+            axs_obs.legend(fontsize=20)
+            fig_obs.savefig(os.path.join(save_dir, "obs_loss_comp.png"))
 
         plt.show()
         return

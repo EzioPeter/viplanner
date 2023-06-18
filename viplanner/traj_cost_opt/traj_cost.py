@@ -1,6 +1,4 @@
-#!/anaconda3/envs/pytorch/bin python3
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional
 
@@ -31,7 +29,8 @@ class TrajCost:
         obstalce_thred: float = 0.75,
     ) -> None:
         # init map and optimizer
-        self.cost_map = CostMapPCD(gpu_id)
+        self.gpu_id = gpu_id
+        self.cost_map: CostMapPCD = None
         self.opt = TrajOpt()
         self.is_map = False
         
@@ -57,7 +56,7 @@ class TrajCost:
         return world_ps
     
     def SetMap(self, root_path, map_name):
-        self.cost_map.ReadTSDFMap(root_path, map_name)
+        self.cost_map = CostMapPCD.ReadTSDFMap(root_path, map_name, self.gpu_id)
         self.is_map = True
         return
 
@@ -106,14 +105,10 @@ class TrajCost:
         # Terrian Height loss
         height_grid = self.cost_map.ground_array.T.expand(batch_size, 1, -1, -1)
         hloss_M = F.grid_sample(height_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
-        hloss_M = torch.abs(world_ps[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # world_ps - odom to have them on the ground to be comparable to the height map
+        hloss_M = torch.abs(world_ps.tensor()[:, :, 2]  - odom[:, None, 2] - hloss_M).to(torch.float32)  # world_ps - odom to have them on the ground to be comparable to the height map
         hloss_M = torch.sum(hloss_M, axis=1)
         hloss = torch.mean(hloss_M)
         
-        if self.log_data:
-            wandb.log({f"hloss_{dataset}_step": hloss}, step=log_step)
-            wandb.log({f"oloss_{dataset}_step": oloss}, step=log_step)
-
         # Goal Cost - Control Cost
         gloss_M = torch.norm(goal[:, :3] - waypoints[:, -1, :], dim=1)
         gloss = torch.mean(gloss_M)
@@ -127,9 +122,14 @@ class TrajCost:
         mloss = torch.mean(mloss)
         
         if self.log_data:
-            wandb.log({f"gloss_{dataset}_step": gloss}, step=log_step)
-            wandb.log({f"mloss_{dataset}_step": mloss}, step=log_step)
-
+            try:
+                wandb.log({f"hloss_{dataset}_step": hloss}, step=log_step)
+                wandb.log({f"oloss_{dataset}_step": oloss}, step=log_step)
+                wandb.log({f"gloss_{dataset}_step": gloss}, step=log_step)
+                wandb.log({f"mloss_{dataset}_step": mloss}, step=log_step)
+            except:
+                print("wandb log failed")
+                
         # Fear labels
         goal_dists = torch.cumsum(wp_ds, dim=1, dtype=wp_ds.dtype)
         floss_M = torch.clone(oloss_M)[:, 1:]
@@ -140,6 +140,22 @@ class TrajCost:
         
         # TODO: kinodynamics cost
         return self.w_obs*oloss + self.w_height*hloss + self.w_motion*mloss + self.w_goal*gloss, fear_labels.float()
+
+    def obs_cost_eval(self, odom, waypoints):
+        batch_size, num_p, _ = waypoints.shape
+        world_ps = self.TransformPoints(odom, waypoints)
+        norm_inds, _ = self.cost_map.Pos2Ind(world_ps)
+        
+        # Obstacle Cost
+        cost_grid = self.cost_map.cost_array.T.expand(batch_size, 1, -1, -1)
+        oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
+        oloss_M = oloss_M.to(torch.float32)
+        if self.cost_map.cfg.semantics:
+            neg_reward = self.cost_map.cfg.sem_cost_map.negative_reward
+            oloss_M = oloss_M - neg_reward
+            oloss_M[oloss_M < 0] = 0.0
+        oloss_M_weighted = torch.mean(oloss_M, axis=1)
+        return oloss_M_weighted, torch.max(oloss_M, axis=1)[0]
     
     def cost_of_recorded_path(
         self,
@@ -149,18 +165,14 @@ class TrajCost:
 
         Args:
             waypoints (torch.Tensor): Path coordinates in world frame
-            goal (torch.Tensor): Gaol coordinates in world frame
         """        
         assert self.is_map, "Map has to be loaded for evaluation"
-        norm_inds, _ = self.cost_map.Pos2Ind(waypoints)
+        norm_inds, _ = self.cost_map.Pos2Ind(waypoints.unsqueeze(0))
         
         # Obstacle Cost
-        cost_grid = self.cost_map.cost_array.T
+        cost_grid = self.cost_map.cost_array.T.expand(1, 1, -1, -1)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32)
-        oloss_M_weighted = torch.sum(oloss_M, axis=1)
-        oloss = torch.mean(oloss_M_weighted)
-        
-        return oloss
+        return torch.mean(oloss_M)
     
 # EoF

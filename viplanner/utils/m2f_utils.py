@@ -71,7 +71,7 @@ class M2FWrapper:
         predictions = self.predictor(img)
         return self._create_mask(predictions)
 
-    def run_on_folder(self, data_folder: str, show_pred: bool = True, run_on_existing_files: bool = True) -> None:
+    def run_on_folder(self, data_folder: str, show_pred: bool = True, run_on_existing_files: bool = True, sem_folder_name: str = 'semantics') -> None:
         """
         Run m2f on folder
         :param data_folder: folder with rgb images
@@ -81,7 +81,7 @@ class M2FWrapper:
         # check folder and create semantics folder
         assert os.path.isdir(data_folder), f"Folder {data_folder} does not exist!"
         parent_folder, _ = os.path.split(data_folder)
-        sem_folder = os.path.join(parent_folder, "semantics")
+        sem_folder = os.path.join(parent_folder, sem_folder_name)
         os.makedirs(sem_folder, exist_ok=True)
         
         img_list = os.listdir(data_folder)
@@ -142,10 +142,12 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Prelabel images with a given model')
     parser.add_argument('-d', '--dataset_dir', type=str, help='Directory of the dataset',
-                        default="/home/pascal/SemNav/imperative_learning/data/nomoko_zurich/rgb")
+                        default="/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem/bgr")
+    parser.add_argument('-s', '--sem_dir_name', type=str, help='Name of the new directory for the semantic images',
+                        default="semantics")
     args = parser.parse_args()
     
     # run on directory
-    wrapper.run_on_folder(args.dataset_dir)
+    wrapper.run_on_folder(args.dataset_dir, sem_folder_name=args.sem_dir_name)
 
 # EoF

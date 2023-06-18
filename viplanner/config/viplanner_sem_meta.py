@@ -302,7 +302,7 @@ if __name__ == '__main__':
     # class ordering array
     cls_order = [
         ['sky', 'background', 'dynamic', 'static'],
-        ['building', 'wall', 'fence', 'bridge', 'ceiling', 'vegetation', 'water_surface'],
+        ['building', 'wall', 'fence', 'ceiling', 'vegetation', 'water_surface'],  # 'bridge', 
         ['pole', 'traffic_light', 'traffic_sign', 'bench', 'furniture'],
         ['terrain', 'indoor_soft', 'sand', 'snow'],
         ['sidewalk', 'crosswalk', 'stairs', 'floor', 'gravel'],
@@ -312,7 +312,7 @@ if __name__ == '__main__':
     ]
     
     # Create the 8x8 grid of subplots
-    fig, axs = plt.subplots(nrows=8, ncols=7, figsize=(12, 12))
+    fig, axs = plt.subplots(nrows=8, ncols=7, figsize=(10, 10))
 
     # Loop over each subplot and plot the data
     for i in range(8):
@@ -331,17 +331,17 @@ if __name__ == '__main__':
             if j >= len(cls_order[i]):
                 continue       
             ax.imshow([[tuple(meta_handler.class_color[cls_order[i][j]])]])
-            ax.set_title(cls_order[i][j], fontsize=10)
-            ax.set_xlabel(meta_handler.class_color[cls_order[i][j]], fontsize=8)
+            ax.set_title(cls_order[i][j], fontsize=16)
+            ax.set_xlabel(meta_handler.class_color[cls_order[i][j]], fontsize=12)
             
     # Set the overall title of the plot
-    fig.suptitle('VIPlanner Semantic Classes Color Scheme', fontsize=16)
+    fig.suptitle('VIPlanner Semantic Classes Color Scheme', fontsize=22)
 
     # Adjust the spacing between subplots
     plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
     plt.tight_layout()
-    
+    plt.savefig('/home/pascal/viplanner_semantic_classes_color_scheme.png', dpi=300)
     # Show the plot
     plt.show()
 

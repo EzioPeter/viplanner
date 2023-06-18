@@ -10,6 +10,7 @@
 from dataclasses import dataclass, field
 from typing import Tuple, List, Optional
 import yaml
+import os
 
 # define own loader class to include DataCfg
 class Loader(yaml.SafeLoader):
@@ -22,11 +23,11 @@ def construct_datacfg(loader, node):
             node.value.remove(node_entry)
             
     return DataCfg(**loader.construct_mapping(node), **add_dicts)
-Loader.add_constructor('tag:yaml.org,2002:python/object:config.learning_cfg.DataCfg', construct_datacfg)
-# after evaluation in isaac sim, tag changes 
-Loader.add_constructor('tag:yaml.org,2002:python/object:omni.isaac.anymal.viplanner.src.config.learning_cfg.DataCfg', construct_datacfg)
-# backward compatibility with prev version
+Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.learning_cfg.DataCfg', construct_datacfg)
+# backward compatibility with prev version  # TODO: remove in future
 Loader.add_constructor('tag:yaml.org,2002:python/object:config.config.DataCfg', construct_datacfg)
+Loader.add_constructor('tag:yaml.org,2002:python/object:omni.isaac.anymal.viplanner.src.config.learning_cfg.DataCfg', construct_datacfg)
+Loader.add_constructor('tag:yaml.org,2002:python/object:config.learning_cfg.DataCfg', construct_datacfg)
 
 
 @dataclass
@@ -35,6 +36,7 @@ class DataCfg:
     
     # real world data used --> images have to be rotated by 180 degrees
     real_world_data: bool = False 
+    carla: bool = True
     
     # identification suffix of the cameras for semantic and depth images
     depth_suffix = "_cam0"
@@ -45,13 +47,13 @@ class DataCfg:
     "maximum depth for depth image"
 
     # odom (=start) point selection
-    max_goal_distance: float = max_depth
+    max_goal_distance: float = 15.0
     min_goal_distance: float = 0.5
     "maximium and minimum distance between odom and goal"
     distance_scheme: dict = field(default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05})
     "select goal points for the samples according to the scheme: {distance: percentage of goals}, distances have to be increasing and max distance has to be equal to max_goal_distance"
-    obs_cost_height: float = 0.3
-    "all odom points with cost of more than obs_cost_height are discarded"
+    obs_cost_height: float = 0.8
+    "all odom points with cost of more than obs_cost_height are discarded (negative cost of cost_map will be automatically added)"
     fov_scale: float = 1.0
     "scaling of the field of view (only goals within fov are considered)"
     depth_scale: float = 1000.0
@@ -91,13 +93,16 @@ class TrainCfg:
     # high level configurations
     sem: bool = True 
     rgb: bool = False
-    "use semantic image"
+    "use semantic/ rgb image"
     file_name: Optional[str] = None
-    "appendix to the filename if needed"      
+    "appendix to the model filename if needed"      
     seed: int = 0
     "random seed"  
     gpu_id: int = 0 
-    "GPU id"      
+    "GPU id"
+    file_path: str = "/home/pascal/SemNav/imperative_learning"   
+    "file path to models and data directory, can be overwritten by environment variable EXPERIMENT_DIRECTORY (e.g. for cluster)"
+    # NOTE: since the environment variable is intended for cluster usage, some visualizations will be automatically switched off
     
     # data and dataloader configurations
     cost_map_name: str = "cost_map_sem" # "cost_map_sem" 
@@ -122,6 +127,8 @@ class TrainCfg:
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
     num_workers: int = 4
     "number of workers for dataloader"     
+    load_in_ram: bool = False
+    "if true, all samples will be loaded into RAM s.t. do not have to be reloaded for each epoch"
     
     # loss configurations
     fear_ahead_dist: float =2.5 
@@ -146,7 +153,8 @@ class TrainCfg:
     pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
     pre_train_freeze: bool = True
     "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
-    decoder_small: bool = True
+    # NOTE: `pre_train_cfg` and `pre_train_weights` are assumed to be found under `file_path/models` (see above)
+    decoder_small: bool = False
     "small decoder with less parameters"
     
     # training configurations
@@ -190,7 +198,7 @@ class TrainCfg:
     wb_api_key: str = "8d9b2277691e6b27dc2861ce2bc7c0148113c3ce"
     
     # functions
-    def _get_model_save(self, epoch: Optional[int] = None):
+    def get_model_save(self, epoch: Optional[int] = None):
         input_domain = "DepSem" if self.sem else "Dep"
         cost_name = "Geom" if self.cost_map_name == "cost_map_geom" else "Sem"
         optim = "SGD" if self.optimizer == "sgd" else "Adam"
@@ -199,6 +207,22 @@ class TrainCfg:
         hierarch = f"_hierarch" if self.hierarchical else ""
         return f"plannernet_env{self.env_list[0]}_ep{epoch}_input{input_domain}_cost{cost_name}_optim{optim}{hierarch}{name}"
 
+    @property
+    def all_model_dir(self):
+        return os.path.join(os.getenv('EXPERIMENT_DIRECTORY', self.file_path), "models")
+    
+    @property
+    def curr_model_dir(self):
+        return os.path.join(self.all_model_dir, self.get_model_save())
+
+    @property   
+    def data_dir(self):
+        return os.path.join(os.getenv('EXPERIMENT_DIRECTORY', self.file_path), "data")
+    
+    @property
+    def log_dir(self):
+        return os.path.join(os.getenv('EXPERIMENT_DIRECTORY', self.file_path), "logs")
+    
     @classmethod
     def from_yaml(cls, yaml_path: str):
         # open yaml file and load config

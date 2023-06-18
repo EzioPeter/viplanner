@@ -19,10 +19,12 @@ import tqdm
 import rospy
 import rosbag
 from sensor_msgs.msg import Image, CompressedImage
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import PointStamped
+from nav_msgs.msg import Odometry, Path
 from cv_bridge import CvBridge
 import tf2_ros
 import tf2_py as tf2
+import tf2_geometry_msgs
 from rosgraph import rosenv
 import roslaunch
 import time
@@ -101,20 +103,25 @@ def get_intrinsics(bag: rosbag.Bag, topics: List[str], image_topic: str) -> np.n
             print(f"Corresponding CameraInfo topic not found for {image_topic}")
     elif topic_type == CompressedImage._type:
         cam_parent = image_topic.split('/')[1]
-        camera_info_topic = f"/{cam_parent}/camera_info"
+        
         # Check if the CameraInfo topic is in the list of topics
-        if camera_info_topic in topics:
+        if f"/{cam_parent}/camera_info" in topics:
+            camera_info_topic = f"/{cam_parent}/camera_info"
             # Print a message indicating that the CameraInfo topic was found
             print(f"Corresponding CameraInfo topic found: {camera_info_topic}")
-            for _, msg, _ in bag.read_messages(topics=[camera_info_topic]):
-                K = np.array(msg.K).reshape(3, 3)
-                height = msg.height
-                width  = msg.width
-                break
-            assert K is not None, f'Could not find camera info under topic {camera_info_topic}'
+        elif f"/{cam_parent}/{image_topic.split('/')[2]}/camera_info" in topics:
+            camera_info_topic = f"/{cam_parent}/{image_topic.split('/')[2]}/camera_info"
         else:
             # Print a message indicating that the CameraInfo topic was not found
-            print(f"Corresponding CameraInfo topic not found for {image_topic}")
+            raise ValueError(f"Corresponding CameraInfo topic not found for {image_topic}")
+
+        for _, msg, _ in bag.read_messages(topics=[camera_info_topic]):
+            K = np.array(msg.K).reshape(3, 3)
+            height = msg.height
+            width  = msg.width
+            break
+        assert K is not None, f'Could not find camera info under topic {camera_info_topic}'
+
     else:
         raise ValueError(f'Topic {image_topic} is of type {topic_type} which is not supported!')
     
@@ -133,14 +140,18 @@ def main(args):
     bridge = CvBridge()
     
     # check if topic in rosbag
-    if any([used_topic not in topics for used_topic in [args.topic_depth, args.topic_bgr, args.topic_state]]):
+    if any([used_topic not in topics for used_topic in [args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal, args.topic_path]]):
         raise ValueError('Not all topics in bag!')
     
     # init buffers
-    odom_base = np.ndarray((bag.get_message_count(args.topic_state), 9))  # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
-    odom_depth = np.ndarray((bag.get_message_count(args.topic_depth), 9))  # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
-    odom_bgr = np.ndarray((bag.get_message_count(args.topic_bgr), 9))  # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
-    
+    odom_base   = np.ndarray((bag.get_message_count(args.topic_state), 9))      # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
+    odom_depth  = np.ndarray((bag.get_message_count(args.topic_depth), 9))      # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
+    odom_bgr    = np.ndarray((bag.get_message_count(args.topic_bgr), 9))        # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
+    odom_goal   = np.ndarray((bag.get_message_count(args.topic_goal), 5))       # x, y, z, t_sec, t_nsec
+    depth_goal  = np.ndarray((bag.get_message_count(args.topic_goal), 5))       # x, y, z, t_sec, t_nsec
+    path        = np.ndarray((bag.get_message_count(args.topic_path), 50, 5))   # x, y, z, t_sec, t_nsec
+    path_depth  = np.ndarray((bag.get_message_count(args.topic_path), 50, 5))   # x, y, z, t_sec, t_nsec
+
     # get intrinsics
     K_depth, height_depth, width_depth = get_intrinsics(bag, topics, args.topic_depth)
     K_bgr, _, _ = get_intrinsics(bag, topics, args.topic_bgr)
@@ -158,24 +169,37 @@ def main(args):
     bgr_counter = 0
     depth_counter = 0
     state_counter = 0
+    goal_counter = 0
+    path_counter = 0
     
     # get transform between odom and cameras
     check_roscore()  # roscore needs to run to use tf_buffer
     tf_buffer = setup_tf_buffer(bag)
     
     # configure process bar
-    pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state)))
+    pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state) + bag.get_message_count(args.topic_goal) + bag.get_message_count(args.topic_path)))
     
-    for topic, msg, t in bag.read_messages(topics=[args.topic_depth, args.topic_bgr, args.topic_state]):
+    depth_image_frame = "odom"  # just as starting value
+    init_time = None
+    for topic, msg, t in bag.read_messages(topics=[args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal, args.topic_path]):
+        if init_time is None:
+            init_time = t.to_sec()
+        
+        if (t.to_sec()-init_time) < args.start_time or (t.to_sec()-init_time) > args.end_time:
+            continue
+        
         topic_type = msg._type
         if topic_type == Image._type:  # DEPTH
+            depth_image_frame = msg.header.frame_id
+            
             try:
                 transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
             except tf2.ExtrapolationException:
                 continue
             
             im = np.frombuffer(msg.data, dtype=np.uint16).reshape(height_depth, width_depth, -1)
-            im = cv2.rotate(im, cv2.ROTATE_180)
+            if args.rotate:
+                im = cv2.rotate(im, cv2.ROTATE_180)
             cv2.imwrite(os.path.join(args.output_dir, "depth", "frame_" + f"{int(depth_counter)}".zfill(5) + ".png"), im)
             odom_depth[depth_counter, :] = np.array([
                 transform_stamp.transform.translation.x,
@@ -226,10 +250,71 @@ def main(args):
                 t.nsecs
             ])
             state_counter += 1
-                
+        
+        elif topic_type == PointStamped._type:  # GOAL / WAYPOINT        
+           
+            try:
+                transform = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.loginfo("Transform failed. Trying again...")
+                continue 
+                        
+            transformed_point = tf2_geometry_msgs.do_transform_point(msg, transform)
+            odom_goal[goal_counter, :] = np.array([
+                transformed_point.point.x,
+                transformed_point.point.y,
+                transformed_point.point.z,
+                t.secs,
+                t.nsecs
+            ])
+
+            try:
+                transform = tf_buffer.lookup_transform(depth_image_frame, msg.header.frame_id, t)
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.loginfo("Transform failed. Trying again...")
+                continue 
+
+            transformed_point = tf2_geometry_msgs.do_transform_point(msg, transform)
+            depth_goal[goal_counter, :] = np.array([
+                transformed_point.point.x,
+                transformed_point.point.y,
+                transformed_point.point.z,
+                t.secs,
+                t.nsecs
+            ])
+
+            goal_counter += 1
+
+        elif topic_type == Path._type:  # PATH
+            try:
+                transform = tf_buffer.lookup_transform(depth_image_frame, msg.header.frame_id, t)
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.loginfo("Transform failed. Trying again...")
+                continue
+            
+            for i, pose in enumerate(msg.poses):
+                path[path_counter, i, :] = np.array([
+                    pose.pose.position.x,
+                    pose.pose.position.y,
+                    pose.pose.position.z,
+                    msg.header.stamp.secs,
+                    msg.header.stamp.nsecs
+                ])
+
+                transformed_pose = tf2_geometry_msgs.do_transform_pose(pose, transform)
+                path_depth[path_counter, i, :] = np.array([
+                    transformed_pose.pose.position.x,
+                    transformed_pose.pose.position.y,
+                    transformed_pose.pose.position.z,
+                    msg.header.stamp.secs,
+                    msg.header.stamp.nsecs
+                ])
+
+            path_counter += 1
+
         # update progress bar
         pbar.update(1)
-        pbar.set_description(f'Processing messages (bgr: {bgr_counter}, depth: {depth_counter}, state: {state_counter})')
+        pbar.set_description(f'Processing messages (bgr: {bgr_counter}, depth: {depth_counter}, state: {state_counter}, goal: {goal_counter}, path: {path_counter})')
                
     bag.close()
     pbar.close()
@@ -237,8 +322,11 @@ def main(args):
     # save timestamps
     np.savetxt(os.path.join(args.output_dir, "odom_depth.txt"), odom_depth[:depth_counter])
     np.savetxt(os.path.join(args.output_dir, "odom_bgr.txt"), odom_bgr[:bgr_counter])
-    np.savetxt(os.path.join(args.output_dir, "odom_base.txt"), odom_base)
-    
+    np.savetxt(os.path.join(args.output_dir, "odom_base.txt"), odom_base[:state_counter])
+    np.savetxt(os.path.join(args.output_dir, "odom_goal.txt"), odom_goal[:goal_counter])
+    # np.savetxt(os.path.join(args.output_dir, "depth_goal.txt"), depth_goal[:goal_counter])
+    np.save(os.path.join(args.output_dir, "path.npy"), path[:path_counter])  # as npy because 3D array
+    # np.save(os.path.join(args.output_dir, "path_depth.npy"), path_depth[:path_counter])  # as npy because 3D array
     print("SUCCESS")
     return
 
@@ -246,18 +334,27 @@ def main(args):
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser(description="Extract msgs from a ROS bag.")
-    parser.add_argument("-bf", "--bag_file", default='/home/pascal/SemNav/env/anymal/2023_03_23_rsl/_2023-03-23-20-30-17.bag',
+    parser.add_argument("-bf", "--bag_file", default='/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
                         help="Input ROS bag.")
-    parser.add_argument("-o", "--output_dir", default='/home/pascal/SemNav/env/anymal/2023_03_23_rsl/',
+    parser.add_argument("-o", "--output_dir", default='/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
                         help="Output directory.")
-    parser.add_argument("-td", "--topic_depth", default='/depth_camera_front_upper/depth/image_rect_raw',
+    parser.add_argument("-td", "--topic_depth", default='/depth_camera_front_upper/depth/image_rect_raw',  # '/depth_camera_front/depth/image_rect_raw'
                         help="Image topic.")
-    parser.add_argument("-tr", "--topic_bgr", default='/wide_angle_camera_front/image_raw/compressed',
+    parser.add_argument("-tr", "--topic_bgr", default='/wide_angle_camera_front/image_raw/compressed', # '/depth_camera_front/color/image_raw/compressed',
                         help="Image topic.")
     parser.add_argument("-ts", "--topic_state", default="/state_estimator/odometry",
                         help="Image topic.")
-    parser.add_argument("-n", "--nb_msg", type=int, default=1000, 
-                        help="Total number of msgs extracted from the ROS bag")
+    parser.add_argument("-tg", "--topic_goal", default="/mp_waypoint",
+                        help="Topic where the way-/goalpoints are published.")
+    parser.add_argument("-tp", "--topic_path", default="/viplanner/path_viz",
+                        help="Topic where the path are published.")    
+    parser.add_argument("-r", "--rotate", action="store_true", default=True,
+                        help="If depth images should be rotated by 180 degrees.")      
+    parser.add_argument("-st", "--start_time", type=float, default=1500.0,
+                        help="Start time when messages are read from the rosbag")      
+    parser.add_argument("-et", "--end_time", type=float, default=1560.0,
+                        help="Stop time when messages are read from the rosbag")      
+    
     args = parser.parse_args()
 
     main(args)

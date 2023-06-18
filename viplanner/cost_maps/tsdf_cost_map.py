@@ -119,7 +119,7 @@ class TsdfCostMap:
 
         # TODO: Using true terrain analysis module
         ground_array = np.ones([self.num_x, self.num_y]) * 0.0
-        return [tsdf_array, viz_points, ground_array], [self.start_x, self.start_y]
+        return [tsdf_array, viz_points, ground_array], [float(self.start_x), float(self.start_y)]
 
     def IndexArrayOfPs(self, points):
         I = points[:, :2] - np.array([self.start_x, self.start_y])

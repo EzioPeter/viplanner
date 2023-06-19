@@ -375,7 +375,8 @@ class SemCostMap:
         # get different loss levels
         loss_levels = np.unique(self.sem_meta.losses)
         assert round(loss_levels[0], 3) == 0.0, f"Lowest loss level should be 0.0, instead found {loss_levels[0]}."
-        assert round(loss_levels[-1], 3) == 1.0, f"Highest loss level should be 1.0, instead found {loss_levels[-1]}."
+        if round(loss_levels[-1], 3) == 1.0:
+            print(f"WARNING: Highest loss level should be 1.0, instead found {loss_levels[-1]}.")
         
         # intended traversable area is best traversed with maximum distance to any area with higher cost
         # apply distance transform to nearest obstacle to enforce smallest loss when distance is max
@@ -383,7 +384,7 @@ class SemCostMap:
         grid_loss[traversable_idx] = self._distance_based_gradient(traversable_idx, loss_levels[0], abs(self._cfg_sem.negative_reward), False) * -1
 
         # outside of the mesh is an obstacle and all points over obstacle theshold of grid loss are obstacles 
-        obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold)
+        obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold * loss_levels[-1])
         obs_idx = (np.hstack((obs_within_mesh_idx[0], non_classified_idx[~within_mesh, 0])), np.hstack((obs_within_mesh_idx[1], non_classified_idx[~within_mesh, 1])))
         grid_loss[obs_idx] = self._distance_based_gradient(obs_idx, None, None, True)
         

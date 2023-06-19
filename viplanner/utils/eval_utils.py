@@ -123,7 +123,7 @@ class BaseEvaluator:
             avg_obs_loss = sum(self.loss_obstacles) / len(self.loss_obstacles)
             avg_obs_loss_success = sum(self.loss_obstacles[goal_reached]) / sum(goal_reached)
             max_obs_loss = max(self.loss_obstacles)
-            max_obs_loss_success = max(self.loss_obstacles[goal_reached])
+            max_obs_loss_success = max(self.loss_obstacles[goal_reached]) if sum(goal_reached) > 0 else np.inf
             
             print(
                 f"Obstacle loss (all):          {avg_obs_loss} \n"

@@ -283,7 +283,7 @@ class DistanceSchemeIdx:
         elif len(idx_fov) < nb_fov:
             print(f"[INFO] for distance {self.distance} not enough 'within_fov' samples ({len(idx_fov)} instead of {nb_fov})")
             if augment:
-                idx_augment.append(np.random.choice(idx_fov, nb_fov-len(idx_fov), replace=False if nb_fov-len(idx_fov) < len(idx_fov) else True))
+                idx_augment.append(np.random.choice(idx_fov, min(len(idx_fov), nb_fov-len(idx_fov)), replace=False if nb_fov-len(idx_fov) < len(idx_fov) else True))
             else:
                 idx_fov = np.random.choice(idx_fov, len(idx_fov), replace=False)
         else:
@@ -295,7 +295,7 @@ class DistanceSchemeIdx:
         elif len(idx_front) < nb_front:
             print(f"[INFO] for distance {self.distance} not enough 'front_of_robot' samples ({len(idx_front)} instead of {nb_front})")
             if augment:
-                idx_augment.append(np.random.choice(idx_front, nb_front-len(idx_front), replace=False if nb_front-len(idx_front) < len(idx_front) else True))
+                idx_augment.append(np.random.choice(idx_front, min(len(idx_front), nb_front-len(idx_front)), replace=False if nb_front-len(idx_front) < len(idx_front) else True))
             else:
                 idx_front = np.random.choice(idx_front, len(idx_front), replace=False)
         else:
@@ -307,7 +307,7 @@ class DistanceSchemeIdx:
         elif len(idx_back) < nb_back:
             print(f"[INFO] for distance {self.distance} not enough 'behind_robot' samples ({len(idx_back)} instead of {nb_back})")
             if augment:
-                idx_augment.append(np.random.choice(idx_back, nb_back-len(idx_back), replace=False if nb_back-len(idx_back) < len(idx_back) else True))
+                idx_augment.append(np.random.choice(idx_back, min(len(idx_back), nb_back-len(idx_back)), replace=False if nb_back-len(idx_back) < len(idx_back) else True))
             else:
                 idx_back = np.random.choice(idx_back, len(idx_back), replace=False)
         else:

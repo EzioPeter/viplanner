@@ -56,9 +56,6 @@ class SimEvaluator(BaseEvaluator):
             train_config.env_list = [self.environment]
             train_config.test_env_id = 0
             
-            # FOR CARLA: NEW DISTANCE SCHEME
-            train_config.data_cfg.obs_cost_height = 0.5
-            train_config.data_cfg.distance_scheme = {5: 0.10, 7.5: 0.40, 10: 0.30, 15: 0.15}
             # load trainer and data
             self.trainer = Trainer(train_config)        
             # load data

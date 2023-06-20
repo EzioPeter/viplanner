@@ -186,7 +186,10 @@ class RealWorldEvaluator(BaseEvaluator):
             # load images
             depth_img = cv2.imread(os.path.join(self.args.data_dir, "depth", img), cv2.IMREAD_ANYDEPTH)
             depth_img = depth_img.astype(np.float32) / 1000.0
-            depth_img[depth_img > train_config.data_cfg.max_depth] = 0.0
+            if isinstance(train_config.data_cfg, list):
+                depth_img[depth_img > train_config.data_cfg[0].max_depth] = 0.0
+            else:
+                depth_img[depth_img > train_config.data_cfg.max_depth] = 0.0
             depth_img[~np.isfinite(depth_img)] = 0.0
             if train_config.sem:
                 bgr_sem_img = cv2.imread(os.path.join(self.args.data_dir, "semantics", self.bgr_img_list[idx]))

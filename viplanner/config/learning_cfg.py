@@ -8,7 +8,7 @@
 
 # python
 from dataclasses import dataclass, field
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union
 import yaml
 import os
 
@@ -36,7 +36,8 @@ class DataCfg:
     
     # real world data used --> images have to be rotated by 180 degrees
     real_world_data: bool = False 
-    carla: bool = True
+    # from carla dataset (exclude certain spaces)
+    carla: bool = False
     
     # identification suffix of the cameras for semantic and depth images
     depth_suffix = "_cam0"
@@ -52,7 +53,7 @@ class DataCfg:
     "maximium and minimum distance between odom and goal"
     distance_scheme: dict = field(default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05})
     "select goal points for the samples according to the scheme: {distance: percentage of goals}, distances have to be increasing and max distance has to be equal to max_goal_distance"
-    obs_cost_height: float = 0.8
+    obs_cost_height: float = 1.5
     "all odom points with cost of more than obs_cost_height are discarded (negative cost of cost_map will be automatically added)"
     fov_scale: float = 1.0
     "scaling of the field of view (only goals within fov are considered)"
@@ -121,8 +122,8 @@ class TrainCfg:
     )
     test_env_id: int = 9
     "the test env id in the id list"    
-    data_cfg: DataCfg = DataCfg()
-    "further data configuration"
+    data_cfg: Union[DataCfg, List[DataCfg]] = DataCfg()
+    "further data configuration (can be individualized for every environment)"
     multi_epoch_dataloader: bool = False
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"   
     num_workers: int = 4

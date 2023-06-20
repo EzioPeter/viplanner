@@ -53,7 +53,7 @@ class ReconstructionCfg:
     semantics: bool = True
 
     # speed vs. memory trade-off parameters
-    point_cloud_batch_size: int = 100  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
+    point_cloud_batch_size: int = 200  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
 
     """ Internal functions """    
     def get_data_path(self) -> str:

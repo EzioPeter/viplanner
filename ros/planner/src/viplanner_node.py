@@ -136,6 +136,7 @@ class VIPlannerNode:
         self.marker_line_pub = rospy.Publisher("viplanner/visualization/goal_line",   Marker, queue_size=1)
         self.marker_circ: Marker = None
         self.marker_line: Marker = None
+        self.max_goal_distance: float = 10.0
         self._init_markers()
 
         # planning status topics
@@ -238,9 +239,9 @@ class VIPlannerNode:
         cur_goal_robot_frame = np.array([self.goal_robot_frame.point.x, self.goal_robot_frame.point.y, self.goal_robot_frame.point.z])
         cur_goal_world_frame = np.array([self.goal_world_frame.point.x, self.goal_world_frame.point.y, self.goal_world_frame.point.z])
 
-        if np.linalg.norm(cur_goal_robot_frame[:2]) > self.vip_algo.train_cfg.data_cfg.max_goal_distance:
+        if np.linalg.norm(cur_goal_robot_frame[:2]) > self.max_goal_distance:
             # crop goal position
-            cur_goal_robot_frame[:2] = cur_goal_robot_frame[:2] / np.linalg.norm(cur_goal_robot_frame[:2]) * self.vip_algo.train_cfg.data_cfg.max_goal_distance
+            cur_goal_robot_frame[:2] = cur_goal_robot_frame[:2] / np.linalg.norm(cur_goal_robot_frame[:2]) * self.max_goal_distance
             crop_goal = PointStamped()
             crop_goal.header.stamp = self.depth_header.stamp
             crop_goal.header.frame_id = self.cfg.robot_id
@@ -267,14 +268,19 @@ class VIPlannerNode:
         goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]
         return goal_cam_frame
     
-    def _init_markers(self):     
+    def _init_markers(self):  
+        if isinstance(self.vip_algo.train_cfg.data_cfg, list):
+            self.max_goal_distance = self.vip_algo.train_cfg.data_cfg[0].max_goal_distance
+        else:
+            self.max_goal_distance = self.vip_algo.train_cfg.data_cfg.max_goal_distance
+        
         # setup circle marker
         self.marker_circ = Marker()
         self.marker_circ.header.frame_id = self.cfg.world_id
         self.marker_circ.type = Marker.SPHERE
         self.marker_circ.action = Marker.ADD
-        self.marker_circ.scale.x = self.vip_algo.train_cfg.data_cfg.max_goal_distance * 2
-        self.marker_circ.scale.y = self.vip_algo.train_cfg.data_cfg.max_goal_distance * 2
+        self.marker_circ.scale.x = self.max_goal_distance * 2
+        self.marker_circ.scale.y = self.max_goal_distance * 2
         self.marker_circ.scale.z = 0.01
         self.marker_circ.color.a = 0.1
         self.marker_circ.color.r = 0.0

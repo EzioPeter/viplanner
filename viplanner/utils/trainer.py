@@ -202,6 +202,10 @@ class Trainer:
     
     ## Helper function DATA
     def _load_data(self, train: bool = True) -> None:
+        if not isinstance(self._cfg.data_cfg, list):
+            self._cfg.data_cfg = [self._cfg.data_cfg] * len(self._cfg.env_list)
+        assert len(self._cfg.data_cfg) == len(self._cfg.env_list), "Either single DataCfg or number matching number of environments must be provided"
+
         for idx, env_name in enumerate(self._cfg.env_list):
             if (train and idx == self._cfg.test_env_id) or (not train and idx != self._cfg.test_env_id):
                 continue
@@ -224,7 +228,7 @@ class Trainer:
             )
                     
             generator = PlannerDataGenerator(
-                cfg=self._cfg.data_cfg,
+                cfg=self._cfg.data_cfg[idx],
                 root=data_path,
                 semantics=self._cfg.sem,
                 rgb=self._cfg.rgb,
@@ -319,7 +323,7 @@ class Trainer:
             # init data classes
 
             val_data = PlannerData(
-                cfg=self._cfg.data_cfg,
+                cfg=generator._cfg,
                 transform=self.transform,
                 semantics=self._cfg.sem,
                 rgb=self._cfg.rgb,
@@ -329,7 +333,7 @@ class Trainer:
             
             if train:
                 train_data = PlannerData(
-                    cfg=self._cfg.data_cfg,
+                    cfg=generator._cfg,
                     transform=self.transform,
                     semantics=self._cfg.sem,
                     rgb=self._cfg.rgb,

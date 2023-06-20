@@ -16,8 +16,6 @@ from viplanner.utils.eval_utils import BaseEvaluator
 
 
 class RealWorldEvaluatorDynamic(BaseEvaluator):
-    # TODO: inherit from RealWorldDataHandler 
-
     """
     VIPlanner Evaluator for real world data. Evaluated are the walked path regarding their cost, path length and success. 
     Data should be extracted from rosbags using the scripts in viplanner/scripts/rosbag_extractor.py

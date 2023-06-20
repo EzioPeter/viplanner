@@ -41,7 +41,7 @@ VIPLANNER_SEM_META = [
         'color': [0, 153, 0],
         'ground': True,
     },
-    # traversable not intended  # TODO: adjust colors
+    # traversable not intended
     {
         'name': 'gravel',
         'loss': TRAVERSABLE_UNINTENDED_LOSS,

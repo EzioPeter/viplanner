@@ -15,7 +15,6 @@ import cv2
 from tqdm import tqdm
 import pypose as pp
 import torchvision.transforms as transforms
-from typing import List
 import scipy.spatial.transform as tf
 
 # viplanner
@@ -25,6 +24,7 @@ from viplanner.utils.m2f_utils import M2FWrapper
 from viplanner.traj_cost_opt import TrajOpt, TrajCost, TrajViz
 from viplanner.dataset import PlannerDataGenerator
 from viplanner.utils.eval_utils import BaseEvaluator
+from viplanner.utils.rosbag_base_handler import RealWorldDataHandler
 
 # set random seed for reproducibility
 torch.manual_seed(12)
@@ -34,9 +34,7 @@ ROS_TO_ROBOTICS_MAT = tf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True)
 CAMERA_FLIP_MAT     = tf.Rotation.from_euler("XYZ", [180, 0, 0],   degrees=True).as_matrix()
 
 
-class RealWorldEvaluator(BaseEvaluator):
-    # TODO: inherit from RealWorldDataHandler 
-    
+class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):    
     def __init__(self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg) -> None:
         """
         Make prediction on real world images and evaluate the generated pathes. Expected args:
@@ -53,19 +51,11 @@ class RealWorldEvaluator(BaseEvaluator):
                                         - intrinsics_bgr.txt
                                         - intrinsics_depth.txt
         """
-        super().__init__(args.tolerance)
+        super(BaseEvaluator).__init__(args.tolerance)
+        super(RealWorldDataHandler).__init__(args.data_dir)
+
         self.args = args
         self.m2f_cfg = m2f_cfg
-        
-        # load data
-        self.K_bgr: np.ndarray = None
-        self.K_depth: np.ndarray = None
-        self.odom_bgr: np.ndarray = None
-        self.odom_depth: np.ndarray = None
-        self.depth_img_list: np.ndarray = None
-        self.bgr_img_list: np.ndarray = None
-        self.odom_depth_pp: pp.LieTensor = None
-        self.load_data()
         
         # create buffers and set nbr paths
         self.set_nbr_paths(nbr_paths=(len(self.depth_img_list) - max(self.args.goal_frame_advances)) * len(self.args.goal_frame_advances))
@@ -124,28 +114,6 @@ class RealWorldEvaluator(BaseEvaluator):
         self.odom_bgr = odom_bgr
         self.odom_depth_pp = odom_depth_pp
         return
-        
-    def synchronize_data(self, bgr_timestamp, depth_timestamp, threshold=0.1):
-        # get combined timestamp
-        bgr_timestamp = bgr_timestamp[:, 0] + bgr_timestamp[:, 1] / 1e9
-        depth_timestamp = depth_timestamp[:, 0] + depth_timestamp[:, 1] / 1e9
-        
-        # Find the index of the closest odometry timestamp for each image timestamp
-        idx = np.searchsorted(bgr_timestamp, depth_timestamp)
-        # Check if the previous odometry timestamp is closer
-        prev_idx = np.clip(idx - 1, 0, len(bgr_timestamp) - 1)
-        next_idx = np.clip(idx, 0, len(bgr_timestamp) - 1)
-        prev_diff = np.abs(depth_timestamp - bgr_timestamp[prev_idx])
-        next_diff = np.abs(depth_timestamp - bgr_timestamp[next_idx])
-        use_prev = prev_diff < next_diff
-        # Compute the synchronized timestamps as a tuple of (odometry timestamp, index)
-        synced_timestamp = np.where(use_prev, bgr_timestamp[prev_idx], bgr_timestamp[next_idx])
-        synced_idx = np.where(use_prev, prev_idx, next_idx)
-        # Check if the synchronized timestamp is within a threshold
-        within_threshold = np.abs(synced_timestamp - depth_timestamp) < threshold
-        bgr_idx = synced_idx[within_threshold]
-        depth_idx = np.where(within_threshold)[0]
-        return depth_idx, bgr_idx
 
     def run_model(self, model_dir: str) -> None:
         # load config

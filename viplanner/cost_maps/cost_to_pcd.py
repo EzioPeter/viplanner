@@ -114,6 +114,12 @@ class CostMapPCD:
         if not self.map_init:
             print("Error: map has not been init yet!")
             return
+        
+        # make directories
+        os.makedirs(os.path.join(self.cfg.general.root_path, "maps", "data"), exist_ok=True)
+        os.makedirs(os.path.join(self.cfg.general.root_path, "maps", "cloud"), exist_ok=True)
+        os.makedirs(os.path.join(self.cfg.general.root_path, "maps", "params"), exist_ok=True)
+        
         map_path    = os.path.join(self.cfg.general.root_path, "maps", "data",   self.cfg.map_name   + "_map.txt")
         ground_path = os.path.join(self.cfg.general.root_path, "maps", "data",   self.cfg.map_name   + "_ground.txt")
         cloud_path  = os.path.join(self.cfg.general.root_path, "maps", "cloud",  self.cfg.map_name   + "_cloud.txt")

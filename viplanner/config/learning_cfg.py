@@ -139,7 +139,7 @@ class TrainCfg:
     w_motion: float = 1.5
     w_goal: float = 2.0
     "weights for the loss components"
-    obstacle_thred: float = 0.75
+    obstacle_thred: float = 1.2
     "obstacle threshold to decide if fear path or not"  
     
     # network configurations

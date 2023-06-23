@@ -518,16 +518,16 @@ class Trainer:
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         
         waypoints = traj_cost.opt.TrajGeneratorFromPFreeRot(preds, step=step)
-        loss1, fear_labels = traj_cost.CostofTraj(
+        loss = traj_cost.CostofTraj(
             waypoints,
             odom,
             goal,
+            fear,
             log_step,
             ahead_dist=self._cfg.fear_ahead_dist,
             dataset=dataset,
         )
-        loss2 = nn.BCELoss()(fear, fear_labels)
         
-        return loss1+loss2, waypoints 
+        return loss, waypoints 
     
 # EoF

@@ -11,15 +11,32 @@ from typing import List, Optional
 from viplanner.config import TrainCfg
 from viplanner.utils.trainer import Trainer
 from viplanner.utils.eval_utils import BaseEvaluator
-from viplanner.traj_cost_opt import TrajCost, TrajOpt
+from viplanner.traj_cost_opt import TrajCost
 
 class SimEvaluator(BaseEvaluator):
     
     debug: bool = False
     
-    def __init__(self, tolerance: float = 0.5, environment: str = "2n8kARJN3HM") -> None:
+    def __init__(
+        self, 
+        tolerance: float = 0.5, 
+        environment: str = "2n8kARJN3HM", 
+        carla: bool = False, 
+        fear_filter: bool = False,
+    ) -> None:
+        """Evaluation of Simulation Results with one-shot predictions
+
+        Args:
+            tolerance (float, optional): Tolerance to classify a goal as reached. Defaults to 0.5.
+            environment (str, optional): Name of the environment used for testing. Defaults to "2n8kARJN3HM".
+            carla (bool, optional): If it is a Carla Simulator environment (affects the DataCfg). Defaults to False.
+        """
+        
         # init base class
-        super().__init__(tolerance)        
+        super().__init__(tolerance)
+        # parameters
+        self.carla: bool = carla
+        self.fear_filter: bool = fear_filter  
         # set random seed for reproducibility
         torch.manual_seed(12)
         # environment
@@ -53,7 +70,32 @@ class SimEvaluator(BaseEvaluator):
         if not use_prev_results or not success:
             # load config
             train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dirs[0], "model.yaml"))
+            # set environment
             train_config.env_list = [self.environment]
+            # set data config
+            if self.carla:
+                if isinstance(train_config.data_cfg, list):
+                    carla_idx = [data_cfg.carla for data_cfg in train_config.data_cfg].index(True)
+                    if carla_idx:
+                        print(f"[INFO] Carla data found, only using first data config: {train_config.data_cfg[carla_idx]}")
+                        train_config.data_cfg = [train_config.data_cfg[carla_idx[0]]]
+                    else:
+                        print(f"[WARNING] No Carla data found, using first data config: {train_config.data_cfg[0]}")
+                        train_config.data_cfg = [train_config.data_cfg[0]]
+                else:
+                    if train_config.data_cfg.carla:
+                        print(f"[INFO] Carla data found: {train_config.data_cfg}")
+                        train_config.data_cfg = [train_config.data_cfg]
+                    else:
+                        print(f"[WARNING] No Carla data found, using data config: {train_config.data_cfg}")
+                        train_config.data_cfg = [train_config.data_cfg]
+            else:
+                if isinstance(train_config.data_cfg, list):
+                    print(f"[INFO] Using first data config: {train_config.data_cfg[0]}")
+                    train_config.data_cfg = [train_config.data_cfg[0]]
+                else:
+                    train_config.data_cfg = [train_config.data_cfg]
+            # enforce that this environment is used for testing
             train_config.test_env_id = 0
             
             # load trainer and data
@@ -140,11 +182,12 @@ class SimEvaluator(BaseEvaluator):
                 goal[inputs[4], 1] = goal[inputs[4], 1] * -1
                 
                 # filter paths with high fear
-                fear_selection = (fear < 0.5).squeeze()
-                preds = preds[fear_selection]
-                goal  = goal[fear_selection]
-                odom  = odom[fear_selection]
-                fear = fear[fear_selection]
+                if self.fear_filter:
+                    fear_selection = (fear < 0.5).squeeze()
+                    preds = preds[fear_selection]
+                    goal  = goal[fear_selection]
+                    odom  = odom[fear_selection]
+                    fear = fear[fear_selection]
                 
                 if len(preds.shape) == 4:
                     # squeeze
@@ -210,23 +253,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels')
     parser.add_argument('-m', '--model_dirs', nargs='+', type=str, help='Path to model directory',
                         default=[
+                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_new_loss_neg05",
                             "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_neg05",
                             # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_combi_more_data_neg05",
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
+                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
                         ])
     parser.add_argument('-n', '--model_names', nargs='+', type=str, help='Model name',
                     default=[
-                        "VIPlanner",
-                        "iPlanner",
+                        "VIPlanner (new)",
+                        "VIPlanner (old)",
+                        # "iPlanner",
                     ])
     parser.add_argument('-env', '--environment', type=str, help='Environment name',
                 default="2n8kARJN3HM")  # "town01_more_data_train")  # 
+    parser.add_argument('-c', '--carla', action='store_true', help='Use carla environment (changes DataCfg)',
+            default=False)
+    parser.add_argument('-ff', '--fear_filter', action='store_true', help='Filter all fear trajectories for evaluation (filtered fear values above 0.5)',
+            default=False) 
     parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     args = parser.parse_args()
     print(args)
 
-    evaluator = SimEvaluator(args.tolerance, args.environment)
+    evaluator = SimEvaluator(args.tolerance, args.environment, args.carla, args.fear_filter)
     evaluator.run(args.model_dirs, args.model_names)
     
 # EoF

@@ -140,7 +140,7 @@ class TrainCfg:
     w_goal: float = 2.0
     "weights for the loss components"
     obstacle_thred: float = 1.2
-    "obstacle threshold to decide if fear path or not"  
+    "obstacle threshold to decide if fear path or not (neg reward for semantic cost-maps is added automatically)"  
     
     # network configurations
     img_input_size: Tuple[int, int] = field(default_factory=lambda: [360, 640]) 

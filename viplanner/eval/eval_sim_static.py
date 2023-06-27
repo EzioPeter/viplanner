@@ -19,7 +19,8 @@ class SimEvaluator(BaseEvaluator):
     
     def __init__(
         self, 
-        tolerance: float = 0.5, 
+        distance_tolerance: float = 0.5, 
+        obs_loss_threshold: float = 0.3,
         environment: str = "2n8kARJN3HM", 
         carla: bool = False, 
         fear_filter: bool = False,
@@ -33,7 +34,7 @@ class SimEvaluator(BaseEvaluator):
         """
         
         # init base class
-        super().__init__(tolerance)
+        super().__init__(distance_tolerance=distance_tolerance, obs_loss_threshold=obs_loss_threshold)
         # parameters
         self.carla: bool = carla
         self.fear_filter: bool = fear_filter  
@@ -47,6 +48,7 @@ class SimEvaluator(BaseEvaluator):
         if use_prev_results:
             length_goal_list = []
             length_path_list = []
+            path_extension_list = []
             goal_distance_list = []
             obstacle_loss_list = []
             obstacle_max_loss_list = []
@@ -58,6 +60,7 @@ class SimEvaluator(BaseEvaluator):
                     
                     length_goal_list.append(np.loadtxt(os.path.join(eval_dir, "length_goal.txt")))
                     length_path_list.append(np.loadtxt(os.path.join(eval_dir, "length_path.txt")))
+                    path_extension_list.append(np.loadtxt(os.path.join(eval_dir, "path_extension.txt")))
                     goal_distance_list.append(np.loadtxt(os.path.join(eval_dir, "goal_distances.txt")))
                     obstacle_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_obstacles.txt")))
                     obstacle_max_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_max_obstacles.txt")))
@@ -108,6 +111,7 @@ class SimEvaluator(BaseEvaluator):
             length_path_list = []
             goal_distance_list = []
             obstacle_loss_list = []
+            path_extension_list = []
 
             for model_dir in model_dirs:
                 # reset
@@ -128,8 +132,17 @@ class SimEvaluator(BaseEvaluator):
                 length_path_list.append(self.length_path.copy())
                 goal_distance_list.append(self.goal_distances.copy())
                 obstacle_loss_list.append(self.loss_obstacles.copy())
+                path_extension_list.append(self.path_extension.copy())
         
-        self.plt_comparison(length_goal_list, length_path_list, goal_distance_list, model_dirs, data_dir, obstacle_loss_list, model_names)
+        self.plt_comparison(
+            length_goal_list=length_goal_list, 
+            goal_distance_list=goal_distance_list, 
+            path_extension_list=path_extension_list, 
+            model_dirs=model_dirs, 
+            save_dir=data_dir, 
+            obs_loss_list=obstacle_loss_list, 
+            model_names=model_names
+        )
         return
     
     def setup(self):
@@ -150,15 +163,6 @@ class SimEvaluator(BaseEvaluator):
     def create_buffers(self) -> None:
         super().create_buffers()
         self.loss_max_obstacles = np.zeros((self.nbr_paths))
-        return
-    
-    def eval_statistics(self) -> None:
-        super().eval_statistics()
-        path_success_obs = np.sum(self.loss_max_obstacles > 0.3) / self.nbr_paths
-        
-        print(
-                f"\nPath success obs loss:        {path_success_obs}"
-            )
         return
         
     def run_eval(self):
@@ -207,6 +211,9 @@ class SimEvaluator(BaseEvaluator):
                 mean_loss, max_loss = self._traj_cost.obs_cost_eval(odom, waypoints)
                 self.loss_obstacles[pred_counter:pred_counter+len(goal)] = mean_loss.cpu().numpy()
                 self.loss_max_obstacles[pred_counter:pred_counter+len(goal)] = max_loss.cpu().numpy()
+                # path extension as (path length - straight line start to final point on path) / (straight line start to final point on path)
+                straight_distance = np.linalg.norm(waypoints_world[:, -1, :2] - odom[:, :2].cpu().numpy(), axis=1)
+                self.path_extension[pred_counter:pred_counter+len(goal)] = (self.length_path[pred_counter:pred_counter+len(goal)] - straight_distance) / straight_distance
                 pred_counter += len(goal)
 
                 if self.debug:
@@ -220,6 +227,7 @@ class SimEvaluator(BaseEvaluator):
         self.length_goal = self.length_goal[:pred_counter]
         self.loss_obstacles = self.loss_obstacles[:pred_counter]
         self.loss_max_obstacles = self.loss_max_obstacles[:pred_counter]
+        self.path_extension = self.path_extension[:pred_counter]
         
         # sort values
         sort_indices = np.argsort(self.length_goal)
@@ -227,7 +235,8 @@ class SimEvaluator(BaseEvaluator):
         self.length_path = self.length_path[sort_indices]
         self.goal_distances = self.goal_distances[sort_indices]
         self.loss_obstacles = self.loss_obstacles[sort_indices]
-        self.loss_max_obstacles = self.loss_max_obstacles[sort_indices] 
+        self.loss_max_obstacles = self.loss_max_obstacles[sort_indices]
+        self.path_extension = self.path_extension[sort_indices]
         
         # make directory and save data
         _, model_name = os.path.split(self.trainer._cfg.curr_model_dir)
@@ -240,6 +249,7 @@ class SimEvaluator(BaseEvaluator):
         np.savetxt(os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances)
         np.savetxt(os.path.join(eval_dir, "loss_obstacles.txt"), self.loss_obstacles)
         np.savetxt(os.path.join(eval_dir, "loss_max_obstacles.txt"), self.loss_max_obstacles)
+        np.savetxt(os.path.join(eval_dir, "path_extension.txt"), self.path_extension)
         
         # plot data
         self.plt_single_model(eval_dir, show=False)
@@ -270,12 +280,14 @@ if __name__ == "__main__":
             default=False)
     parser.add_argument('-ff', '--fear_filter', action='store_true', help='Filter all fear trajectories for evaluation (filtered fear values above 0.5)',
             default=False) 
-    parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
+    parser.add_argument('--distance_tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
+    parser.add_argument('--obs_loss_threshold', type=float, help='Maximum obstacle loss for a path to be considered successful',
+                        default=0.3)
     args = parser.parse_args()
     print(args)
 
-    evaluator = SimEvaluator(args.tolerance, args.environment, args.carla, args.fear_filter)
+    evaluator = SimEvaluator(args.distance_tolerance, args.obs_loss_threshold, args.environment, args.carla, args.fear_filter)
     evaluator.run(args.model_dirs, args.model_names)
     
 # EoF

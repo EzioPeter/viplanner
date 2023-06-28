@@ -5,13 +5,15 @@ import os
 import torch
 import numpy as np
 import argparse
-from typing import List, Optional
+from typing import List, Optional, Union
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
 from viplanner.utils.trainer import Trainer
 from viplanner.utils.eval_utils import BaseEvaluator
 from viplanner.traj_cost_opt import TrajCost
+
+DATA_PARENT_DIR = "/home/pascal/SemNav/imperative_learning/data"
 
 class SimEvaluator(BaseEvaluator):
     
@@ -21,7 +23,7 @@ class SimEvaluator(BaseEvaluator):
         self, 
         distance_tolerance: float = 0.5, 
         obs_loss_threshold: float = 0.3,
-        environment: str = "2n8kARJN3HM", 
+        environment: Union[List[str], str] = "2n8kARJN3HM", 
         carla: bool = False, 
         fear_filter: bool = False,
     ) -> None:
@@ -42,118 +44,146 @@ class SimEvaluator(BaseEvaluator):
         torch.manual_seed(12)
         # environment
         self.environment = environment
+        # buffer
+        self.trainer: Trainer = None
+        self._traj_cost: TrajCost = None
         return
 
     def run(self, model_dirs: List[str], model_names: Optional[List[str]] = None, use_prev_results: bool = True):
-        if use_prev_results:
-            length_goal_list = []
-            length_path_list = []
-            path_extension_list = []
-            goal_distance_list = []
-            obstacle_loss_list = []
-            obstacle_max_loss_list = []
-            data_dir = os.path.join("/home/pascal/SemNav/imperative_learning/data", self.environment)
-            try:
-                for model_dir in model_dirs:
-                    _, model_name = os.path.split(model_dir)
-                    eval_dir = os.path.join(data_dir, f"eval_{model_name}")
+        # check if enough environments are given
+        if isinstance(self.environment, list):
+            assert len(self.environment) == len(model_dirs), "Number of environments and models must match to assign each model its own environment!"
+
+        # init buffers
+        length_goal_list = []
+        length_path_list = []
+        path_extension_list = []
+        goal_distance_list = []
+        obstacle_loss_list = []
+        # obstacle_max_loss_list = []
+
+        for idx, model_dir in enumerate(model_dirs):
+            _, model_name = os.path.split(model_dir)
+            
+            # check for previous results
+            if use_prev_results:
+                # check if all file exist
+                if isinstance(self.environment, list):
+                    data_dir = os.path.join(DATA_PARENT_DIR, self.environment[idx])
+                else:
+                    data_dir = os.path.join(DATA_PARENT_DIR, self.environment)
+                eval_dir = os.path.join(data_dir, f"eval_{model_name}")
+                all_file_exists = all([os.path.isfile(os.path.join(eval_dir, f"{file_name}.txt")) for file_name in ["length_goal", "length_path", "path_extension", "goal_distances", "loss_obstacles"]])
                     
+                if all_file_exists:
                     length_goal_list.append(np.loadtxt(os.path.join(eval_dir, "length_goal.txt")))
                     length_path_list.append(np.loadtxt(os.path.join(eval_dir, "length_path.txt")))
                     path_extension_list.append(np.loadtxt(os.path.join(eval_dir, "path_extension.txt")))
                     goal_distance_list.append(np.loadtxt(os.path.join(eval_dir, "goal_distances.txt")))
                     obstacle_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_obstacles.txt")))
-                    obstacle_max_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_max_obstacles.txt")))
-                success = True
-                self._use_cost_map = True
-            except FileNotFoundError:
-                print("[Warning] No previous results found, running evaluation...")
-                success = False
-        
-        if not use_prev_results or not success:
-            # load config
-            train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dirs[0], "model.yaml"))
-            # set environment
-            train_config.env_list = [self.environment]
-            # set data config
-            if self.carla:
-                if isinstance(train_config.data_cfg, list):
-                    carla_idx = [data_cfg.carla for data_cfg in train_config.data_cfg].index(True)
-                    if carla_idx:
-                        print(f"[INFO] Carla data found, only using first data config: {train_config.data_cfg[carla_idx]}")
-                        train_config.data_cfg = [train_config.data_cfg[carla_idx[0]]]
-                    else:
-                        print(f"[WARNING] No Carla data found, using first data config: {train_config.data_cfg[0]}")
-                        train_config.data_cfg = [train_config.data_cfg[0]]
+                    self._use_cost_map = True
+                    # obstacle_max_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_max_obstacles.txt")))
+                    continue
                 else:
-                    if train_config.data_cfg.carla:
-                        print(f"[INFO] Carla data found: {train_config.data_cfg}")
-                        train_config.data_cfg = [train_config.data_cfg]
-                    else:
-                        print(f"[WARNING] No Carla data found, using data config: {train_config.data_cfg}")
-                        train_config.data_cfg = [train_config.data_cfg]
+                    print("[INFO] No previous results found, running evaluation...")
+            
+            # load trainer, config and data    
+            if isinstance(self.environment, list):
+                train_cfg = self.load_config(model_dir, idx=idx)
+                if idx == 0 or (idx > 0 and self.environment[idx] != self.environment[idx-1]):
+                    self.trainer = Trainer(train_cfg)  # can get new trainer since data and cost changes
+                    self.setup_data_cost()  # load individual data and cost
+                else:
+                    # load new config
+                    self.trainer._cfg = train_cfg    
             else:
-                if isinstance(train_config.data_cfg, list):
-                    print(f"[INFO] Using first data config: {train_config.data_cfg[0]}")
-                    train_config.data_cfg = [train_config.data_cfg[0]]
-                else:
-                    train_config.data_cfg = [train_config.data_cfg]
-            # enforce that this environment is used for testing
-            train_config.test_env_id = 0
+                train_cfg = self.load_config(model_dir)
+                if self.trainer is None:
+                    # load trainer
+                    self.trainer = Trainer(train_cfg)        
+                    # load data
+                    self.setup_data_cost()
+                else:                    
+                    # load new config
+                    self.trainer._cfg = train_cfg                    
             
-            # load trainer and data
-            self.trainer = Trainer(train_config)        
-            # load data
-            self.setup()
+            # reset
+            self.reset()
+            del self.trainer.net
             
-            # run model
-            length_goal_list = []
-            length_path_list = []
-            goal_distance_list = []
-            obstacle_loss_list = []
-            path_extension_list = []
-
-            for model_dir in model_dirs:
-                # reset
-                self.reset()
-                del self.trainer.net
-                # load new config
-                self.trainer.model_path = os.path.join(model_dir, "model.pt")
-                train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dir, "model.yaml"))
-                train_config.env_list = [self.environment]
-                train_config.test_env_id = 0
-                self.trainer._cfg = train_config
-                # load model
-                self.trainer._load_model(resume=True)
-                # run evaluation
-                self.run_eval()
-                
-                length_goal_list.append(self.length_goal.copy())
-                length_path_list.append(self.length_path.copy())
-                goal_distance_list.append(self.goal_distances.copy())
-                obstacle_loss_list.append(self.loss_obstacles.copy())
-                path_extension_list.append(self.path_extension.copy())
+            # load model
+            self.trainer.model_path = os.path.join(model_dir, "model.pt")
+            self.trainer._load_model(resume=True)
+            
+            # run evaluation
+            self.run_eval(model_name)
+            
+            length_goal_list.append(self.length_goal.copy())
+            length_path_list.append(self.length_path.copy())
+            goal_distance_list.append(self.goal_distances.copy())
+            obstacle_loss_list.append(self.loss_obstacles.copy())
+            path_extension_list.append(self.path_extension.copy())
         
         self.plt_comparison(
             length_goal_list=length_goal_list, 
             goal_distance_list=goal_distance_list, 
             path_extension_list=path_extension_list, 
             model_dirs=model_dirs, 
-            save_dir=data_dir, 
+            save_dir=os.path.join(DATA_PARENT_DIR, self.environment[0]) if isinstance(self.environment, list) else os.path.join(DATA_PARENT_DIR, self.environment),
             obs_loss_list=obstacle_loss_list, 
             model_names=model_names
         )
         return
     
-    def setup(self):
+    def load_config(self, model_dir: str, idx: int = 0) -> TrainCfg:
+        # load config
+        train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dir, "model.yaml"))
+        # set environment
+        if isinstance(self.environment, list):
+            train_config.env_list = [self.environment[idx]]
+        else:
+            train_config.env_list = [self.environment]
+        # set data config
+        if self.carla:
+            if isinstance(train_config.data_cfg, list):
+                carla_idx = [data_cfg.carla for data_cfg in train_config.data_cfg].index(True)
+                if carla_idx:
+                    print(f"[INFO] Carla data found, only using first data config: {train_config.data_cfg[carla_idx]}")
+                    train_config.data_cfg = [train_config.data_cfg[carla_idx[0]]]
+                else:
+                    print(f"[WARNING] No Carla data found, using first data config: {train_config.data_cfg[0]}")
+                    train_config.data_cfg = [train_config.data_cfg[0]]
+            else:
+                if train_config.data_cfg.carla:
+                    print(f"[INFO] Carla data found: {train_config.data_cfg}")
+                    train_config.data_cfg = [train_config.data_cfg]
+                else:
+                    print(f"[WARNING] No Carla data found, using data config: {train_config.data_cfg}")
+                    train_config.data_cfg = [train_config.data_cfg]
+        else:
+            if isinstance(train_config.data_cfg, list):
+                print(f"[INFO] Using first data config: {train_config.data_cfg[0]}")
+                train_config.data_cfg = [train_config.data_cfg[0]]
+            else:
+                train_config.data_cfg = [train_config.data_cfg]
+        # data should be 100% within the fov (otherwise only results in )
+        train_config.data_cfg[0].ratio_fov_samples = 1.0
+        train_config.data_cfg[0].ratio_front_samples = 0.0
+        train_config.data_cfg[0].ratio_back_samples = 0.0
+        # enforce that this environment is used for testing
+        train_config.test_env_id = 0
+        return train_config
+    
+    def setup_data_cost(self):
         # get dataloader for training
         self.trainer._load_data(train=False)
         _, test_loader = self.trainer._get_dataloader(train=False, allow_augmentation=False)
         self.test_loader = test_loader[0]
         
         # set cost map
-        self._use_cost_map = True
-        self._traj_cost: TrajCost = self.trainer.data_traj_cost[0]
+        if self._traj_cost is None:
+            self._use_cost_map = True
+            self._traj_cost: TrajCost = self.trainer.data_traj_cost[0]
 
         # create buffers
         nbr_samples = len(self.test_loader) * self.trainer._cfg.batch_size
@@ -165,7 +195,7 @@ class SimEvaluator(BaseEvaluator):
         self.loss_max_obstacles = np.zeros((self.nbr_paths))
         return
         
-    def run_eval(self):
+    def run_eval(self, model_name: str) -> None:
         pred_counter = 0
         
         with torch.no_grad():
@@ -239,7 +269,6 @@ class SimEvaluator(BaseEvaluator):
         self.path_extension = self.path_extension[sort_indices]
         
         # make directory and save data
-        _, model_name = os.path.split(self.trainer._cfg.curr_model_dir)
         data_dir = os.path.join(self.trainer._cfg.data_dir, self.trainer._cfg.env_list[self.trainer._cfg.test_env_id])
         eval_dir = os.path.join(data_dir, f"eval_{model_name}")
         os.makedirs(eval_dir, exist_ok=True)
@@ -257,12 +286,13 @@ class SimEvaluator(BaseEvaluator):
         # get statistics
         self.eval_statistics()
         self.save_eval_results(self.trainer._cfg.curr_model_dir, save_name=os.path.split(data_dir)[-1])
-        
+        return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels')
     parser.add_argument('-m', '--model_dirs', nargs='+', type=str, help='Path to model directory',
                         default=[
+                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_new_colorspace_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor",
                             "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_new_loss_neg05",
                             "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_neg05",
                             # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_combi_more_data_neg05",
@@ -270,16 +300,21 @@ if __name__ == "__main__":
                         ])
     parser.add_argument('-n', '--model_names', nargs='+', type=str, help='Model name',
                     default=[
-                        "VIPlanner (new)",
+                        "VIPlanner (rectangle approx with new loss and new colorspace)",
+                        "VIPlanner (rectangle approx)",
                         "VIPlanner (old)",
                         # "iPlanner",
                     ])
     parser.add_argument('-env', '--environment', type=str, help='Environment name',
-                default="2n8kARJN3HM")  # "town01_more_data_train")  # 
+                        default=[
+                            "2n8kARJN3HM_new_colorspace",
+                            "2n8kARJN3HM",
+                            "2n8kARJN3HM",
+                        ])  # "town01_more_data_train")
     parser.add_argument('-c', '--carla', action='store_true', help='Use carla environment (changes DataCfg)',
             default=False)
     parser.add_argument('-ff', '--fear_filter', action='store_true', help='Filter all fear trajectories for evaluation (filtered fear values above 0.5)',
-            default=False) 
+            default=True) 
     parser.add_argument('--distance_tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     parser.add_argument('--obs_loss_threshold', type=float, help='Maximum obstacle loss for a path to be considered successful',

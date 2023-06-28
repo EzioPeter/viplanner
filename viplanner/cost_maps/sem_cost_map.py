@@ -363,7 +363,7 @@ class SemCostMap:
         distances, idx = kdtree.query(non_classified_idx, k=1) 
         
         # only use points within the mesh, i.e. distance to nearest neighbor smaller than 10 cells
-        within_mesh = distances < 5 
+        within_mesh = distances < 10 
         
         # assign each point its neighbor loss
         grid_loss[non_classified_idx[within_mesh, 0], non_classified_idx[within_mesh, 1]] = grid_loss[pts_grid_idx_red[idx[within_mesh], 0], pts_grid_idx_red[idx[within_mesh], 1]]
@@ -413,7 +413,6 @@ class SemCostMap:
             axs[1, 0].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=0, mode='constant')) + math.e) - 1, cmap='jet')
             axs[1, 1].set_title('grid loss y-grad')
             axs[1, 1].imshow(np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=1, mode='constant')) + math.e) - 1, cmap='jet')
-            plt.colorbar()
             plt.show()
 
         return loss_smooth

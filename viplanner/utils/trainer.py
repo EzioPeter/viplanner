@@ -69,13 +69,13 @@ class Trainer:
         self.optimizer: optim.Optimizer = None
         self.scheduler: EarlyStopScheduler = None
 
-        print('TRAINER INITIALIZED')
+        print('[INFO] Trainer initialized')
         return
     
     """PUBLIC METHODS"""
 
     def train(self) -> None:
-        print('START TRAINING')
+        print('[INFO] Start Training')
         # init logging
         self._init_logging()
         # load model and prepare model for training
@@ -93,7 +93,7 @@ class Trainer:
         try:
             wandb.watch(self.net)
         except:
-            print("[WARNING: Wandb model watch failed")
+            print("[WARNING] Wandb model watch failed")
         
         for epoch in range(self._cfg.epochs):
             train_loss = 0; val_loss = 0
@@ -107,17 +107,17 @@ class Trainer:
             try:
                 wandb.log({"train_loss": train_loss, "val_loss": val_loss, "epoch": epoch})
             except:
-                print("[WARNING: Wandb logging failed")
+                print("[WARNING] Wandb logging failed")
             
             # if val_loss < best_loss:
             if val_loss < self.best_loss:
-                print("Save model of epoch %d"%(epoch))
+                print("[INFO] Save model of epoch %d"%(epoch))
                 torch.save((self.net.state_dict(), val_loss), self.model_path)
                 self.best_loss = val_loss
-                print("Current val loss: %.4f"%(self.best_loss))
+                print("[INFO] Current val loss: %.4f"%(self.best_loss))
 
             if self.scheduler.step(val_loss):
-                print('Early Stopping!')
+                print('[INFO] Early Stopping!')
                 break    
             
             if self._cfg.hierarchical and (epoch+1) % self._cfg.hierarchical_step == 0:
@@ -139,7 +139,7 @@ class Trainer:
         return
     
     def test(self, step: Optional[int] = None) -> None:
-        print('START TESTING')
+        print('[INFO] Start Training')
         # set random seed for reproducibility
         torch.manual_seed(self._cfg.seed)
         
@@ -167,11 +167,11 @@ class Trainer:
         return 
     
     def save_config(self) -> None:
-        print('val_loss: %.2f, test_loss, %.4f'%(self.best_loss, self.test_loss))
+        print('[INFO] val_loss: %.2f, test_loss, %.4f'%(self.best_loss, self.test_loss))
         """ Save config and loss to file"""
         path, _ = os.path.splitext(self.model_path)
         yaml_path = path + ".yaml"
-        print(f"Save config and loss to {yaml_path} file")
+        print(f"[INFO] Save config and loss to {yaml_path} file")
         
         loss_dict = {"val_loss": self.best_loss, "test_loss": self.test_loss}
         save_dict = {"config": vars(self._cfg), "loss": loss_dict}
@@ -247,7 +247,7 @@ class Trainer:
             self.data_traj_viz.append(traj_viz)
             print(f'LOADED DATA FOR ENVIRONMENT: {env_name}')
         
-        print('LOADED ALL DATA')
+        print('[INFO] LOADED ALL DATA')
         return
     
     ## Helper function TRAINING
@@ -290,7 +290,7 @@ class Trainer:
         print("Available GPU list: {}".format(list(range(torch.cuda.device_count()))))
         print("Runnin on GPU: {}".format(self._cfg.gpu_id))
         self.net = self.net.cuda(self._cfg.gpu_id)
-        print('MODEL LOADED ({} parameters)'.format(count_parameters(self.net)))
+        print('[INFO] MODEL LOADED ({} parameters)'.format(count_parameters(self.net)))
         
         if resume:
             model_state_dict, self.best_loss = torch.load(self.model_path)
@@ -307,7 +307,7 @@ class Trainer:
         else:
             raise KeyError("Optimizer {} not supported".format(self._cfg.optimizer))
         self.scheduler = EarlyStopScheduler(self.optimizer, factor=self._cfg.factor, verbose=True, min_lr=self._cfg.min_lr, patience=self._cfg.patience)
-        print('OPTIMIZER AND SCHEDULER CONFIGURED')
+        print('[INFO] OPTIMIZER AND SCHEDULER CONFIGURED')
         return 
     
     def _get_dataloader(self, train: bool = True, step: Optional[int] = None, allow_augmentation: bool = True) -> None:

@@ -67,7 +67,7 @@ class ReconstructionCfg:
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
     # point-cloud filter parameters
-    ground_height: Optional[float] = None  # None for matterport  -0.5 for carla  -1.0 for nomoko
+    ground_height: Optional[float] = -0.2  # None for matterport  -0.5 for carla  -1.0 for nomoko
     robot_height: float = 0.70
     robot_height_factor: float = 3.0
     nb_neighbors: int = 100
@@ -78,13 +78,13 @@ class SemCostMapConfig:
     change_decimal: int = 3
     conv_crit: float = 0.45  # ration of points that have to change by at least the #change_decimal decimal value to converge  
     nb_tasks: Optional[int] = 10  # number of tasks for parallel processing, if None, all available cores are used
-    sigma_smooth: float = 2.0
+    sigma_smooth: float = 2.5
     max_iterations: int = 1
     # obstacle threshold  (multiplied with highest loss value defined for a semantic class)
-    obstacle_threshold: float = 0.6  # 0.5/ 0.6 for matterport, 0.7 for carla
+    obstacle_threshold: float = 0.8  # 0.5/ 0.6 for matterport, 0.7 for carla
     # negative reward for space with smallest cost (introduces a gradient in area with smallest loss value, steering towards center)
     # NOTE: at the end cost map is elevated by that amount to ensure that the smallest cost is 0
-    negative_reward: float = 1.0
+    negative_reward: float = 0.5
     # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
     round_decimal_traversable: int = 2
     # compute height map
@@ -119,7 +119,7 @@ class GeneralCostMapConfig:
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
-    sigma_smooth: float = 1.5
+    sigma_smooth: float = 3.0
     # cost map expansion
     x_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
     y_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used

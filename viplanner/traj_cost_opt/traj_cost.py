@@ -29,7 +29,7 @@ class TrajCost:
         w_goal: float = 2.0,
         obstalce_thred: float = 0.75,
         robot_width: float = 0.6,
-        robot_length: float = 0.8,
+        robot_max_moving_distance: float = 0.3,
     ) -> None:
         # init map and optimizer
         self.gpu_id = gpu_id
@@ -49,7 +49,7 @@ class TrajCost:
         
         # footprint radius
         self.robot_width = robot_width
-        self.robot_length = robot_length
+        self.robot_max_moving_distance = robot_max_moving_distance
         
         # logging
         self.log_data = log_data
@@ -179,8 +179,8 @@ class TrajCost:
             waypoints (torch.Tensor): Path coordinates in world frame
         """        
         assert self.is_map, "Map has to be loaded for evaluation"
-        oloss_M = self._compute_oloss(waypoints, 1)
-        return torch.mean(oloss_M)
+        oloss_M = self._compute_oloss(waypoints.unsqueeze(0), 1)
+        return torch.max(oloss_M)
     
     def _compute_oloss(self, world_ps, batch_size):
         # include robot dimension as square
@@ -189,13 +189,13 @@ class TrajCost:
         normals = tangent[:, :, [1, 0]] * torch.tensor([-1, 1], dtype=torch.float32, device=world_ps.device)  # get normal vector
         world_ps_inflated = torch.vstack([world_ps[:, :-1, :]] * 5)  # duplicate points
         world_ps_inflated[:, :, 0:2] = torch.vstack([
-            # robot corners
-            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2,                                 # front_right
-            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2,                                 # front_left
-            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2 - tangent * self.robot_length,   # back_right
-            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2 - tangent * self.robot_length,   # back_left
-            # robot center
-            world_ps[:, :-1, 0:2] - tangent * self.robot_length / 2,
+            # movement corners
+            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2 + tangent * self.robot_max_moving_distance / 2,  # front_right
+            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2 + tangent * self.robot_max_moving_distance / 2,  # front_left
+            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2 - tangent * self.robot_max_moving_distance / 2,  # back_right
+            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2 - tangent * self.robot_max_moving_distance / 2,  # back_left
+            # movement center
+            world_ps[:, :-1, 0:2],
         ])
         
         norm_inds, cost_idx = self.cost_map.Pos2Ind(world_ps_inflated)

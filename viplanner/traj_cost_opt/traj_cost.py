@@ -29,7 +29,7 @@ class TrajCost:
         w_goal: float = 2.0,
         obstalce_thred: float = 0.75,
         robot_width: float = 0.6,
-        robot_max_moving_distance: float = 0.3,
+        robot_max_moving_distance: float = 0.15,
     ) -> None:
         # init map and optimizer
         self.gpu_id = gpu_id
@@ -190,12 +190,12 @@ class TrajCost:
         world_ps_inflated = torch.vstack([world_ps[:, :-1, :]] * 5)  # duplicate points
         world_ps_inflated[:, :, 0:2] = torch.vstack([
             # movement corners
-            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2 + tangent * self.robot_max_moving_distance / 2,  # front_right
-            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2 + tangent * self.robot_max_moving_distance / 2,  # front_left
-            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2 - tangent * self.robot_max_moving_distance / 2,  # back_right
-            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2 - tangent * self.robot_max_moving_distance / 2,  # back_left
+            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2,                                             # front_right
+            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2,                                             # front_left
+            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2 - tangent * self.robot_max_moving_distance,  # back_right
+            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2 - tangent * self.robot_max_moving_distance,  # back_left
             # movement center
-            world_ps[:, :-1, 0:2],
+            world_ps[:, :-1, 0:2] - tangent * self.robot_max_moving_distance / 2,
         ])
         
         norm_inds, cost_idx = self.cost_map.Pos2Ind(world_ps_inflated)

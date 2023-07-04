@@ -111,10 +111,14 @@ class VIPlannerNode:
         self.sem_rgb_odom: np.ndarray           = None
         self.pix_depth_cam_frame: np.ndarray    = None
         rospy.Subscriber(self.cfg.depth_topic, Image, callback=self.depthCallback, queue_size=1, buff_size=2**24)
-        if self.cfg.compressed:
-            rospy.Subscriber(self.cfg.rgb_topic, CompressedImage, callback=self.imageCallbackCompressed, queue_size=1, buff_size=2**24)
-        else:
-            rospy.Subscriber(self.cfg.rgb_topic, Image, callback=self.imageCallback, queue_size=1, buff_size=2**24)
+        
+        if self.vip_algo.train_cfg.sem or self.vip_algo.train_cfg.rgb:
+            if self.cfg.compressed:
+                rospy.Subscriber(self.cfg.rgb_topic, CompressedImage, callback=self.imageCallbackCompressed, queue_size=1, buff_size=2**24)
+            else:
+                rospy.Subscriber(self.cfg.rgb_topic, Image, callback=self.imageCallback, queue_size=1, buff_size=2**24)
+        else: 
+            self.ready_for_planning_rgb_sem = True
 
         # subscribe to further topics
         self.goal_world_frame: PointStamped = None
@@ -157,37 +161,46 @@ class VIPlannerNode:
         while not rospy.is_shutdown():
             if all((self.ready_for_planning_rgb_sem, self.ready_for_planning_depth, self.is_goal_init, self.goal_cam_frame_set)):
                 # copy current data
-                cur_rgb_image = self.sem_rgb_img.copy()
                 cur_depth_image = self.depth_img.copy()
                 cur_depth_pose = self.depth_pose.copy()
-                cur_rgb_pose = self.sem_rgb_odom.copy()
+                
+                if self.vip_algo.train_cfg.sem or self.vip_algo.train_cfg.rgb:
+                    cur_rgb_pose = self.sem_rgb_odom.copy()
+                    cur_rgb_image = self.sem_rgb_img.copy()
 
-                # warp rgb image
-                if self.rgb_header.frame_id != self.depth_header.frame_id:
-                    start = time.time()
-                    if self.pix_depth_cam_frame is None:
-                        self.initPixArray(cur_depth_image.shape)
-                    cur_rgb_image, overlap_ratio, depth_zero_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
-                    time_warp = time.time() - start
+                    # warp rgb image
+                    # print(self.rgb_header.frame_id, self.depth_header.frame_id)
+                    if self.rgb_header.frame_id != self.depth_header.frame_id:
+                        start = time.time()
+                        if self.pix_depth_cam_frame is None:
+                            self.initPixArray(cur_depth_image.shape)
+                        cur_rgb_image, overlap_ratio, depth_zero_ratio = self.imageWarp(cur_rgb_image, cur_depth_image, cur_rgb_pose, cur_depth_pose)
+                        time_warp = time.time() - start
 
-                    if overlap_ratio < self.cfg.overlap_ratio_thres:
-                        rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}, whith depth zero ratio {depth_zero_ratio}")
-                        self.pubPath(np.zeros((51, 3)), self.is_goal_init)
-                        continue
-                    
-                    if depth_zero_ratio > self.cfg.depth_zero_ratio_thres:
-                        rospy.logwarn_throttle(2.0, f"Waiting for new depth image since depth zero ratio is {depth_zero_ratio} > {self.cfg.depth_zero_ratio_thres}, whith overlap ratio {overlap_ratio}")
-                        self.pubPath(np.zeros((51, 3)), self.is_goal_init)
-                        continue
+                        if overlap_ratio < self.cfg.overlap_ratio_thres:
+                            rospy.logwarn_throttle(2.0, f"Waiting for new semantic image since overlap ratio is {overlap_ratio} < {self.cfg.overlap_ratio_thres}, whith depth zero ratio {depth_zero_ratio}")
+                            self.pubPath(np.zeros((51, 3)), self.is_goal_init)
+                            continue
+                        
+                        if depth_zero_ratio > self.cfg.depth_zero_ratio_thres:
+                            rospy.logwarn_throttle(2.0, f"Waiting for new depth image since depth zero ratio is {depth_zero_ratio} > {self.cfg.depth_zero_ratio_thres}, whith overlap ratio {overlap_ratio}")
+                            self.pubPath(np.zeros((51, 3)), self.is_goal_init)
+                            continue
+                    else:
+                        time_warp = 0.0
                 else:
                     time_warp = 0.0
-                
+                    self.time_sem = 0.0
+
                 # project goal
                 goal_cam_frame = self.goalProjection(cur_depth_pose=cur_depth_pose)
 
                 # Network Planning
                 start = time.time()
-                waypoints, fear = self.vip_algo.plan(cur_depth_image, cur_rgb_image, goal_cam_frame)
+                if self.vip_algo.train_cfg.sem or self.vip_algo.train_cfg.rgb:
+                    waypoints, fear = self.vip_algo.plan(cur_depth_image, cur_rgb_image, goal_cam_frame)
+                else:
+                    waypoints, fear = self.vip_algo.plan_depth(cur_depth_image, goal_cam_frame)
                 time_planner = time.time() - start
                 
                 start = time.time()
@@ -210,7 +223,8 @@ class VIPlannerNode:
                     rospy.loginfo("Goal Arrived")
                 
                 # check for path with high risk (=fear) path
-                if self.cfg.is_fear_act:
+                if fear > 0.7:
+                    self.is_fear_reaction = True
                     is_track_ahead = self.isForwardTraking(waypoints)
                     self.fearPathDetection(fear, is_track_ahead)
                     if self.is_fear_reaction:
@@ -240,7 +254,7 @@ class VIPlannerNode:
 
         if np.linalg.norm(cur_goal_robot_frame[:2]) > self.vip_algo.train_cfg.data_cfg.max_goal_distance:
             # crop goal position
-            cur_goal_robot_frame[:2] = cur_goal_robot_frame[:2] / np.linalg.norm(cur_goal_robot_frame[:2]) * self.vip_algo.train_cfg.data_cfg.max_goal_distance
+            cur_goal_robot_frame[:2] = cur_goal_robot_frame[:2] / np.linalg.norm(cur_goal_robot_frame[:2]) * (self.vip_algo.train_cfg.data_cfg.max_goal_distance / 2)
             crop_goal = PointStamped()
             crop_goal.header.stamp = self.depth_header.stamp
             crop_goal.header.frame_id = self.cfg.robot_id
@@ -273,8 +287,8 @@ class VIPlannerNode:
         self.marker_circ.header.frame_id = self.cfg.world_id
         self.marker_circ.type = Marker.SPHERE
         self.marker_circ.action = Marker.ADD
-        self.marker_circ.scale.x = self.vip_algo.train_cfg.data_cfg.max_goal_distance * 2
-        self.marker_circ.scale.y = self.vip_algo.train_cfg.data_cfg.max_goal_distance * 2
+        self.marker_circ.scale.x = self.vip_algo.train_cfg.data_cfg.max_goal_distance # only half of the distance
+        self.marker_circ.scale.y = self.vip_algo.train_cfg.data_cfg.max_goal_distance # only half of the distance
         self.marker_circ.scale.z = 0.01
         self.marker_circ.color.a = 0.1
         self.marker_circ.color.r = 0.0

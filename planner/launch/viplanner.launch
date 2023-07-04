@@ -5,7 +5,7 @@
 
     <group if="$(arg use_path_follow)">
         <include file="$(find path_follower)/launch/path_follower.launch" />
-        <include file="$(find ps3joy)/launch/ps3.launch" />
+        <!-- <include file="$(find ps3joy)/launch/ps3.launch" /> -->
     </group>
 
     <group if="$(arg enable_visualization)">

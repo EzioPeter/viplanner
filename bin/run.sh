@@ -1,5 +1,5 @@
 # Parse arguments
-VERSION=0.1.0
+VERSION=0.1.1
 ENTRYPOINT="/entrypoint.sh"
 PKGROOT="$( realpath "$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && pwd )"/../ )"
 

@@ -119,13 +119,13 @@ class TrajCost:
         
         # Fear labels
         goal_dists = torch.cumsum(wp_ds, dim=1, dtype=wp_ds.dtype)
-        goal_dists = torch.vstack([goal_dists]*2)
+        goal_dists = torch.vstack([goal_dists]*3)
         floss_M = torch.clone(oloss_M)
         floss_M[goal_dists > ahead_dist] = 0.0 
         fear_labels = torch.max(floss_M, 1, keepdim=True)[0]
         # fear_labels = nn.Sigmoid()(fear_labels-obstalce_thred)
         fear_labels = fear_labels > self.obstalce_thred + self.neg_reward[2]
-        fear_labels = torch.any(fear_labels.reshape(2, batch_size).T, dim=1, keepdim=True).to(torch.float32)
+        fear_labels = torch.any(fear_labels.reshape(3, batch_size).T, dim=1, keepdim=True).to(torch.float32)
         # Fear loss
         collision_probabilty_loss = nn.BCELoss()(fear, fear_labels.float())
         
@@ -187,17 +187,18 @@ class TrajCost:
         tangent = world_ps[:, 1:, 0:2] - world_ps[:, :-1, 0:2]  # get tangent vector
         tangent = tangent / torch.norm(tangent, dim=2, keepdim=True)  # normalize normals vector
         normals = tangent[:, :, [1, 0]] * torch.tensor([-1, 1], dtype=torch.float32, device=world_ps.device)  # get normal vector
-        world_ps_inflated = torch.vstack([world_ps[:, :-1, :]]*2)  # duplicate points
+        world_ps_inflated = torch.vstack([world_ps[:, :-1, :]]*3)  # duplicate points
         world_ps_inflated[:, :, 0:2] = torch.vstack([
             # movement corners
             world_ps[:, :-1, 0:2] + normals * self.robot_width / 2, # front_right
+            world_ps[:, :-1, 0:2],  # center
             world_ps[:, :-1, 0:2] - normals * self.robot_width / 2, # front_left
         ])
         
         norm_inds, cost_idx = self.cost_map.Pos2Ind(world_ps_inflated)
         
         # Obstacle Cost
-        cost_grid = self.cost_map.cost_array.T.expand(batch_size*2, 1, -1, -1)
+        cost_grid = self.cost_map.cost_array.T.expand(batch_size*3, 1, -1, -1)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32)
         
@@ -210,25 +211,25 @@ class TrajCost:
             start_xy = torch.tensor([self.cost_map.cfg.x_start, self.cost_map.cfg.y_start], dtype=torch.float64, device=world_ps_inflated.device).expand(1, 1, -1)
             H = (world_ps_inflated[:, :, 0:2] - start_xy) / self.cost_map.cfg.general.resolution
             cost_values = self.cost_map.cost_array[
-                H[[0, batch_size], :, 0].reshape(-1).detach().cpu().numpy().astype(np.int64),
-                H[[0, batch_size], :, 1].reshape(-1).detach().cpu().numpy().astype(np.int64)
+                H[[0, batch_size, batch_size*2], :, 0].reshape(-1).detach().cpu().numpy().astype(np.int64),
+                H[[0, batch_size, batch_size*2], :, 1].reshape(-1).detach().cpu().numpy().astype(np.int64)
             ]
 
             import matplotlib.pyplot as plt
             fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-            sc1 = ax1.scatter(world_ps_inflated[[0, batch_size], :, 0].reshape(-1).detach().cpu().numpy(),
-                              world_ps_inflated[[0, batch_size], :, 1].reshape(-1).detach().cpu().numpy(), 
-                              c=oloss_M[[0, batch_size]].reshape(-1).detach().cpu().numpy(), 
+            sc1 = ax1.scatter(world_ps_inflated[[0, batch_size, batch_size*2], :, 0].reshape(-1).detach().cpu().numpy(),
+                              world_ps_inflated[[0, batch_size, batch_size*2], :, 1].reshape(-1).detach().cpu().numpy(), 
+                              c=oloss_M[[0, batch_size, batch_size*2]].reshape(-1).detach().cpu().numpy(), 
                               cmap='rainbow', vmin=0, vmax=torch.max(cost_grid).item())
             ax1.set_aspect('equal', adjustable='box')
-            sc2 = ax2.scatter(H[[0, batch_size], :, 0].reshape(-1).detach().cpu().numpy(), 
-                              H[[0, batch_size], :, 1].reshape(-1).detach().cpu().numpy(), 
+            sc2 = ax2.scatter(H[[0, batch_size, batch_size*2], :, 0].reshape(-1).detach().cpu().numpy(), 
+                              H[[0, batch_size, batch_size*2], :, 1].reshape(-1).detach().cpu().numpy(), 
                               c=cost_values.cpu().numpy(), cmap='rainbow', vmin=0, vmax=torch.max(cost_grid).item())
             ax2.set_aspect('equal', adjustable='box')
             cost_array = self.cost_map.cost_array.cpu().numpy()
             max_cost = torch.max(self.cost_map.cost_array).item()
             scale_factor = [1.4, 1.8]
-            for idx, run_idx in enumerate([0, batch_size]):
+            for idx, run_idx in enumerate([0, batch_size, batch_size*2]):
                 _, cost_idx = self.cost_map.Pos2Ind(world_ps_inflated[run_idx, :, :].unsqueeze(0))
                 cost_array[cost_idx.to(torch.int32).cpu().numpy()[:, 0], 
                            cost_idx.to(torch.int32).cpu().numpy()[:, 1]] = max_cost * scale_factor[idx]
@@ -240,8 +241,8 @@ class TrajCost:
             
             import open3d as o3d
             pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(world_ps_inflated[[0, batch_size], :, :3].reshape(-1, 3).detach().cpu().numpy())
-            pcd.colors = o3d.utility.Vector3dVector(sc1.to_rgba(oloss_M[[0, batch_size]].reshape(-1).detach().cpu().numpy())[:, :3])
+            pcd.points = o3d.utility.Vector3dVector(world_ps_inflated[[0, batch_size, batch_size*2], :, :3].reshape(-1, 3).detach().cpu().numpy())
+            pcd.colors = o3d.utility.Vector3dVector(sc1.to_rgba(oloss_M[[0, batch_size, batch_size*2]].reshape(-1).detach().cpu().numpy())[:, :3])
             # pcd.colors = o3d.utility.Vector3dVector(sc2.to_rgba(cost_values[0].cpu().numpy())[:, :3])
             o3d.visualization.draw_geometries([self.cost_map.pcd_tsdf, pcd])
         

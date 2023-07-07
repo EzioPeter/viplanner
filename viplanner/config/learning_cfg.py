@@ -137,7 +137,7 @@ class TrainCfg:
     w_obs: float = 0.25
     w_height: float = 1.0
     w_motion: float = 1.5
-    w_goal: float = 2.0
+    w_goal: float = 4.0
     "weights for the loss components"
     obstacle_thred: float = 1.2
     "obstacle threshold to decide if fear path or not (neg reward for semantic cost-maps is added automatically)"  

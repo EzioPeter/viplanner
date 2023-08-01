@@ -183,22 +183,25 @@ class TrajCost:
         return torch.max(oloss_M)
     
     def _compute_oloss(self, world_ps, batch_size):
-        # include robot dimension as square
-        tangent = world_ps[:, 1:, 0:2] - world_ps[:, :-1, 0:2]  # get tangent vector
-        tangent = tangent / torch.norm(tangent, dim=2, keepdim=True)  # normalize normals vector
-        normals = tangent[:, :, [1, 0]] * torch.tensor([-1, 1], dtype=torch.float32, device=world_ps.device)  # get normal vector
-        world_ps_inflated = torch.vstack([world_ps[:, :-1, :]]*3)  # duplicate points
-        world_ps_inflated[:, :, 0:2] = torch.vstack([
-            # movement corners
-            world_ps[:, :-1, 0:2] + normals * self.robot_width / 2, # front_right
-            world_ps[:, :-1, 0:2],  # center
-            world_ps[:, :-1, 0:2] - normals * self.robot_width / 2, # front_left
-        ])
-        
+        if world_ps.shape[1] == 1:  # special case when evaluating cost of a recorded path
+            world_ps_inflated = world_ps
+        else:
+            # include robot dimension as square
+            tangent = world_ps[:, 1:, 0:2] - world_ps[:, :-1, 0:2]  # get tangent vector
+            tangent = tangent / torch.norm(tangent, dim=2, keepdim=True)  # normalize normals vector
+            normals = tangent[:, :, [1, 0]] * torch.tensor([-1, 1], dtype=torch.float32, device=world_ps.device)  # get normal vector
+            world_ps_inflated = torch.vstack([world_ps[:, :-1, :]]*3)  # duplicate points
+            world_ps_inflated[:, :, 0:2] = torch.vstack([
+                # movement corners
+                world_ps[:, :-1, 0:2] + normals * self.robot_width / 2, # front_right
+                world_ps[:, :-1, 0:2],  # center
+                world_ps[:, :-1, 0:2] - normals * self.robot_width / 2, # front_left
+            ])
+            
         norm_inds, cost_idx = self.cost_map.Pos2Ind(world_ps_inflated)
         
         # Obstacle Cost
-        cost_grid = self.cost_map.cost_array.T.expand(batch_size*3, 1, -1, -1)
+        cost_grid = self.cost_map.cost_array.T.expand(world_ps_inflated.shape[0], 1, -1, -1)
         oloss_M = F.grid_sample(cost_grid, norm_inds[:, None, :, :], mode='bicubic', padding_mode='border', align_corners=False).squeeze(1).squeeze(1)
         oloss_M = oloss_M.to(torch.float32)
         

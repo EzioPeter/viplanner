@@ -1,7 +1,10 @@
 # Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py
 # File containing the meta info of all classes from the COCO dataset.
 
-from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
+try:
+    from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
+except ModuleNotFoundError:
+    COCO_CATEGORIES = None
 
 _COCO_MAPPING_UNIQUE = {
     'road': "road",

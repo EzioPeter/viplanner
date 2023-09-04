@@ -45,7 +45,8 @@ sys.path.append(pack_path)
 
 # visual imperative planner
 from src.vip_inference import VIPlannerInference
-from src.m2f_inference import Mask2FormerInference
+# from src.m2f_inference import Mask2FormerInference
+from src.m2f_inference_mmdet import Mask2FormerInference as Mask2FormerInferenceMMDet
 from utils.rosutil import ROSArgparse
 
 # conversion matrix from ROS camera convention (z-forward, y-down, x-right) to robotics convention (x-forward, y-left, z-up)
@@ -67,9 +68,9 @@ class VIPlannerNode:
         
         if self.vip_algo.train_cfg.sem:
             # init semantic network
-            self.m2f_inference = Mask2FormerInference(
+            self.m2f_inference = Mask2FormerInferenceMMDet(
                 config_file=args.m2f_config_path,
-                model_weights=args.m2f_model_path,
+                checkpoint_file=args.m2f_model_path,
             )
             self.m2f_timer_data = Float32()
             self.m2f_timer_pub  = rospy.Publisher(self.cfg.m2f_timer_topic, Float32, queue_size=10)

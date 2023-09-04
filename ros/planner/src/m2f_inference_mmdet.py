@@ -8,6 +8,7 @@
 # python
 import numpy as np
 from mmdet.apis import init_detector, inference_detector
+from mmdet.evaluation import INSTANCE_OFFSET
 
 # ROS
 import rospy
@@ -47,16 +48,18 @@ class Mask2FormerInference:
         Args:
             image (np.ndarray): image to be processed in BGR format
         """
-                
+
         result = inference_detector(self.model, image)
-        result = result.pred_panoptic_seg.sem_seg.detach().cpu().numpy()
+        result = result.pred_panoptic_seg.sem_seg.detach().cpu().numpy()[0]
         # create output
         panoptic_mask = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
-        for curr_sem_class in np.unique(result):
+        for curr_sem_class in np.unique(result):                
+            curr_label = curr_sem_class % INSTANCE_OFFSET
             try:
-                panoptic_mask[result == curr_sem_class] = self.coco_viplanner_color_mapping[curr_sem_class]
+                panoptic_mask[result == curr_sem_class] = self.coco_viplanner_color_mapping[curr_label]
             except KeyError:
-                rospy.logwarn(f"Category {curr_sem_class} not found in coco_viplanner_cls_mapping.")
+                if curr_sem_class != len(self.model.dataset_meta["classes"]):
+                    rospy.logwarn(f"Category {curr_label} not found in coco_viplanner_cls_mapping.")
                 panoptic_mask[result == curr_sem_class] = self.viplanner_sem_class_color_map['static']
         
         if self.debug:

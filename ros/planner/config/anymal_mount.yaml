@@ -1,0 +1,34 @@
+# planning
+main_freq:              5
+image_flip:             False
+conv_dist:              0.5
+max_depth:              15
+overlap_ratio_thres:    0.80
+depth_zero_ratio_thres: 0.6
+# network model
+model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_cam_mount_combi_lossWidthMod_wgoal4.0_warehouse
+# model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor_lossWidthMod_wgoal4.0_warehouse
+# model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor_movlossCorr_wgoal4.0
+m2f_cfg_file:           models/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml 
+# m2f_model_path:         models/m2f_model/m2f_overfit/model_zurich_70_0049999.pth 
+m2f_model_path:         models/m2f_model/coco/panoptic/swin/model_final_9fd0ae.pkl
+# ros topics
+depth_topic:            /depth_cam_mounted_front/depth/image_rect_raw
+depth_info_topic:       /depth_cam_mounted_front/depth/camera_info
+rgb_topic:              /depth_cam_mounted_front/color/image_raw/compressed
+rgb_info_topic:         /depth_cam_mounted_front/color/camera_info
+goal_topic:             /mp_waypoint
+path_topic:             /viplanner/path
+m2f_timer_topic:        /viplanner/m2f_timer
+depth_uint_type:        True
+compressed:             True
+# frame ids
+robot_id:               base_inverted
+world_id:               odom
+# fear reaction
+is_fear_act:            False
+buffer_size:            3
+angular_thred:          0.3
+track_dist:             0.5
+# smart joystick
+joyGoal_scale:          2.5

@@ -25,7 +25,9 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
 **Remark**
 Note that for an ediable install for packages without setup.py, PEP660 has to be fulfilled. This requires the following versions (as described [here](https://stackoverflow.com/questions/69711606/how-to-install-a-package-using-pip-in-editable-mode-with-pyproject-toml) in detail)
 - [pip >= 21.3](https://pip.pypa.io/en/stable/news/#v21-3)
+	> python3 -m pip install --upgrade pip
 - [setuptools >= 64.0.0](https://github.com/pypa/setuptools/blob/main/CHANGES.rst#v6400)
+	> python3 -m pip install --upgrade setuptools
 
 ### Training
 

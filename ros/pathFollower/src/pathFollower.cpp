@@ -229,7 +229,7 @@ int main(int argc, char** argv)
 
   ros::Publisher pubSpeed = nh.advertise<geometry_msgs::TwistStamped> (commandTopic, 5);
   geometry_msgs::TwistStamped cmd_vel;
-  cmd_vel.header.frame_id = "base";
+  cmd_vel.header.frame_id = "base_inverted";
 
   if (autonomyMode) {
     joySpeed = autonomySpeed / maxSpeed;
@@ -351,7 +351,7 @@ int main(int argc, char** argv)
       if (pubSkipCount < 0) {
         cmd_vel.header.stamp = ros::Time().fromSec(odomTime);
         if (fabs(vehicleSpeed) <= maxAccel / 100.0) cmd_vel.twist.linear.x = 0;
-        else cmd_vel.twist.linear.x = vehicleSpeed;
+        else cmd_vel.twist.linear.x = vehicleSpeed * (-1);
         cmd_vel.twist.angular.z = vehicleYawRate;
         pubSpeed.publish(cmd_vel);
 

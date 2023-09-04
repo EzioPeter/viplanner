@@ -257,6 +257,20 @@ def get_class_for_id():
             print("No mapping found for {}".format(id_dict['name']))
     return id_to_class
 
+
+def get_class_for_id_mmdet(class_list: list):
+    id_to_class = {}
+    for idx, coco_class_name in enumerate(class_list):
+        success = False
+        for class_name, keywords in _COCO_MAPPING.items():
+            if any(keyword in coco_class_name for keyword in keywords):
+                id_to_class[idx] = class_name
+                success = True
+                break
+        if not success:
+            print("No mapping found for {}".format(id_dict['name']))
+    return id_to_class
+
 if __name__ == "__main__":
     print(get_class_for_id())
     

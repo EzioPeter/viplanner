@@ -263,14 +263,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels with real-world data')
     parser.add_argument('-m', '--model_dirs', nargs='+', type=str, help='Path to model directory',
                         default=[
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD",
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
-                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_decoderS",
-                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_obs03_sdecoder",
-                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_obs04_sdecoder",
+                            "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD",
+                            "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
+                            # "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_decoderS",
+                            # "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_obs03_sdecoder",
+                            # "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_obs04_sdecoder",
                         ])
     parser.add_argument('-d', '--data_dir',  type=str, help='Path to data directory (should contain bgr, depth and odom data)', 
-                        default="/home/pascal/SemNav/env/anymal/2023_03_23_rsl")
+                        default="/home/pascal/viplanner/env/anymal/2023_03_23_rsl")
     parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     parser.add_argument('--goal_frame_advances', nargs='+', type=int, help='Number of frames to advance the goal',

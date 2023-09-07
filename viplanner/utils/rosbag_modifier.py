@@ -66,7 +66,7 @@ def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):
         # Perform semantic estimation and get image with viplanner semantic labels in RGB format
         sem_img = m2f_wrapper.run_image(img=img)
         sem_img = cv2.cvtColor(sem_img, cv2.COLOR_RGB2BGR)
-        # sem_img = cv2.imread("/home/pascal/SemNav/env/anymal/2023_03_23_rsl/semantics/frame_" + str(img_counter).zfill(5) + ".png")
+        # sem_img = cv2.imread("/home/pascal/viplanner/env/anymal/2023_03_23_rsl/semantics/frame_" + str(img_counter).zfill(5) + ".png")
           
         # Convert the modified image back to an image message
         if args.compressed:
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # parse args
     parser = argparse.ArgumentParser(description="Predict Semantic Labels for RGB Images in Rosbag")
     parser.add_argument("-bf", "--bag_file", help="Input ROS bag.",
-                        default='/home/pascal/SemNav/env/anymal/2023_01_26_eth/mission_0_all.bag')  # '/home/pascal/SemNav/env/anymal/2023_03_27_eth_sun/mergedBag.bag')
+                        default='/home/pascal/viplanner/env/anymal/2023_01_26_eth/mission_0_all.bag')  # '/home/pascal/viplanner/env/anymal/2023_03_27_eth_sun/mergedBag.bag')
     parser.add_argument("-t", "--topic_rgb", nargs="+", help="Image topics.",
                         default=[
                             # "/alphasense_driver_ros/cam3/color/image/compressed",  # left

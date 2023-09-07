@@ -136,17 +136,21 @@ def main(args):
     print(f"Opened rosbag {args.bag_file} with {bag.get_message_count()} messages")
     topics = bag.get_type_and_topic_info().topics
     
+    if args.end_time is None:
+        args.end_time = bag.get_end_time() - bag.get_start_time()
+
     # init cv_bridge
     bridge = CvBridge()
     
     # check if topic in rosbag
-    if any([used_topic not in topics for used_topic in [args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal, args.topic_path]]):
+    if any([used_topic not in topics for used_topic in [args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal, args.topic_path, args.topic_sem]]):
         raise ValueError('Not all topics in bag!')
     
     # init buffers
     odom_base   = np.ndarray((bag.get_message_count(args.topic_state), 9))      # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
     odom_depth  = np.ndarray((bag.get_message_count(args.topic_depth), 9))      # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
     odom_bgr    = np.ndarray((bag.get_message_count(args.topic_bgr), 9))        # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
+    odom_sem    = np.ndarray((bag.get_message_count(args.topic_sem), 9))        # x, y, z, qx, qy, qz, qw, t_sec, t_nsec
     odom_goal   = np.ndarray((bag.get_message_count(args.topic_goal), 5))       # x, y, z, t_sec, t_nsec
     depth_goal  = np.ndarray((bag.get_message_count(args.topic_goal), 5))       # x, y, z, t_sec, t_nsec
     path        = np.ndarray((bag.get_message_count(args.topic_path), 50, 5))   # x, y, z, t_sec, t_nsec
@@ -160,7 +164,8 @@ def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(args.output_dir + "/bgr", exist_ok=True)
     os.makedirs(args.output_dir + "/depth", exist_ok=True)
-    
+    os.makedirs(args.output_dir + "/sem", exist_ok=True)
+
     # save intrinsics
     np.savetxt(os.path.join(args.output_dir, "intrinsics_depth.txt"), K_depth)
     np.savetxt(os.path.join(args.output_dir, "intrinsics_bgr.txt"), K_bgr)
@@ -171,17 +176,17 @@ def main(args):
     state_counter = 0
     goal_counter = 0
     path_counter = 0
-    
+    sem_counter = 0
     # get transform between odom and cameras
     check_roscore()  # roscore needs to run to use tf_buffer
     tf_buffer = setup_tf_buffer(bag)
     
     # configure process bar
-    pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state) + bag.get_message_count(args.topic_goal) + bag.get_message_count(args.topic_path)))
+    pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state) + bag.get_message_count(args.topic_goal) + bag.get_message_count(args.topic_path) + bag.get_message_count(args.topic_sem)))
     
     depth_image_frame = "odom"  # just as starting value
     init_time = None
-    for topic, msg, t in bag.read_messages(topics=[args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal, args.topic_path]):
+    for topic, msg, t in bag.read_messages(topics=[args.topic_depth, args.topic_bgr, args.topic_state, args.topic_goal, args.topic_path, args.topic_sem]):
         if init_time is None:
             init_time = t.to_sec()
         
@@ -190,10 +195,13 @@ def main(args):
         
         topic_type = msg._type
         if topic_type == Image._type:  # DEPTH
-            depth_image_frame = msg.header.frame_id
+            if args.mount:
+                depth_image_frame = args.mount
+            else:
+                depth_image_frame = msg.header.frame_id
             
             try:
-                transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+                transform_stamp = tf_buffer.lookup_transform("odom", depth_image_frame, t)
             except tf2.ExtrapolationException:
                 continue
             
@@ -214,9 +222,12 @@ def main(args):
             ])
             depth_counter += 1
             
-        elif topic_type == CompressedImage._type: # BGR
+        elif topic == args.topic_bgr and topic_type == CompressedImage._type: # BGR
             try:
-                transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+                if args.mount:
+                    transform_stamp = tf_buffer.lookup_transform("odom", args.mount, t)
+                else:
+                    transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
             except tf2.ExtrapolationException:
                 continue
             
@@ -237,6 +248,32 @@ def main(args):
             ])
             bgr_counter += 1
         
+        elif topic == args.topic_sem and topic_type == CompressedImage._type: # SEMANTICS
+            try:
+                if args.mount:
+                    transform_stamp = tf_buffer.lookup_transform("odom", args.mount, t)
+                else:
+                    transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+            except tf2.ExtrapolationException:
+                continue
+
+            im = bridge.compressed_imgmsg_to_cv2(msg)
+            if "bayer_rggb8" in msg.format:
+                im = cv2.cvtColor(im, cv2.COLOR_BayerRGGB2BGR)
+            cv2.imwrite(os.path.join(args.output_dir, "sem", "frame_" + f"{int(sem_counter)}".zfill(5) + ".png"), im)
+            odom_sem[sem_counter, :] = np.array([
+                transform_stamp.transform.translation.x,
+                transform_stamp.transform.translation.y,
+                transform_stamp.transform.translation.z,
+                transform_stamp.transform.rotation.x,
+                transform_stamp.transform.rotation.y,
+                transform_stamp.transform.rotation.z,
+                transform_stamp.transform.rotation.w,
+                t.secs,
+                t.nsecs
+            ])
+            sem_counter += 1
+
         elif topic_type == Odometry._type:  # STATE
             odom_base[state_counter] = np.array([
                 msg.pose.pose.position.x,
@@ -312,9 +349,12 @@ def main(args):
 
             path_counter += 1
 
+        else:
+            raise ValueError(f'Topic {topic} is of type {topic_type} which is not supported!')
+        
         # update progress bar
         pbar.update(1)
-        pbar.set_description(f'Processing messages (bgr: {bgr_counter}, depth: {depth_counter}, state: {state_counter}, goal: {goal_counter}, path: {path_counter})')
+        pbar.set_description(f'Processing messages (bgr: {bgr_counter}, depth: {depth_counter}, state: {state_counter}, goal: {goal_counter}, path: {path_counter}, sem: {sem_counter})')
                
     bag.close()
     pbar.close()
@@ -334,13 +374,15 @@ def main(args):
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser(description="Extract msgs from a ROS bag.")
-    parser.add_argument("-bf", "--bag_file", default='/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
+    parser.add_argument("-bf", "--bag_file", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_indoor.bag", #   '/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
                         help="Input ROS bag.")
-    parser.add_argument("-o", "--output_dir", default='/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
+    parser.add_argument("-o", "--output_dir", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_indoor",  #'/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
                         help="Output directory.")
-    parser.add_argument("-td", "--topic_depth", default='/depth_camera_front_upper/depth/image_rect_raw',  # '/depth_camera_front/depth/image_rect_raw'
+    parser.add_argument("-td", "--topic_depth", default="/depth_cam_mounted_front/depth/image_rect_raw",  # '/depth_camera_front_upper/depth/image_rect_raw',  # '/depth_camera_front/depth/image_rect_raw'
                         help="Image topic.")
-    parser.add_argument("-tr", "--topic_bgr", default='/wide_angle_camera_front/image_raw/compressed', # '/depth_camera_front/color/image_raw/compressed',
+    parser.add_argument("-tr", "--topic_bgr", default='/depth_cam_mounted_front/color/image_raw/compressed',  # '/wide_angle_camera_front/image_raw/compressed', # '/depth_camera_front/color/image_raw/compressed',
+                        help="Image topic.")
+    parser.add_argument("-tsem", "--topic_sem", default='/viplanner/sem_image/compressed',
                         help="Image topic.")
     parser.add_argument("-ts", "--topic_state", default="/state_estimator/odometry",
                         help="Image topic.")
@@ -348,12 +390,14 @@ if __name__ == '__main__':
                         help="Topic where the way-/goalpoints are published.")
     parser.add_argument("-tp", "--topic_path", default="/viplanner/path_viz",
                         help="Topic where the path are published.")    
-    parser.add_argument("-r", "--rotate", action="store_true", default=True,
+    parser.add_argument("-r", "--rotate", action="store_true", default=False,
                         help="If depth images should be rotated by 180 degrees.")      
-    parser.add_argument("-st", "--start_time", type=float, default=1500.0,
+    parser.add_argument("-st", "--start_time", type=float, default=0,
                         help="Start time when messages are read from the rosbag")      
-    parser.add_argument("-et", "--end_time", type=float, default=1560.0,
-                        help="Stop time when messages are read from the rosbag")      
+    parser.add_argument("-et", "--end_time", type=float, default=None,
+                        help="Stop time when messages are read from the rosbag")
+    parser.add_argument("--mount", type=str, default="wide_angle_camera_rear_camera_parent", 
+                        help="If camera is mounted, which frame should be used for the transformation determination")  
     
     args = parser.parse_args()
 

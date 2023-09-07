@@ -17,7 +17,7 @@ from segments.utils import export_dataset
 from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
 
 # viplanner
-from viplanner.config import VIPlannerSemMetaHandler, _COCO_MAPPING_UNIQUE, SegmentsCfg
+from viplanner.config import VIPlannerSemMetaHandler, _COCO_MAPPING_UNIQUE, SegmentsCfg, _COCO_MAPPING
 
 
 def main(cfg: SegmentsCfg) -> None:
@@ -45,9 +45,6 @@ def main(cfg: SegmentsCfg) -> None:
     img_names = os.listdir(img_dir)
     img_list = [single_image for single_image in img_names if cfg.export_format in single_image]
     
-    # map: segments_ai color -> coco color and segments_ai id --> coco id
-    sem_handler = VIPlannerSemMetaHandler()
-    
     map_coco_class_to_coco_color = {}
     map_coco_class_to_coco_id = {}
     for class_item in COCO_CATEGORIES:
@@ -56,23 +53,25 @@ def main(cfg: SegmentsCfg) -> None:
         
     map_vip_id_to_coco_color = {}
     map_vip_id_to_coco_id = {}
-    for class_name, class_id in sem_handler.class_id.items():
-        if class_name == "static":
-            unknown_class_id = class_id
+    for category_dict in annotation_file["categories"]:
+        if category_dict["name"] == "static" or category_dict["name"] == "unknown":
+            map_vip_id_to_coco_id[category_dict["id"]] = 0
+            map_vip_id_to_coco_color[category_dict["id"]] = [0, 0, 0]
+            unknown_class_id = category_dict["id"]
             continue
-        map_vip_id_to_coco_id[class_id] = map_coco_class_to_coco_id[_COCO_MAPPING_UNIQUE[class_name]]
-        map_vip_id_to_coco_color[class_id] = map_coco_class_to_coco_color[_COCO_MAPPING_UNIQUE[class_name]]
+        map_vip_id_to_coco_id[category_dict["id"]] = map_coco_class_to_coco_id[_COCO_MAPPING_UNIQUE[category_dict["name"]]]
+        map_vip_id_to_coco_color[category_dict["id"]] = map_coco_class_to_coco_color[_COCO_MAPPING_UNIQUE[category_dict["name"]]]
 
     # modify annotations
     annotations = []
     for idx, annotation_dict in enumerate(tqdm(annotation_file["annotations"], desc="Converting Annotations")):
-        segments_new = annotation_dict
+        segments_new = annotation_dict.copy()
         rm_idx = []
         for idx, segment in enumerate(annotation_dict['segments_info']):
-            if (segment["category_id"] - 1) == unknown_class_id:
+            if (segment["category_id"]) == unknown_class_id:
                 rm_idx.append(idx)
             else:
-                segments_new['segments_info'][idx]["category_id"] = map_vip_id_to_coco_id[segment["category_id"] -1]
+                segments_new['segments_info'][idx]["category_id"] = map_vip_id_to_coco_id[segment["category_id"]]
         segments_new["file_name"] = segments_new["file_name"].replace('_label_ground-truth_coco-panoptic', "")
         segments_new['segments_info'] = [single_segment for idx, single_segment in enumerate(segments_new['segments_info']) if idx not in rm_idx]
         annotations.append(segments_new)
@@ -91,9 +90,9 @@ def main(cfg: SegmentsCfg) -> None:
     shutil.move(img_dir, train_img_dir)
 
     # change images from png to jpg
-    for img in os.listdir(train_img_dir):
-        if img.endswith(".png"):
-            os.rename(os.path.join(train_img_dir, img), os.path.join(train_img_dir, img.replace(".png", ".jpg")))
+    # for img in os.listdir(train_img_dir):
+    #     if img.endswith(".png"):
+    #         os.rename(os.path.join(train_img_dir, img), os.path.join(train_img_dir, img.replace(".png", ".jpg")))
     return
 
 

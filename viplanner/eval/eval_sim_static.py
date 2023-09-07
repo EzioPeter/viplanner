@@ -13,7 +13,7 @@ from viplanner.utils.trainer import Trainer
 from viplanner.utils.eval_utils import BaseEvaluator
 from viplanner.traj_cost_opt import TrajCost
 
-DATA_PARENT_DIR = "/home/pascal/SemNav/imperative_learning/data"
+DATA_PARENT_DIR = "/home/pascal/viplanner/imperative_learning/data"
 
 class SimEvaluator(BaseEvaluator):
     
@@ -292,11 +292,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate VIPmodels')
     parser.add_argument('-m', '--model_dirs', nargs='+', type=str, help='Path to model directory',
                         default=[
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_new_colorspace_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor",
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_new_loss_neg05",
-                            "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_neg05",
-                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_combi_more_data_neg05",
-                            # "/home/pascal/SemNav/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
+                            "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_new_colorspace_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor",
+                            "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_new_loss_neg05",
+                            "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_neg05",
+                            # "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDepSem_costSem_optimSGD_combi_more_data_neg05",
+                            # "/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_ep100_inputDep_costSem_optimSGD_depth",
                         ])
     parser.add_argument('-n', '--model_names', nargs='+', type=str, help='Model name',
                     default=[

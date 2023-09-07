@@ -39,7 +39,7 @@ if __name__ == "__main__":
             max_goal_distance=10.0,
         ),
         n_visualize=128,
-        wb_project="SemNav-Carla"
+        wb_project="viplanner-Carla"
     )  
     trainer = Trainer(carla)
     # trainer.train()

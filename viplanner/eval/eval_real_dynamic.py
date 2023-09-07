@@ -102,7 +102,7 @@ class RealWorldEvaluatorDynamic(BaseEvaluator):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='Model Eval', description='Evaluate the VIPlanner paths walked in the real-world')
     parser.add_argument('--data_dir',  type=str, help='Path to data directory (should contain goal and odom data)', 
-                        default="/home/pascal/SemNav/env/anymal/2023_03_23_rsl")
+                        default="/home/pascal/viplanner/env/anymal/2023_03_23_rsl")
     parser.add_argument('--tolerance', type=float, help='Tolerance to the goal to be considered reached',
                         default=0.5)
     parser.add_argument('--save_viz', action='store_true', help='Save visualizations of the predictions')

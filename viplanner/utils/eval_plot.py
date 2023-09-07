@@ -162,7 +162,7 @@ class EvalPlotter(RealWorldDataHandler):
                 cv2.imwrite(os.path.join(self.dir, "sem_projected", self.bgr_img_list[idx]), cv2.cvtColor(projected_img_sem[idx], cv2.COLOR_RGB2BGR) )
 
 if __name__ == '__main__':
-    dir = "/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem"
+    dir = "/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem"
     eval_plotter = EvalPlotter(dir, rotate=True)
     eval_plotter.plot()
 

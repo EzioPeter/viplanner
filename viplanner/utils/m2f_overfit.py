@@ -328,9 +328,12 @@ class M2FOverfit:
             # reduce number of images
             images_filelist = [single_image["file_name"][:-4] for single_image in coco_train_json["images"]]
             annotations_filelist = [single_annotation["file_name"][:-4] for single_annotation in coco_train_json["annotations"]]
+            annotations_ids = [[curr_ann["category_id"] for curr_ann in single_annotation["segments_info"]] for single_annotation in coco_train_json["annotations"]]
             
-            # randomly select images
-            selected_images = random.sample(annotations_filelist, self.m2f_cfg.coco_nb_images)
+            intended_ids = set([1, 2, 3, 4, 6, 7, 8, 10, 11, 13, 14, 15, 64, 95, 112, 118, 128, 149, 161, 171, 175, 176, 177, 178, 184, 185, 187, 190, 191, 193, 194, 197, 198, 199])
+            annotation_nb_intended_ids = [len(intended_ids.intersection(set(single_annotation_ids))) for single_annotation_ids in annotations_ids]
+             
+            selected_images = (np.array(annotations_filelist)[np.array(annotation_nb_intended_ids) > 9]).tolist()
             images_selected_idx = []
             annotations_selected_idx = []
             for image in selected_images:

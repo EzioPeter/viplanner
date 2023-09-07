@@ -60,9 +60,9 @@ def main(args):
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser()
-    parser.add_argument("-bf", "--bag_file", default='/home/pascal/SemNav/env/anymal/2023_01_26_eth/2023-01-26-16-10-24_rgb_front_rear_lidar_depth_left_right_mission_3.bag', # required=True, 
+    parser.add_argument("-bf", "--bag_file", default='/home/pascal/viplanner/env/anymal/2023_01_26_eth/2023-01-26-16-10-24_rgb_front_rear_lidar_depth_left_right_mission_3.bag', # required=True, 
                         help="Input ROS bag.")
-    parser.add_argument("-o", "--output_dir", default='/home/pascal/SemNav/env/anymal/2023_01_26_eth/2023-01-26-16-10-24_rgb_front_rear_lidar_depth_left_right_mission_3', # required=True, 
+    parser.add_argument("-o", "--output_dir", default='/home/pascal/viplanner/env/anymal/2023_01_26_eth/2023-01-26-16-10-24_rgb_front_rear_lidar_depth_left_right_mission_3', # required=True, 
                         help="Output directory.")
     parser.add_argument("-t", "--image_topic", default='/wide_angle_camera_front/image_color_rect/compressed', # required=True, 
                         help="Image topic.")

@@ -142,7 +142,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Prelabel images with a given model')
     parser.add_argument('-d', '--dataset_dir', type=str, help='Directory of the dataset',
-                        default="/home/pascal/SemNav/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem/bgr")
+                        default="/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem/bgr")
     parser.add_argument('-s', '--sem_dir_name', type=str, help='Name of the new directory for the semantic images',
                         default="semantics")
     args = parser.parse_args()

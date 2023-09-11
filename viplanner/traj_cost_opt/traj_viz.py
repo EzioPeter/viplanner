@@ -185,10 +185,10 @@ class TrajViz:
         mtl.base_color = [1.0, 1.0, 1.0, 0.3]
         mtl.shader = "defaultUnlit"
         # set meshes
-        small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/20.0) # trajectory points
-        mesh_sphere       = o3d.geometry.TriangleMesh.create_sphere(mesh_size/5.0) # successful predict points
-        mesh_sphere_fear  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/5.0) # unsuccessful predict points
-        mesh_box     = o3d.geometry.TriangleMesh.create_box(mesh_size, mesh_size, mesh_size) # end points
+        small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/10.0) # trajectory points
+        mesh_sphere       = o3d.geometry.TriangleMesh.create_sphere(mesh_size/2.0) # successful predict points
+        mesh_sphere_fear  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/2.0) # unsuccessful predict points
+        mesh_box     = o3d.geometry.TriangleMesh.create_box(mesh_size, mesh_size, mesh_size*2) # end points
         # set colors
         small_sphere.paint_uniform_color([0.99, 0.2, 0.1]) # green
         mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])

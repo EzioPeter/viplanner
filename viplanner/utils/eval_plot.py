@@ -157,12 +157,12 @@ class EvalPlotter(RealWorldDataHandler):
 
         for idx in range(len(projected_img_depth)):
             cv2.imwrite(os.path.join(self.dir, "depth_projected", self.depth_img_list[idx]), projected_img_depth[idx])
-            cv2.imwrite(os.path.join(self.dir, "rgb_projected", self.bgr_img_list[idx]), cv2.cvtColor(projected_img_rgb[idx], cv2.COLOR_RGB2BGR) )
+            cv2.imwrite(os.path.join(self.dir, "rgb_projected", self.bgr_img_list[idx]), projected_img_rgb[idx])
             if self.semantics:
-                cv2.imwrite(os.path.join(self.dir, "sem_projected", self.bgr_img_list[idx]), cv2.cvtColor(projected_img_sem[idx], cv2.COLOR_RGB2BGR) )
+                assert cv2.imwrite(os.path.join(self.dir, "sem_projected", self.bgr_img_list[idx]), projected_img_sem[idx])
 
 if __name__ == '__main__':
-    dir = "/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem"
+    dir = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_both_door"
     eval_plotter = EvalPlotter(dir, rotate=True)
     eval_plotter.plot()
 

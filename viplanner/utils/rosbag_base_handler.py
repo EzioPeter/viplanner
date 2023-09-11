@@ -24,8 +24,12 @@ class RealWorldDataHandler:
         self.dir = dir
         self.rotate = rotate  # true for ANYmal D and False for ANYmal C
         
-        if os.path.exists(os.path.join(self.dir, "semantics")):
+        if os.path.exists(os.path.join(self.dir, "semantics")) or os.path.exists(os.path.join(self.dir, "sem")):
             self.semantics = True
+            # if os.path.exists(os.path.join(self.dir, "sem")):
+            #     os.rename(os.path.join(self.dir, "sem"), os.path.join(self.dir, "semantics"))
+            if os.path.exists(os.path.join(self.dir, "sem_all")):
+                os.rename(os.path.join(self.dir, "sem_all"), os.path.join(self.dir, "semantics"))
         else:
             self.semantics = False
 
@@ -67,6 +71,7 @@ class RealWorldDataHandler:
         self.depth_img_list = np.array(sorted(os.listdir(os.path.join(self.dir, "depth"))))
         self.depth_img_list = self.depth_img_list[depth_idx] 
         self.bgr_img_list   = np.array(sorted(os.listdir(os.path.join(self.dir, "bgr"))))
+        nbr_bgr_images = len(self.bgr_img_list)
         self.bgr_img_list   = self.bgr_img_list[bgr_idx]
         self.depth_time = odom_depth[depth_idx, 7:]
         odom_depth     = odom_depth[depth_idx, :7]
@@ -74,7 +79,11 @@ class RealWorldDataHandler:
 
         if self.semantics:
             self.sem_img_list   = np.array(sorted(os.listdir(os.path.join(self.dir, "semantics"))))
-            self.sem_img_list   = self.sem_img_list[bgr_idx]
+            if len(self.sem_img_list) == nbr_bgr_images:
+                self.sem_img_list   = self.sem_img_list[bgr_idx]
+            else:
+                odom_sem = np.loadtxt(os.path.join(self.dir, "odom_sem.txt"))
+                sem_idx = self.synchronize_data(odom_bgr[:, 7:], odom_depth[:, 7:])[1]
         
         # transform rotations of depth and bgr image from ROS camera frame (z-forward) to robotics frame (x-forward)
         depth_rot_mat = tf.Rotation.from_quat(odom_depth[:, 3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT
@@ -89,24 +98,28 @@ class RealWorldDataHandler:
         self.odom_depth_pp = odom_depth_pp
         return
         
-    def synchronize_data(self, bgr_timestamp, depth_timestamp, threshold=0.1):
+    def synchronize_data(self, measurement_1, measurement_2, threshold=0.1):
+        """
+        Synchronize two measurements with different timestamps. 
+        """
         # get combined timestamp
-        bgr_timestamp = bgr_timestamp[:, 0] + bgr_timestamp[:, 1] / 1e9
-        depth_timestamp = depth_timestamp[:, 0] + depth_timestamp[:, 1] / 1e9
+        measurement_1 = measurement_1[:, 0] + measurement_1[:, 1] / 1e9
+        measurement_2 = measurement_2[:, 0] + measurement_2[:, 1] / 1e9
         
-        # Find the index of the closest odometry timestamp for each image timestamp
-        idx = np.searchsorted(bgr_timestamp, depth_timestamp)
-        # Check if the previous odometry timestamp is closer
-        prev_idx = np.clip(idx - 1, 0, len(bgr_timestamp) - 1)
-        next_idx = np.clip(idx, 0, len(bgr_timestamp) - 1)
-        prev_diff = np.abs(depth_timestamp - bgr_timestamp[prev_idx])
-        next_diff = np.abs(depth_timestamp - bgr_timestamp[next_idx])
+        # Find the indices into a sorted array "measurement_1" such that, if the corresponding elements in 
+        # "measurement_2" were inserted before the indices, the order of a would be preserved.
+        idx = np.searchsorted(measurement_1, measurement_2)
+        # Check if the previous bgr timestamp is closer
+        prev_idx = np.clip(idx - 1, 0, len(measurement_1) - 1)
+        next_idx = np.clip(idx, 0, len(measurement_1) - 1)
+        prev_diff = np.abs(measurement_2 - measurement_1[prev_idx])
+        next_diff = np.abs(measurement_2 - measurement_1[next_idx])
         use_prev = prev_diff < next_diff
-        # Compute the synchronized timestamps as a tuple of (odometry timestamp, index)
-        synced_timestamp = np.where(use_prev, bgr_timestamp[prev_idx], bgr_timestamp[next_idx])
+        # Compute the synchronized timestamps as a tuple of (depth timestamp, index)
+        synced_timestamp = np.where(use_prev, measurement_1[prev_idx], measurement_1[next_idx])
         synced_idx = np.where(use_prev, prev_idx, next_idx)
         # Check if the synchronized timestamp is within a threshold
-        within_threshold = np.abs(synced_timestamp - depth_timestamp) < threshold
-        bgr_idx = synced_idx[within_threshold]
-        depth_idx = np.where(within_threshold)[0]
-        return depth_idx, bgr_idx
+        within_threshold = np.abs(synced_timestamp - measurement_2) < threshold
+        measurement_1_idx = synced_idx[within_threshold]
+        measurement_2_idx = np.where(within_threshold)[0]
+        return measurement_2_idx, measurement_1_idx

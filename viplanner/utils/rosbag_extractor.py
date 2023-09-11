@@ -364,6 +364,7 @@ def main(args):
     np.savetxt(os.path.join(args.output_dir, "odom_bgr.txt"), odom_bgr[:bgr_counter])
     np.savetxt(os.path.join(args.output_dir, "odom_base.txt"), odom_base[:state_counter])
     np.savetxt(os.path.join(args.output_dir, "odom_goal.txt"), odom_goal[:goal_counter])
+    np.savetxt(os.path.join(args.output_dir, "odom_sem.txt"), odom_sem[:sem_counter])
     # np.savetxt(os.path.join(args.output_dir, "depth_goal.txt"), depth_goal[:goal_counter])
     np.save(os.path.join(args.output_dir, "path.npy"), path[:path_counter])  # as npy because 3D array
     # np.save(os.path.join(args.output_dir, "path_depth.npy"), path_depth[:path_counter])  # as npy because 3D array
@@ -374,9 +375,9 @@ def main(args):
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser(description="Extract msgs from a ROS bag.")
-    parser.add_argument("-bf", "--bag_file", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_indoor.bag", #   '/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
+    parser.add_argument("-bf", "--bag_file", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_door.bag", #   '/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
                         help="Input ROS bag.")
-    parser.add_argument("-o", "--output_dir", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_indoor",  #'/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
+    parser.add_argument("-o", "--output_dir", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_door",  #'/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
                         help="Output directory.")
     parser.add_argument("-td", "--topic_depth", default="/depth_cam_mounted_front/depth/image_rect_raw",  # '/depth_camera_front_upper/depth/image_rect_raw',  # '/depth_camera_front/depth/image_rect_raw'
                         help="Image topic.")

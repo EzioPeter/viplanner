@@ -1,16 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Modified by Pascal Roth from: https://github.com/facebookresearch/detr/blob/master/models/detr.py
 
+from typing import Tuple
+
 # python
 import torch
-from typing import Tuple
-from torch import nn
-
-# viplanner 
-from viplanner.third_party.mask2former.mask2former.modeling.transformer_decoder.maskformer_transformer_decoder import TRANSFORMER_DECODER_REGISTRY
-from viplanner.third_party.mask2former.mask2former.modeling.transformer_decoder.mask2former_transformer_decoder import MultiScaleMaskedTransformerDecoder
-from viplanner.third_party.mask2former.mask2former.modeling.criterion import SetCriterion
-from viplanner.third_party.mask2former.mask2former.modeling.matcher import HungarianMatcher
 
 # detectron2
 from detectron2.config import configurable
@@ -18,6 +12,22 @@ from detectron2.data import MetadataCatalog
 from detectron2.modeling import META_ARCH_REGISTRY, build_backbone, build_sem_seg_head
 from detectron2.modeling.backbone import Backbone
 from detectron2.structures import ImageList
+from torch import nn
+
+from viplanner.third_party.mask2former.mask2former.modeling.criterion import (
+    SetCriterion,
+)
+from viplanner.third_party.mask2former.mask2former.modeling.matcher import (
+    HungarianMatcher,
+)
+from viplanner.third_party.mask2former.mask2former.modeling.transformer_decoder.mask2former_transformer_decoder import (
+    MultiScaleMaskedTransformerDecoder,
+)
+
+# viplanner
+from viplanner.third_party.mask2former.mask2former.modeling.transformer_decoder.maskformer_transformer_decoder import (
+    TRANSFORMER_DECODER_REGISTRY,
+)
 
 
 @META_ARCH_REGISTRY.register()
@@ -83,9 +93,15 @@ class MaskFormerMod(nn.Module):
             # use backbone size_divisibility if not set
             size_divisibility = self.backbone.size_divisibility
         self.size_divisibility = size_divisibility
-        self.sem_seg_postprocess_before_inference = sem_seg_postprocess_before_inference
-        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
-        self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
+        self.sem_seg_postprocess_before_inference = (
+            sem_seg_postprocess_before_inference
+        )
+        self.register_buffer(
+            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
+        )
+        self.register_buffer(
+            "pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False
+        )
 
         # additional args
         self.semantic_on = semantic_on
@@ -118,13 +134,19 @@ class MaskFormerMod(nn.Module):
             num_points=cfg.MODEL.MASK_FORMER.TRAIN_NUM_POINTS,
         )
 
-        weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight}
+        weight_dict = {
+            "loss_ce": class_weight,
+            "loss_mask": mask_weight,
+            "loss_dice": dice_weight,
+        }
 
         if deep_supervision:
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
             aux_weight_dict = {}
             for i in range(dec_layers - 1):
-                aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
+                aux_weight_dict.update(
+                    {k + f"_{i}": v for k, v in weight_dict.items()}
+                )
             weight_dict.update(aux_weight_dict)
 
         losses = ["labels", "masks"]
@@ -145,7 +167,9 @@ class MaskFormerMod(nn.Module):
             "sem_seg_head": sem_seg_head,
             "criterion": criterion,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
-            "object_mask_threshold": cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD,
+            "object_mask_threshold": (
+                cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD
+            ),
             "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
             "metadata": MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
             "size_divisibility": cfg.MODEL.MASK_FORMER.SIZE_DIVISIBILITY,
@@ -208,8 +232,14 @@ class MaskFormerMod(nn.Module):
         for targets_per_image in targets:
             # pad gt
             gt_masks = targets_per_image.gt_masks
-            padded_masks = torch.zeros((gt_masks.shape[0], h_pad, w_pad), dtype=gt_masks.dtype, device=gt_masks.device)
-            padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = gt_masks
+            padded_masks = torch.zeros(
+                (gt_masks.shape[0], h_pad, w_pad),
+                dtype=gt_masks.dtype,
+                device=gt_masks.device,
+            )
+            padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = (
+                gt_masks
+            )
             new_targets.append(
                 {
                     "labels": targets_per_image.gt_classes,
@@ -220,8 +250,9 @@ class MaskFormerMod(nn.Module):
 
 
 @TRANSFORMER_DECODER_REGISTRY.register()
-class MultiScaleMaskedTransformerDecoderMod(MultiScaleMaskedTransformerDecoder):
-
+class MultiScaleMaskedTransformerDecoderMod(
+    MultiScaleMaskedTransformerDecoder
+):
     @configurable
     def __init__(
         self,
@@ -266,12 +297,12 @@ class MultiScaleMaskedTransformerDecoderMod(MultiScaleMaskedTransformerDecoder):
             dec_layers,
             pre_norm,
             mask_dim,
-            enforce_input_project,            
+            enforce_input_project,
         )
 
         return
 
-    def forward(self, x, mask_features, mask = None):
+    def forward(self, x, mask_features, mask=None):
         # x is a list of multi-scale feature
         assert len(x) == self.num_feature_levels
         src = []
@@ -284,7 +315,10 @@ class MultiScaleMaskedTransformerDecoderMod(MultiScaleMaskedTransformerDecoder):
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
             pos.append(self.pe_layer(x[i], None).flatten(2))
-            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
+            src.append(
+                self.input_proj[i](x[i]).flatten(2)
+                + self.level_embed.weight[i][None, :, None]
+            )
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
@@ -300,43 +334,59 @@ class MultiScaleMaskedTransformerDecoderMod(MultiScaleMaskedTransformerDecoder):
         predictions_mask = []
 
         # prediction heads on learnable query features
-        outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[0])
+        outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(
+            output, mask_features, attn_mask_target_size=size_list[0]
+        )
         predictions_class.append(outputs_class)
         predictions_mask.append(outputs_mask)
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            attn_mask[
+                torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])
+            ] = False
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
-                output, src[level_index],
+                output,
+                src[level_index],
                 memory_mask=attn_mask,
                 memory_key_padding_mask=None,  # here we do not apply masking on padded region
-                pos=pos[level_index], query_pos=query_embed
+                pos=pos[level_index],
+                query_pos=query_embed,
             )
 
             output = self.transformer_self_attention_layers[i](
-                output, tgt_mask=None,
+                output,
+                tgt_mask=None,
                 tgt_key_padding_mask=None,
-                query_pos=query_embed
-            )
-            
-            # FFN
-            output = self.transformer_ffn_layers[i](
-                output
+                query_pos=query_embed,
             )
 
-            outputs_class, outputs_mask, attn_mask = self.forward_prediction_heads(output, mask_features, attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels])
+            # FFN
+            output = self.transformer_ffn_layers[i](output)
+
+            (
+                outputs_class,
+                outputs_mask,
+                attn_mask,
+            ) = self.forward_prediction_heads(
+                output,
+                mask_features,
+                attn_mask_target_size=size_list[
+                    (i + 1) % self.num_feature_levels
+                ],
+            )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)
 
         assert len(predictions_class) == self.num_layers + 1
 
         out = {
-            'pred_logits': predictions_class[-1],
-            'pred_masks': predictions_mask[-1],
-            'aux_outputs': self._set_aux_loss(
-                predictions_class if self.mask_classification else None, predictions_mask
-            )
+            "pred_logits": predictions_class[-1],
+            "pred_masks": predictions_mask[-1],
+            "aux_outputs": self._set_aux_loss(
+                predictions_class if self.mask_classification else None,
+                predictions_mask,
+            ),
         }
         return out, output

@@ -8,39 +8,42 @@
 @brief      Visual Imperative Planner (VIPlanner) Inference Script
 """
 
+import math
+
 # python
 import os
-import torch
-import numpy as np
-import math
-import torchvision.transforms as transforms
+
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torchvision.transforms as transforms
+
+from viplanner.config.learning_cfg import TrainCfg
 
 # viplanner src
-from viplanner.plannernet import DualAutoEncoder, AutoEncoder, get_m2f_cfg
+from viplanner.plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg
 from viplanner.traj_cost_opt.traj_opt import TrajOpt
-from viplanner.config.learning_cfg import TrainCfg
 
 torch.set_default_dtype(torch.float32)
 
-   
+
 class VIPlannerInference:
     def __init__(
         self,
         cfg,
     ) -> None:
-        """ VIPlanner Inference Script
+        """VIPlanner Inference Script
 
         Args:
             cfg (Namespace): Config Namespace
         """
         # get configs
-        model_path  = os.path.join(cfg.model_save, "model.pt")
+        model_path = os.path.join(cfg.model_save, "model.pt")
         config_path = os.path.join(cfg.model_save, "model.yaml")
-        
+
         # get train config
         self.train_cfg: TrainCfg = TrainCfg.from_yaml(config_path)
-        
+
         # get model
         if self.train_cfg.rgb:
             m2f_cfg = get_m2f_cfg(cfg.m2f_config_path)
@@ -50,11 +53,16 @@ class VIPlannerInference:
             m2f_cfg = None
             self.pixel_mean = [0, 0, 0]
             self.pixel_std = [1, 1, 1]
-        
+
         if self.train_cfg.rgb or self.train_cfg.sem:
-            self.net = DualAutoEncoder(train_cfg=self.train_cfg, m2f_cfg=m2f_cfg)
+            self.net = DualAutoEncoder(
+                train_cfg=self.train_cfg, m2f_cfg=m2f_cfg
+            )
         else:
-            self.net = AutoEncoder(encoder_channel=self.train_cfg.in_channel, k=self.train_cfg.knodes)
+            self.net = AutoEncoder(
+                encoder_channel=self.train_cfg.in_channel,
+                k=self.train_cfg.knodes,
+            )
         try:
             model_state_dict, _ = torch.load(model_path)
         except ValueError:
@@ -70,14 +78,15 @@ class VIPlannerInference:
             self._device = "cuda"
         else:
             self._device = "cpu"
-            
+
         # transforms
-        self.transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Resize(tuple(self.train_cfg.img_input_size))
+        self.transforms = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Resize(tuple(self.train_cfg.img_input_size)),
             ]
         )
-        
+
         # get trajectory generator
         self.traj_generate = TrajOpt()
         return
@@ -87,7 +96,7 @@ class VIPlannerInference:
         img = self.transforms(img)
         img = img.unsqueeze(0).to(self._device)
         return img
-        
+
     def plan(
         self,
         depth_image: np.ndarray,
@@ -111,31 +120,44 @@ class VIPlannerInference:
         # fig.savefig("/root/git/network_input.png")
         # plt.close()
         # print(goal_robot_frame)
-        
+
         with torch.no_grad():
             depth_image = self.img_converter(depth_image).float()
             if self.train_cfg.rgb:
-                sem_rgb_image = (sem_rgb_image - self.pixel_mean) / self.pixel_std
-            sem_rgb_image = self.img_converter(sem_rgb_image.astype(np.uint8)).float()
-            keypoints, fear = self.net(depth_image, sem_rgb_image, goal_robot_frame.to(self._device))
+                sem_rgb_image = (
+                    sem_rgb_image - self.pixel_mean
+                ) / self.pixel_std
+            sem_rgb_image = self.img_converter(
+                sem_rgb_image.astype(np.uint8)
+            ).float()
+            keypoints, fear = self.net(
+                depth_image, sem_rgb_image, goal_robot_frame.to(self._device)
+            )
 
         # generate trajectory
-        traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1)
+        traj = self.traj_generate.TrajGeneratorFromPFreeRot(
+            keypoints, step=0.1
+        )
 
         return traj.cpu().squeeze(0).numpy(), fear.cpu().numpy()
 
     def plan_depth(
-        self, 
+        self,
         depth_image: np.ndarray,
         goal_robot_frame: torch.Tensor,
     ) -> tuple:
-
         with torch.no_grad():
             depth_image = self.img_converter(depth_image).float()
-            keypoints, fear = self.net(depth_image, goal_robot_frame.to(self._device))
+            keypoints, fear = self.net(
+                depth_image, goal_robot_frame.to(self._device)
+            )
 
         # generate trajectory
-        traj = self.traj_generate.TrajGeneratorFromPFreeRot(keypoints, step=0.1)
+        traj = self.traj_generate.TrajGeneratorFromPFreeRot(
+            keypoints, step=0.1
+        )
 
-        return traj.cpu().squeeze(0).numpy(), fear.cpu().numpy()        
+        return traj.cpu().squeeze(0).numpy(), fear.cpu().numpy()
+
+
 # EoF

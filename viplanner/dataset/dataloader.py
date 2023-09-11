@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import torch
 from torch.utils.data import DataLoader
 
@@ -7,7 +5,6 @@ torch.set_default_dtype(torch.float32)
 
 
 class MultiEpochsDataLoader(DataLoader):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._DataLoader__initialized = False
@@ -23,8 +20,8 @@ class MultiEpochsDataLoader(DataLoader):
             yield next(self.iterator)
 
 
-class _RepeatSampler(object):
-    """ Sampler that repeats forever.
+class _RepeatSampler:
+    """Sampler that repeats forever.
     Args:
         sampler (Sampler)
     """
@@ -35,4 +32,3 @@ class _RepeatSampler(object):
     def __iter__(self):
         while True:
             yield from iter(self.sampler)
-            

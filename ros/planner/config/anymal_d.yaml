@@ -34,7 +34,7 @@ world_id:               odom
 # fear reaction
 is_fear_act:            False
 buffer_size:            3
-angular_thred:          0.3
+angular_thread:          0.3
 track_dist:             0.5
 # smart joystick
 joyGoal_scale:          2.5

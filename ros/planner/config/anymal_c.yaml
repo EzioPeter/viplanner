@@ -10,8 +10,8 @@ depth_zero_ratio_thres: 0.6
 # model_save:             models/vip_models/plannernet_envtown01_anymal_c_ep100_inputDepSem_costSem_optimSGD_neg05
 # model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_anymal_c_ep100_inputDepSem_costSem_optimSGD_anymal_c
 model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_cam_mount_combi_lossWidthMod_wgoal4.0_warehouse
-# m2f_cfg_file:           models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml 
-# m2f_model_path:         models/coco_panoptic/swin/model_0049999.pth  #   
+# m2f_cfg_file:           models/coco_panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml
+# m2f_model_path:         models/coco_panoptic/swin/model_0049999.pth  #
 # m2f_model_path:         models/coco_panoptic/swin/model_final_9fd0ae.pkl
 # mmdet
 m2f_model_path:         models/mask2former_r50_8xb2-lsj-50e_coco-panoptic_20230118_125535-54df384a.pth
@@ -34,7 +34,7 @@ world_id:               odom
 # fear reaction
 is_fear_act:            False
 buffer_size:            3
-angular_thred:          0.3
+angular_thread:          0.3
 track_dist:             0.5
 # smart joystick
 joyGoal_scale:          2.5

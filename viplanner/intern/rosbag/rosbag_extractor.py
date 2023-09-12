@@ -6,8 +6,6 @@
 """
 
 import argparse
-
-# import packages
 import os
 import time
 from typing import List
@@ -16,8 +14,6 @@ import cv2
 import numpy as np
 import rosbag
 import roslaunch
-
-# ROS
 import rospy
 import tf2_geometry_msgs
 import tf2_py as tf2
@@ -65,7 +61,8 @@ def check_roscore():
 
 def setup_tf_buffer(bag: rosbag.Bag):
     """
-    Gets the transform from frame A to frame B from a rosbag /tf message at a specific timestamp.
+    Gets the transform from frame A to frame B from a rosbag /tf 
+    message at a specific timestamp.
 
     Parameters:
         bag (rosbag.Bag): Rosbag with a /tf message.
@@ -111,7 +108,7 @@ def get_intrinsics(
                 K is not None
             ), f"Could not find camera info under topic {camera_info_topic}"
         else:
-            # Print a message indicating that the CameraInfo topic was not found
+            # Print a message that the CameraInfo topic was not found
             print(
                 f"Corresponding CameraInfo topic not found for {image_topic}"
             )
@@ -130,7 +127,7 @@ def get_intrinsics(
                 f"/{cam_parent}/{image_topic.split('/')[2]}/camera_info"
             )
         else:
-            # Print a message indicating that the CameraInfo topic was not found
+            # Print a message that the CameraInfo topic was not found
             raise ValueError(
                 f"Corresponding CameraInfo topic not found for {image_topic}"
             )

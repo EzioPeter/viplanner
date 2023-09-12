@@ -7,10 +7,9 @@
 
 # python
 import os
+import yaml
 from dataclasses import dataclass
 from typing import Optional
-
-import yaml
 
 
 class Loader(yaml.SafeLoader):
@@ -22,7 +21,7 @@ def construct_GeneralCostMapConfig(loader, node):
 
 
 Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.GeneralCostMapConfig",
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.GeneralCostMapConfig",  # FN E501
     construct_GeneralCostMapConfig,
 )
 
@@ -32,7 +31,7 @@ def construct_ReconstructionCfg(loader, node):
 
 
 Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.ReconstructionCfg",
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.ReconstructionCfg",  # FN E501
     construct_ReconstructionCfg,
 )
 
@@ -42,7 +41,7 @@ def construct_SemCostMapConfig(loader, node):
 
 
 Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.SemCostMapConfig",
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.SemCostMapConfig",   # FN E501
     construct_SemCostMapConfig,
 )
 
@@ -52,7 +51,7 @@ def construct_TsdfCostMapConfig(loader, node):
 
 
 Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.TsdfCostMapConfig",
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.TsdfCostMapConfig",   # FN E501
     construct_TsdfCostMapConfig,
 )
 

@@ -9,7 +9,11 @@ import torch
 # detectron2
 from detectron2.config import configurable
 from detectron2.data import MetadataCatalog
-from detectron2.modeling import META_ARCH_REGISTRY, build_backbone, build_sem_seg_head
+from detectron2.modeling import (
+    META_ARCH_REGISTRY,
+    build_backbone,
+    build_sem_seg_head,
+)
 from detectron2.modeling.backbone import Backbone
 from detectron2.structures import ImageList
 from torch import nn

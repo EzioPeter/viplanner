@@ -21,7 +21,9 @@ except ImportError:
     )
 
 try:
-    from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
+    from viplanner.third_party.mask2former.mask2former import (
+        add_maskformer2_config,
+    )
 except ImportError:
     PRE_TRAIN_POSSIBLE = False
     print(

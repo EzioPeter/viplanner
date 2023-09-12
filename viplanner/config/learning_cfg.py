@@ -35,23 +35,11 @@ Loader.add_constructor(
     "tag:yaml.org,2002:python/object:viplanner.config.learning_cfg.DataCfg",
     construct_datacfg,
 )
-# backward compatibility with prev version  # TODO: remove in future
-Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:config.config.DataCfg", construct_datacfg
-)
-Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:omni.isaac.anymal.viplanner.src.config.learning_cfg.DataCfg",
-    construct_datacfg,
-)
-Loader.add_constructor(
-    "tag:yaml.org,2002:python/object:config.learning_cfg.DataCfg",
-    construct_datacfg,
-)
 
 
 @dataclass
 class DataCfg:
-    """Config for data loading (only available for new dataloader --> flag in TrainCfg)"""
+    """Config for data loading"""
 
     # real world data used --> images have to be rotated by 180 degrees
     real_world_data: bool = False
@@ -73,7 +61,9 @@ class DataCfg:
     distance_scheme: dict = field(
         default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05}
     )
-    "select goal points for the samples according to the scheme: {distance: percentage of goals}, distances have to be increasing and max distance has to be equal to max_goal_distance"
+    # select goal points for the samples according to the scheme:
+    # {distance: percentage of goals}, distances have to be increasing
+    # and max distance has to be equal to max_goal_distance
     obs_cost_height: float = 1.5
     "all odom points with cost of more than obs_cost_height are discarded (negative cost of cost_map will be automatically added)"
     fov_scale: float = 1.0

@@ -33,7 +33,7 @@ class Mask2FormerInference:
             config_file, checkpoint_file, device="cuda:0"
         )
 
-        # mapping from coco class id to viplanner class id and corresponding color
+        # mapping from coco class id to viplanner class id and color
         viplanner_meta = VIPlannerSemMetaHandler()
         coco_viplanner_cls_mapping = get_class_for_id_mmdet(
             self.model.dataset_meta["classes"]

@@ -8,8 +8,6 @@
 @brief      Visual Imperative Planner (VIPlanner) ROS Node
 """
 
-import copy
-
 # python
 import os
 import sys
@@ -21,10 +19,10 @@ import cv2
 import cv_bridge
 import numpy as np
 import PIL
-import ros_numpy
-import rospkg
 
 # ROS
+import ros_numpy
+import rospkg
 import rospy
 import scipy.spatial.transform as stf
 import tf2_geometry_msgs
@@ -33,7 +31,15 @@ import torch
 from geometry_msgs.msg import Point, PointStamped, PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image, Joy
+
+# VIPlanner
+# from src.m2f_inference import Mask2FormerInference
+from src.m2f_inference_mmdet import (
+    Mask2FormerInference as Mask2FormerInferenceMMDet,
+)
+from src.vip_inference import VIPlannerInference
 from std_msgs.msg import Float32, Header, Int16
+from utils.rosutil import ROSArgparse
 from visualization_msgs.msg import Marker
 
 warnings.filterwarnings("ignore")
@@ -43,14 +49,8 @@ rospack = rospkg.RosPack()
 pack_path = rospack.get_path("viplanner_node")
 sys.path.append(pack_path)
 
-# from src.m2f_inference import Mask2FormerInference
-from src.m2f_inference_mmdet import Mask2FormerInference as Mask2FormerInferenceMMDet
-
-# visual imperative planner
-from src.vip_inference import VIPlannerInference
-from utils.rosutil import ROSArgparse
-
-# conversion matrix from ROS camera convention (z-forward, y-down, x-right) to robotics convention (x-forward, y-left, z-up)
+# conversion matrix from ROS camera convention (z-forward, y-down, x-right)
+# to robotics convention (x-forward, y-left, z-up)
 ROS_TO_ROBOTICS_MAT = stf.Rotation.from_euler(
     "XYZ", [-90, 0, -90], degrees=True
 ).as_matrix()
@@ -172,7 +172,8 @@ class VIPlannerNode:
             callback=self.rgbCamInfoCallback,
         )
 
-        # publish effective goal pose and marker with max distance (circle) and direct line (line)
+        # publish effective goal pose and marker with max distance (circle)
+        # and direct line (line)
         self.crop_goal_pub = rospy.Publisher(
             "viplanner/visualization/crop_goal", PointStamped, queue_size=1
         )
@@ -231,10 +232,9 @@ class VIPlannerNode:
                     cur_rgb_image = self.sem_rgb_img.copy()
 
                     # warp rgb image
-                    # print(self.rgb_header.frame_id, self.depth_header.frame_id)
                     if (
                         False
-                    ):  # self.rgb_header.frame_id != self.depth_header.frame_id:
+                    ): 
                         start = time.time()
                         if self.pix_depth_cam_frame is None:
                             self.initPixArray(cur_depth_image.shape)
@@ -300,7 +300,8 @@ class VIPlannerNode:
 
                 start = time.time()
 
-                # transform waypoint to robot frame (prev in depth cam frame with robotics convention)
+                # transform waypoint to robot frame (prev in depth cam frame 
+                # with robotics convention)
                 waypoints = (self.cam_rot @ waypoints.T).T + self.cam_offset
 
                 # publish time
@@ -346,9 +347,12 @@ class VIPlannerNode:
 
                 time_other = time.time() - start
                 if self.vip_algo.train_cfg.pre_train_sem:
+                    total_time = round(
+                        time_warp + self.time_sem + time_planner + time_other, 4
+                    )
                     print(
                         "Path predicted in"
-                        f" {round(time_warp + self.time_sem + time_planner + time_other, 4)}s"
+                        f" {total_time}s"
                         f" \t warp: {round(time_warp, 4)}s \t sem:"
                         f" {round(self.time_sem, 4)}s \t planner:"
                         f" {round(time_planner, 4)}s \t other:"
@@ -427,10 +431,7 @@ class VIPlannerNode:
         goal_cam_frame = (
             self.cam_rot.T @ (cur_goal_robot_frame - self.cam_offset).T
         )
-        goal_cam_frame = torch.tensor(goal_cam_frame, dtype=torch.float32)[
-            None, ...
-        ]
-        return goal_cam_frame
+        return torch.tensor(goal_cam_frame, dtype=torch.float32)[None, ...]
 
     def _init_markers(self):
         if isinstance(self.vip_algo.train_cfg.data_cfg, list):
@@ -511,7 +512,9 @@ class VIPlannerNode:
         )  # convert orientation from ROS camera to robotics=world frame
         if (
             not self.cfg.image_flip
-        ):  # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped
+        ):  
+            # rotation is included in ROS_TO_ROBOTICS_MAT and has to be 
+            # removed when not fliped
             depth_rot = depth_rot @ CAMERA_FLIP_MAT
         dep_im_reshaped = depth_img.reshape(-1, 1)
         depth_zero_ratio = np.sum(np.round(dep_im_reshaped, 5) == 0) / len(
@@ -662,11 +665,6 @@ class VIPlannerNode:
             if front_poses[idx]
         ]
 
-        # print(transformed_poses_np)
-        # print(np.linalg.norm(transformed_poses_np - transformed_poses_np[0], axis=1))
-        # print(np.linalg.norm(curr_depth_cam_odom_pose[:3] - transformed_poses_np[0]))
-        # print(front_poses)
-
         # add header
         base_path = Path()
         base_fear_path = Path()
@@ -706,7 +704,7 @@ class VIPlannerNode:
             self.is_fear_reaction = True
         elif self.fear_buffter <= 0:
             self.is_fear_reaction = False
-        return None
+        return
 
     def isForwardTraking(self, waypoints):
         xhead = np.array([1.0, 0])
@@ -716,7 +714,7 @@ class VIPlannerNode:
                 phead = p[0:2] / np.linalg.norm(p[0:2])
                 break
         if (
-            np.all(phead != None)
+            np.all(phead is not None)
             and phead.dot(xhead) > 1.0 - self.cfg.angular_thread
         ):
             return True
@@ -924,7 +922,7 @@ class VIPlannerNode:
 
         # transform goal into robot frame and world frame
         if self.is_goal_init:
-            if not self.goal_pose.header.frame_id == self.cfg.robot_id:
+            if self.goal_pose.header.frame_id != self.cfg.robot_id:
                 try:
                     trans = self.tf_buffer.lookup_transform(
                         self.cfg.robot_id,
@@ -951,7 +949,7 @@ class VIPlannerNode:
             else:
                 self.goal_robot_frame = self.goal_pose
 
-            if not self.goal_pose.header.frame_id == self.cfg.world_id:
+            if self.goal_pose.header.frame_id != self.cfg.world_id:
                 try:
                     trans = self.tf_buffer.lookup_transform(
                         self.cfg.world_id,
@@ -1003,7 +1001,9 @@ class VIPlannerNode:
                 )
                 if (
                     not self.cfg.image_flip
-                ):  # rotation is included in ROS_TO_ROBOTICS_MAT and has to be removed when not fliped
+                ):  
+                    # rotation is included in ROS_TO_ROBOTICS_MAT and has to
+                    # be removed when not fliped
                     self.cam_rot = self.cam_rot @ CAMERA_FLIP_MAT
                 if self.debug:
                     print(

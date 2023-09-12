@@ -17,10 +17,10 @@ import pypose as pp
 import torch
 import yaml
 
-torch.set_default_dtype(torch.float32)
-
 # viplanner
 from viplanner.config.costmap_cfg import CostMapConfig, Loader
+
+torch.set_default_dtype(torch.float32)
 
 
 class CostMapPCD:

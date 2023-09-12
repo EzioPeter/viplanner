@@ -22,7 +22,11 @@ import yaml
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
-from viplanner.dataset import MultiEpochsDataLoader, PlannerData, PlannerDataGenerator
+from viplanner.dataset import (
+    MultiEpochsDataLoader,
+    PlannerData,
+    PlannerDataGenerator,
+)
 from viplanner.plannernet import (
     PRE_TRAIN_POSSIBLE,
     AutoEncoder,

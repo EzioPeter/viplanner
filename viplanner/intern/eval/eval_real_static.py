@@ -45,7 +45,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
         self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg
     ) -> None:
         """
-        Make prediction on real world images and evaluate the generated pathes. Expected args:
+        Make prediction on real world images and evaluate the generated paths. Expected args:
 
         args.model_dirs: str    -- model dirs
         args.data_dir: str      -- data directory with the following structure

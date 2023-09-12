@@ -1,4 +1,4 @@
-# Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py
+# Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py  
 # File containing the meta info of all classes from the COCO dataset.
 
 try:
@@ -266,7 +266,7 @@ def get_class_for_id_mmdet(class_list: list):
                 success = True
                 break
         if not success:
-            print("No mapping found for {}".format(id_dict["name"]))
+            print("No mapping found for {}".format(coco_class_name["name"]))
     return id_to_class
 
 

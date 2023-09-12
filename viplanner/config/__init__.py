@@ -27,7 +27,11 @@ __all__ = [
 
 
 try:
-    from .coco_meta import _COCO_MAPPING, _COCO_MAPPING_UNIQUE, get_class_for_id
+    from .coco_meta import (
+        _COCO_MAPPING,
+        _COCO_MAPPING_UNIQUE,
+        get_class_for_id,
+    )
 
     __all__ += ["get_class_for_id", "_COCO_MAPPING_UNIQUE", "_COCO_MAPPING"]
 except ModuleNotFoundError:

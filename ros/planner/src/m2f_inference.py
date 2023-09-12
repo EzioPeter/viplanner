@@ -5,12 +5,11 @@
 @brief      Mask2Former optimized inference script to be used in the ROS node
 """
 
+
 import detectron2.data.transforms as T
 
 # python
 import numpy as np
-
-# ROS
 import rospy
 import torch
 from detectron2.checkpoint import DetectionCheckpointer
@@ -22,7 +21,9 @@ from detectron2.projects.deeplab import add_deeplab_config
 # viplanner-ros
 from viplanner.config.coco_meta import get_class_for_id
 from viplanner.config.viplanner_sem_meta import VIPlannerSemMetaHandler
-from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
+from viplanner.third_party.mask2former.mask2former import (
+    add_maskformer2_config,
+)
 
 
 class Predictor:
@@ -69,9 +70,7 @@ class Predictor:
 
             inputs = {"image": image, "height": height, "width": width}
             with torch.cuda.amp.autocast():  # 16 bit precision to speed up
-                predictions = self.model([inputs])[0]
-            return predictions
-
+                return self.model([inputs])[0]
 
 class Mask2FormerInference:
     """Run Inference on Mask2Former model to estimate semantic segmentation"""

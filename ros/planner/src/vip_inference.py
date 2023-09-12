@@ -7,20 +7,11 @@
 
 @brief      Visual Imperative Planner (VIPlanner) Inference Script
 """
-
-import math
-
-# python
 import os
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-
 from viplanner.config.learning_cfg import TrainCfg
-
-# viplanner src
 from viplanner.plannernet import AutoEncoder, DualAutoEncoder, get_m2f_cfg
 from viplanner.traj_cost_opt.traj_opt import TrajOpt
 
@@ -94,8 +85,7 @@ class VIPlannerInference:
     def img_converter(self, img: np.ndarray) -> torch.Tensor:
         # crop image and convert to tensor
         img = self.transforms(img)
-        img = img.unsqueeze(0).to(self._device)
-        return img
+        return img.unsqueeze(0).to(self._device)
 
     def plan(
         self,
@@ -113,13 +103,6 @@ class VIPlannerInference:
         Returns:
             tuple: _description_
         """
-        # get keypoints and fear from planner
-        # fig, axs = plt.subplots(1, 2)
-        # axs[0].imshow(depth_image)
-        # axs[1].imshow(sem_rgb_image)
-        # fig.savefig("/root/git/network_input.png")
-        # plt.close()
-        # print(goal_robot_frame)
 
         with torch.no_grad():
             depth_image = self.img_converter(depth_image).float()

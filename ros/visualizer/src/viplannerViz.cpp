@@ -88,8 +88,8 @@ public:
         nh_.param<std::string> ("domain",        domain_,        "depth");
         nh_.param<bool>        ("image_flip",    image_flip_,    true);
         nh_.param<float>       ("max_depth",     max_depth_,     10.0);
-        
-        
+
+
         // Subscribe to the image and the intrinsic matrix
         if (domain_ == "rgb") {
             subImage_ = nh_.subscribe<sensor_msgs::CompressedImage>(img_topic_, 1, &VIPlannerViz::imageRGBCallback, this);
@@ -99,7 +99,7 @@ public:
             ROS_ERROR("Domain not supported!");
         }
         subCamInfo_ = nh_.subscribe<sensor_msgs::CameraInfo>(info_topic_, 1, &VIPlannerViz::camInfoCallback, this);
-        
+
         // Subscribe to the path
         subPath_ = nh_.subscribe<nav_msgs::Path>(path_topic_, 1, &VIPlannerViz::pathCallback, this);
         // Subscribe to the goal
@@ -117,7 +117,7 @@ public:
 
         // image pose
         poseCallback(rgb_msg->header.frame_id);
-        
+
         // RGB Image
         try {
             cv::Mat image = cv::imdecode(cv::Mat(rgb_msg->data), cv::IMREAD_COLOR);
@@ -133,7 +133,7 @@ public:
             ROS_ERROR_STREAM("CvBridge Error: " << e.what());
         }
     }
-    
+
     void imageDepthCallback(const sensor_msgs::Image::ConstPtr& depth_msg)
     {
         ROS_DEBUG_STREAM("Received depth image " << depth_msg->header.frame_id << ": " << depth_msg->header.stamp.toSec());
@@ -153,15 +153,15 @@ public:
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
-    
+
         // Convert to Eigen matrix and apply operations
         cv::Mat img_mat = cv_ptr->image;
         cv::Mat depth_image_float;
-        img_mat.convertTo(depth_image_float, CV_32FC1, 1.0/1000.0);        
+        img_mat.convertTo(depth_image_float, CV_32FC1, 1.0/1000.0);
         cv::Mat mask = cv::Mat::zeros(img_mat.size(), img_mat.type());
         cv::compare(depth_image_float, std::numeric_limits<double>::infinity(), mask, cv::CMP_EQ);
         depth_image_float.setTo(0, mask);
-        
+
         if (image_flip_)
         {
             cv::flip(depth_image_float, depth_image_float, 0); // 0 indicates vertical flip
@@ -190,7 +190,7 @@ public:
         if (!intrinsics_init_)
         {
             ROS_INFO("Received camera info");
-            
+
             // Extract the intrinsic matrix from the CameraInfo message
             intrinsics_.at<double>(0, 0) = cam_info_msg->K[0];
             intrinsics_.at<double>(0, 1) = cam_info_msg->K[1];
@@ -218,7 +218,7 @@ public:
             path_mat_new(i, 1) = path_msg->poses[i].pose.position.y;
             path_mat_new(i, 2) = path_msg->poses[i].pose.position.z;
         }
-        
+
         // Assign the new path to the path_ member variable
         path_mat_ = path_mat_new;
         path_init_ = true;
@@ -246,7 +246,7 @@ public:
         points = points * rotation_matrix.transpose();
         // Translate the points by the relative translation vector
         points.rowwise() += translation.transpose();
-        
+
         return points;
     }
 
@@ -275,7 +275,7 @@ public:
 
         // Main loop
         while (ros::ok()) {
-            if (path_init_ && goal_init_ && image_init_ && intrinsics_init_) {                
+            if (path_init_ && goal_init_ && image_init_ && intrinsics_init_) {
                 // Get the current robot pose
                 getOdom(translation, rotation);
 
@@ -296,7 +296,7 @@ public:
                 cv::Mat path_points;
                 cv::eigen2cv(transformed_path, path_points);
                 cv::projectPoints(path_points, rot_vector, cam_translation, intrinsics_, cv::noArray(), points2d);
-                
+
                 // Get the position of the path points in camera frame --> needed to get the radius of the sphere in the image
                 std::vector<cv::Point3f> points3d(path_points.rows);
                 for (int i = 0; i < path_points.rows; i++) {
@@ -314,13 +314,13 @@ public:
                     double min_val, max_val;
                     cv::minMaxLoc(image_, &min_val, &max_val);
                     cv::Mat gray_image;
-                    cv::normalize(image_, gray_image, 0, 255, cv::NORM_MINMAX, CV_8UC1); 
-                    cv::cvtColor(gray_image, outputImage, cv::COLOR_GRAY2BGR);                   
+                    cv::normalize(image_, gray_image, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+                    cv::cvtColor(gray_image, outputImage, cv::COLOR_GRAY2BGR);
                 }
                 else {
                     outputImage = image_.clone();
                 }
-                
+
                 cv::Mat overlay_image = outputImage.clone();
                 for (int i = 0; i < points2d.size(); i++) {
                     cv::Point3f p = points3d[i];
@@ -340,21 +340,21 @@ public:
                 cv_image.header.stamp = current_image_time_;
                 cv_image.encoding = sensor_msgs::image_encodings::BGR8;
                 cv_image.image = final_img;
-                
+
                 pubImage_.publish(cv_image.toImageMsg());
 
                 // Show resulting image
                 // cv::imshow("Overlay", outputImage);
                 // cv::waitKey(1);
             }
-            
+
             ros::spinOnce();
             loop_rate_.sleep();
         }
 
     }
 
-private:  
+private:
     // ROS
     ros::NodeHandle nh_;
     ros::Subscriber subImage_;
@@ -365,7 +365,7 @@ private:
     ros::Rate loop_rate_{10};
     ros::Time current_image_time_;
     tf::TransformListener tf_listener;
-    
+
     // parameters
     std::string vizTopic_;
     std::string img_topic_;
@@ -393,10 +393,9 @@ private:
     geometry_msgs::Pose pose_;
 };
 
-int main(int argc, char** argv) { 
+int main(int argc, char** argv) {
     ros::init(argc, argv, "VIPlannerViz");
     VIPlannerViz node;
     node.run();
     return 0;
 }
-

@@ -84,8 +84,8 @@ public:
         nh_.param<std::string> ("domain",        domain_,        "depth");
         nh_.param<bool>        ("image_flip",    image_flip_,    false);
         nh_.param<float>       ("max_depth",     max_depth_,  10.0);
-        
-        
+
+
         // Subscribe to the image and the intrinsic matrix
         if (domain_ == "rgb") {
             subImage_ = nh_.subscribe<sensor_msgs::CompressedImage>(img_topic_, 1, &VIPlannerViz::imageRGBCallback, this);
@@ -95,7 +95,7 @@ public:
             ROS_ERROR("Domain not supported!");
         }
         subCamInfo_ = nh_.subscribe<sensor_msgs::CameraInfo>(info_topic_, 1, &VIPlannerViz::camInfoCallback, this);
-        
+
         // Subscribe to the path
         subPath_ = nh_.subscribe<nav_msgs::Path>(path_topic_, 1, &VIPlannerViz::pathCallback, this);
         // Subscribe to the goal
@@ -108,7 +108,7 @@ public:
         if (kUseHeadless) {
             open3d::visualization::rendering::EngineInstance::EnableHeadless();
         }
-        
+
         mtl.base_color = Eigen::Vector4f(1.f, 1.f, 1.f, 1.f);
         mtl.shader = "defaultUnlit";
 
@@ -142,7 +142,7 @@ public:
 
         // image pose
         geometry_msgs::Pose pose_ = poseCallback(rgb_msg->header.frame_id);
-        
+
         // RGB Image
         try {
             cv::Mat image = cv::imdecode(cv::Mat(rgb_msg->data), cv::IMREAD_COLOR);
@@ -158,7 +158,7 @@ public:
             ROS_ERROR_STREAM("CvBridge Error: " << e.what());
         }
     }
-    
+
     void imageDepthCallback(const sensor_msgs::Image::ConstPtr& depth_msg)
     {
         ROS_DEBUG_STREAM("Received depth image " << depth_msg->header.frame_id << ": " << depth_msg->header.stamp.toSec());
@@ -178,14 +178,14 @@ public:
             ROS_ERROR("cv_bridge exception: %s", e.what());
             return;
         }
-    
+
         // Convert to Eigen matrix and apply operations
         cv::Mat img_mat = cv_ptr->image;
         img_mat /= 1000;
         cv::Mat mask = cv::Mat::zeros(img_mat.size(), img_mat.type());
         cv::compare(img_mat, std::numeric_limits<double>::infinity(), mask, cv::CMP_EQ);
         img_mat.setTo(0, mask);
-        
+
         if (image_flip_)
         {
             cv::flip(img_mat, img_mat, 1); // 1 indicates horizontal flip
@@ -248,7 +248,7 @@ public:
             path_mat_new(i, 1) = path_msg->poses[i].pose.position.y;
             path_mat_new(i, 2) = path_msg->poses[i].pose.position.z;
         }
-        
+
         // Assign the new path to the path_ member variable
         path_mat_ = path_mat_new;
         path_init_ = true;
@@ -278,7 +278,7 @@ public:
         points.rowwise() += translation.transpose();
         // Print the transformed points
         std::cout << points << std::endl;
-        
+
         return points;
     }
 
@@ -309,7 +309,7 @@ public:
         while (ros::ok()) {
             if (path_init_ && goal_init_ && image_init_ && intrinsics_init_) {
                 std::cout << "All data received" << std::endl;
-                
+
                 if (!renderer_init_) {
                     auto *renderer =
                         new open3d::visualization::rendering::FilamentRenderer(
@@ -319,7 +319,7 @@ public:
                     renderer_init_ = true;
                     std::cout << "Renderer created" << std::endl;
                 }
-                
+
                 // Get the current robot pose
                 getOdom(translation, rotation);
 
@@ -328,7 +328,7 @@ public:
 
                 // create open3d scene
                 open3d::visualization::rendering::Open3DScene *scene = new open3d::visualization::rendering::Open3DScene(*renderer);
-                
+
                 std::cout << "Scene created" << std::endl;
 
                 // Translate the points and add them to the scene
@@ -358,7 +358,7 @@ public:
                 if (intrinsics_(0, 2) != image_.size[0] || intrinsics_(1, 2) != image_.size[1]) {
                     throw std::runtime_error("Image sizes do not match");
                 }
-                
+
                 std::cout << "Image rendered" << std::endl;
 
                 // Convert Open3D image to OpenCV format
@@ -374,7 +374,7 @@ public:
                 cv::Mat blended = image_.clone();
                 float alpha = 0.0;
                 cv::addWeighted(blended, 1-alpha, o3dMat, alpha, 0, blended, CV_8UC3);
-                o3dMat.copyTo(blended, mask);                
+                o3dMat.copyTo(blended, mask);
 
                 std::cout << "Image blended" << std::endl;
 
@@ -392,7 +392,7 @@ public:
                 delete scene;
 
             }
-            
+
             ros::spinOnce();
             loop_rate_.sleep();
         }
@@ -405,7 +405,7 @@ public:
 private:
     // input Argument
     open3d::visualization::gui::Application &app_;
-    
+
     // ROS
     ros::NodeHandle nh_;
     ros::Subscriber subImage_;
@@ -416,7 +416,7 @@ private:
     ros::Rate loop_rate_{10};
     ros::Time current_image_time_;
     tf::TransformListener tf_listener;
-    
+
     // parameters
     std::string vizTopic_;
     std::string img_topic_;
@@ -454,9 +454,9 @@ private:
     open3d::visualization::rendering::FilamentRenderer *renderer;
 };
 
-int main(int argc, char** argv) { 
+int main(int argc, char** argv) {
     ros::init(argc, argv, "VIPlannerViz");
-    
+
     open3d::visualization::gui::Application &app = open3d::visualization::gui::Application::GetInstance();
     app.Initialize("/usr/local/include/open3d/include/open3d/resources");
 
@@ -464,4 +464,3 @@ int main(int argc, char** argv) {
     node.run();
     return 0;
 }
-

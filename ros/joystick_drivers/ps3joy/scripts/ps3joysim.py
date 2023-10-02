@@ -31,19 +31,20 @@
 #  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #  POSSIBILITY OF SUCH DAMAGE.
 
-from __future__ import print_function
-from bluetooth import *
-import select
+
 import fcntl
 import os
-import struct
-import time
-import sys
-import traceback
-import threading
-import ps3joy
-import socket
+import select
 import signal
+import socket
+import struct
+import sys
+import threading
+import time
+import traceback
+
+import ps3joy
+from bluetooth import *
 
 
 def mk_in_socket():
@@ -77,7 +78,7 @@ class joysim(threading.Thread):
         self.intr = socket.socket()
         self.intr.connect(("127.0.0.1", intr))
         if self.intr == -1:
-            raise "Error creating interrput socket."
+            raise "Error creating interrupt socket."
         self.ctrl = socket.socket()
         self.ctrl.connect(("127.0.0.1", ctrl))
         if self.ctrl == -1:
@@ -95,10 +96,10 @@ class joysim(threading.Thread):
                     self.active = True
                     print("Got activate command")
                 else:
-                    print("Got unknown command (len=%i)" % len(cmd), end=' ')
+                    print("Got unknown command (len=%i)" % len(cmd), end=" ")
                     time.sleep(1)
                     for c in cmd:
-                        print("%x" % ord(c), end=' ')
+                        print("%x" % ord(c), end=" ")
                     print()
         print("joyactivate exiting")
 
@@ -110,17 +111,20 @@ class joysim(threading.Thread):
             for i in range(0, 2):
                 newval = 0
                 for j in range(0, 8):
-                    newval = (newval << 1)
+                    newval = newval << 1
                     if butt[i * 8 + j]:
                         newval = newval + 1
                 buttout.append(newval)
             joy_coding = "!1B2x3B1x4B4x12B15x4H"
-            self.intr.send(struct.pack(joy_coding, 161, *(buttout + [0] + axval)))
+            self.intr.send(
+                struct.pack(joy_coding, 161, *(buttout + [0] + axval))
+            )
         else:
             print("Tried to publish while inactive")
 
 
 if __name__ == "__main__":
+
     def stop_all_threads(a, b):
         exit(0)
 
@@ -138,7 +142,7 @@ if __name__ == "__main__":
     # Call up the simulator telling it which ports to connect to.
     js = joysim(intr_port, ctrl_port)
     buttons1 = [True] * 16
-    axes1 = [1, 0, -1, .5] * 5
+    axes1 = [1, 0, -1, 0.5] * 5
     buttons2 = [False] * 16
     axes2 = [-1] * 20
     buttons3 = [False] * 16

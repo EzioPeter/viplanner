@@ -1,4 +1,4 @@
-# Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py
+# Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py  
 # File containing the meta info of all classes from the COCO dataset.
 
 try:
@@ -7,105 +7,101 @@ except ModuleNotFoundError:
     COCO_CATEGORIES = None
 
 _COCO_MAPPING_UNIQUE = {
-    'road': "road",
-    'sidewalk': "pavement-merged",
-    'crosswalk': "pavement-merged",
-    'floor': "floor-other-merged",
-    'gravel': "gravel",
-    'sand': "sand",
-    'snow': "snow",
-    'stairs': "stairs",
-    'person': "person",
-    'anymal': "bird",
-    'vehicle': "car",
-    'on_rails': "train",
-    'motorcycle': "motorcycle",
-    'bicycle': "bicycle",
-    'building': "building-other-merged",
-    'wall': "wall-other-merged",
-    'fence': "fence-merged",
-    'bridge': "bridge",
-    'tunnel': "bridge",
-    'pole': "parking meter",
-    'traffic_sign': "stop sign",
-    'traffic_light': "traffic light",
-    'bench': "bench",
-    'vegetation': "tree-merged",
-    'terrain': "grass-merged",
-    'water_surface': "river",
-    'sky': "sky-other-merged",
-    'background': "sky-other-merged",
-    'dynamic': "backpack",
-    'static': "unknown",
-    'furniture': "chair",
-    'door': "door-stuff",
-    'ceiling': "ceiling-merged",
-    'indoor_soft': "towel",
+    "road": "road",
+    "sidewalk": "pavement-merged",
+    "crosswalk": "pavement-merged",
+    "floor": "floor-other-merged",
+    "gravel": "gravel",
+    "sand": "sand",
+    "snow": "snow",
+    "stairs": "stairs",
+    "person": "person",
+    "anymal": "bird",
+    "vehicle": "car",
+    "on_rails": "train",
+    "motorcycle": "motorcycle",
+    "bicycle": "bicycle",
+    "building": "building-other-merged",
+    "wall": "wall-other-merged",
+    "fence": "fence-merged",
+    "bridge": "bridge",
+    "tunnel": "bridge",
+    "pole": "parking meter",
+    "traffic_sign": "stop sign",
+    "traffic_light": "traffic light",
+    "bench": "bench",
+    "vegetation": "tree-merged",
+    "terrain": "grass-merged",
+    "water_surface": "river",
+    "sky": "sky-other-merged",
+    "background": "sky-other-merged",
+    "dynamic": "backpack",
+    "static": "unknown",
+    "furniture": "chair",
+    "door": "door-stuff",
+    "ceiling": "ceiling-merged",
+    "indoor_soft": "towel",
 }
 
 _COCO_MAPPING = {
-    'road': [
-        'road'
-    ], 
-    'sidewalk': [
+    "road": ["road"],
+    "sidewalk": [
         "pavement-merged",
-        ],
-    'floor': [
+    ],
+    "floor": [
         "floor-other-merged",
-        "floor-wood",   
+        "floor-wood",
         "platform",
         "playingfield",
         "rug-merged",
-    ], 
-    'gravel': [
+    ],
+    "gravel": [
         "gravel",
     ],
-    'stairs': [
+    "stairs": [
         "stairs",
-    ], 
-    'sand': [
+    ],
+    "sand": [
         "sand",
     ],
-    'snow': [
+    "snow": [
         "snow",
     ],
-    'person': [
-        "person"
-    ], 
-    'anymal': [
-        'bird',
-        'cat',
-        'dog',
-        'horse',
-        'sheep',
-        'cow',
-        'elephant',
-        'bear',
-        'zebra',
-        'giraffe'
+    "person": ["person"],
+    "anymal": [
+        "bird",
+        "cat",
+        "dog",
+        "horse",
+        "sheep",
+        "cow",
+        "elephant",
+        "bear",
+        "zebra",
+        "giraffe",
     ],
-    'vehicle': [
+    "vehicle": [
         "car",
         "bus",
         "truck",
         "boat",
     ],
-    'on_rails': [
+    "on_rails": [
         "train",
         "railroad",
     ],
-    'motorcycle': [
+    "motorcycle": [
         "motorcycle",
     ],
-    'bicycle': [
+    "bicycle": [
         "bicycle",
     ],
-    'building': [
+    "building": [
         "building-other-merged",
         "house",
         "roof",
     ],
-    'wall': [
+    "wall": [
         "wall-other-merged",
         "curtain",
         "mirror-stuff",
@@ -116,46 +112,46 @@ _COCO_MAPPING = {
         "window-blind",
         "window-other",
     ],
-    'fence': [
+    "fence": [
         "fence-merged",
     ],
-    'bridge': [
+    "bridge": [
         "bridge",
     ],
-    'pole': [
+    "pole": [
         "fire hydrant",
         "parking meter",
     ],
-    'traffic_sign': [
+    "traffic_sign": [
         "stop sign",
     ],
-    'traffic_light': [
+    "traffic_light": [
         "traffic light",
-    ], 
-    'bench': [
+    ],
+    "bench": [
         "bench",
     ],
-    'vegetation': [
-        'potted plant',
+    "vegetation": [
+        "potted plant",
         "flower",
         "tree-merged",
         "mountain-merged",
         "rock-merged",
     ],
-    'terrain': [
+    "terrain": [
         "grass-merged",
         "dirt-merged",
     ],
-    'water_surface': [
+    "water_surface": [
         "river",
         "sea",
         "water-other",
     ],
-    'sky': [
+    "sky": [
         "sky-other-merged",
         "airplane",
     ],
-    'dynamic': [
+    "dynamic": [
         "backpack",
         "umbrella",
         "handbag",
@@ -213,14 +209,14 @@ _COCO_MAPPING = {
         "net",
         "paper-merged",
     ],
-    'static': [
+    "static": [
         "banner",
         "cardboard",
         "light",
         "tent",
         "unknown",
     ],
-    'furniture': [
+    "furniture": [
         "chair",
         "couch",
         "bed",
@@ -236,28 +232,27 @@ _COCO_MAPPING = {
         "counter",
         "tv",
     ],
-    'door': [
+    "door": [
         "door-stuff",
     ],
-    'ceiling': [
-        "ceiling-merged"
-    ],
-    'indoor_soft': [
+    "ceiling": ["ceiling-merged"],
+    "indoor_soft": [
         "towel",
     ],
 }
+
 
 def get_class_for_id():
     id_to_class = {}
     for idx, id_dict in enumerate(COCO_CATEGORIES):
         success = False
         for class_name, keywords in _COCO_MAPPING.items():
-            if any(keyword in id_dict['name'] for keyword in keywords):
+            if any(keyword in id_dict["name"] for keyword in keywords):
                 id_to_class[idx] = class_name
                 success = True
                 break
         if not success:
-            print("No mapping found for {}".format(id_dict['name']))
+            print("No mapping found for {}".format(id_dict["name"]))
     return id_to_class
 
 
@@ -271,9 +266,9 @@ def get_class_for_id_mmdet(class_list: list):
                 success = True
                 break
         if not success:
-            print("No mapping found for {}".format(id_dict['name']))
+            print("No mapping found for {}".format(coco_class_name["name"]))
     return id_to_class
+
 
 if __name__ == "__main__":
     print(get_class_for_id())
-    

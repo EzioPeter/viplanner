@@ -244,9 +244,9 @@ int main(int argc, char** argv)
     ros::spinOnce();
 
     if (pathInit) {
-      float vehicleXRel = cos(vehicleYawRec) * (vehicleX - vehicleXRec) 
+      float vehicleXRel = cos(vehicleYawRec) * (vehicleX - vehicleXRec)
                         + sin(vehicleYawRec) * (vehicleY - vehicleYRec);
-      float vehicleYRel = -sin(vehicleYawRec) * (vehicleX - vehicleXRec) 
+      float vehicleYRel = -sin(vehicleYawRec) * (vehicleX - vehicleXRec)
                         + cos(vehicleYawRec) * (vehicleY - vehicleYRec);
 
       int pathSize = path.poses.size();
@@ -279,10 +279,10 @@ int main(int argc, char** argv)
       disX = path.poses[pathPointIDSpeedLookahead].pose.position.x - vehicleXRel;
       disY = path.poses[pathPointIDSpeedLookahead].pose.position.y - vehicleYRel;
       dis = sqrt(disX * disX + disY * disY);
-      
+
       // Direction to Turn Lookahead point
       disX = path.poses[pathPointIDTurnLookahead].pose.position.x - vehicleXRel;
-      disY = path.poses[pathPointIDTurnLookahead].pose.position.y - vehicleYRel;      
+      disY = path.poses[pathPointIDTurnLookahead].pose.position.y - vehicleYRel;
       float pathDir = atan2(disY, disX);
 
       float dirDiff = vehicleYaw - vehicleYawRec - pathDir;

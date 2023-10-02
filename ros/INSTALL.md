@@ -23,7 +23,7 @@ You will then want to restart the Docker service or reboot your system before pr
 > service docker restart
 
 ### Docker for Ubuntu 20.04
-    
+
 - Building image by running:
     > sh bin/build.sh
 
@@ -41,10 +41,10 @@ TODO: currently still in https://github.com/pascal-roth/viplanner_jetson  - tran
     > sh bin/run_jetson.sh
 
 
-    
+
 ## Manual Installation
 
-- require ROS Noetic Installtion (http://wiki.ros.org/noetic/Installation/Ubuntu)
+- require ROS Noetic Installation (http://wiki.ros.org/noetic/Installation/Ubuntu)
 
 - Dependency for JoyStick Planner:
     > sudo apt install libusb-dev
@@ -78,17 +78,17 @@ TODO: currently still in https://github.com/pascal-roth/viplanner_jetson  - tran
     manually editing `site-packages/pkg_resources/_vendor/packaging/version.py` with `str()`
 
 
-### Within the Docker 
-- SSL Issue when running `pip install` within the docker when trying to manually install additional packages (description [here](https://stackoverflow.com/questions/50692816/pip-install-ssl-issue)) 
-    
-    - ERROR: 
+### Within the Docker
+- SSL Issue when running `pip install` within the docker when trying to manually install additional packages (description [here](https://stackoverflow.com/questions/50692816/pip-install-ssl-issue))
+
+    - ERROR:
     ```bash
     python -m pip install torch
     Collecting zeep
         Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'SSLError(SSLError("bad handshake: Error([('SSL routines', 'ssl3_get_server_certificate', 'certificate verify failed')],)",),)': /simple/torch/
     ```
 
-    - FIX: 
+    - FIX:
     > python3 -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --index-url=https://pypi.org/simple/ torch
 
 - PyYAML upgrade error (described [here](https://clay-atlas.com/us/blog/2022/07/23/solved-cannot-uninstall-pyyaml-it-is-a-distutils-installed-project-and-thus-we-cannot-accurately-determine-which-files-belong-to-it-which-would-lead-to-only-a-partial-uninstall/))
@@ -99,4 +99,4 @@ TODO: currently still in https://github.com/pascal-roth/viplanner_jetson  - tran
     - FIX:
     > pip install --ignore-installed PyYAML
 
-- 
+-

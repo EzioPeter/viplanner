@@ -10,15 +10,15 @@ int32[] buttons
 # Reports the state of a joysticks axes and buttons.
 Header header           # timestamp in the header is the time the data is received from the joystick
 float32[] axes          # the axes measurements from a joystick
-int32[] buttons         # the buttons measurements from a joystick 
+int32[] buttons         # the buttons measurements from a joystick
 
 ================================================================================
 MSG: std_msgs/Header
 # Standard metadata for higher-level stamped data types.
-# This is generally used to communicate timestamped data 
+# This is generally used to communicate timestamped data
 # in a particular coordinate frame.
-# 
-# sequence ID: consecutively increasing ID 
+#
+# sequence ID: consecutively increasing ID
 uint32 seq
 #Two-integer timestamp that is expressed as:
 # * stamp.secs: seconds (stamp_secs) since epoch

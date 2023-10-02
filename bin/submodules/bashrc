@@ -124,21 +124,21 @@ export PS1="(D) "$PS1
 #==
 # Source the ROS distribution file to configure the shell environment.
 FILE=/opt/ros/noetic/setup.bash
-if test -f "$FILE"; 
+if test -f "$FILE";
 then
     echo "$FILE exists. Therefore sourcing noetic."
     source $FILE
     # Set ros master
-    while true; 
+    while true;
     do
         read -p "Do you wish to set the ros-master to ANYmal D - Dingo [y/n]?" yn
         case $yn in
-            [Yy]* ) 
+            [Yy]* )
             export ROS_MASTER_URI=http://192.168.0.95:11311/
             echo "ROS_MASTER has been set to http://192.168.0.95:11311/"
             break
             ;;
-            [Nn]* ) 
+            [Nn]* )
             export ROS_MASTER_URI=http://localhost:11311/
             echo "ROS_MASTER has been set to http://localhost:11311/"
             break

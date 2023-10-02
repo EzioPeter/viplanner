@@ -12,13 +12,13 @@ The implementation consists of
 
 ## Installation
 
-Please refer to [Installation Instructions](./INSTALL.md) where details about the included docker and a manual install is given. 
+Please refer to [Installation Instructions](./INSTALL.md) where details about the included docker and a manual install is given.
 
 ## Usage
 
 Run the VIPlanner with visualization:
 
-	roslaunch viplanner_node viplanner.launch 
+	roslaunch viplanner_node viplanner.launch
 
 ## SmartJoystick
 
@@ -26,4 +26,4 @@ Press the **LB** button on the joystick, when seeing the output on the screen:
 
     Switch to Smart Joystick mode ...
 
-Now the smartjoystick feature is enabled. It takes the joy stick command as motion intension and runs the VIPlanner in the background for low-level obstacle avoidance.
+Now the smartjoystick feature is enabled. It takes the joy stick command as motion intention and runs the VIPlanner in the background for low-level obstacle avoidance.

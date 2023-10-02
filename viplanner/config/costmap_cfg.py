@@ -1,5 +1,3 @@
-#!/usr/bin python3
-
 """
 @author     Pascal Roth
 @email      roth.pascal@outlook.de
@@ -10,23 +8,52 @@
 # python
 import os
 import yaml
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
+
 
 class Loader(yaml.SafeLoader):
     pass
+
+
 def construct_GeneralCostMapConfig(loader, node):
     return GeneralCostMapConfig(**loader.construct_mapping(node))
-Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.GeneralCostMapConfig', construct_GeneralCostMapConfig)
+
+
+Loader.add_constructor(
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.GeneralCostMapConfig",  # FN E501
+    construct_GeneralCostMapConfig,
+)
+
+
 def construct_ReconstructionCfg(loader, node):
     return ReconstructionCfg(**loader.construct_mapping(node))
-Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.ReconstructionCfg', construct_ReconstructionCfg)
+
+
+Loader.add_constructor(
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.ReconstructionCfg",  # FN E501
+    construct_ReconstructionCfg,
+)
+
+
 def construct_SemCostMapConfig(loader, node):
     return SemCostMapConfig(**loader.construct_mapping(node))
-Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.SemCostMapConfig', construct_SemCostMapConfig)
+
+
+Loader.add_constructor(
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.SemCostMapConfig",   # FN E501
+    construct_SemCostMapConfig,
+)
+
+
 def construct_TsdfCostMapConfig(loader, node):
     return TsdfCostMapConfig(**loader.construct_mapping(node))
-Loader.add_constructor('tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.TsdfCostMapConfig', construct_TsdfCostMapConfig)
+
+
+Loader.add_constructor(
+    "tag:yaml.org,2002:python/object:viplanner.config.costmap_cfg.TsdfCostMapConfig",   # FN E501
+    construct_TsdfCostMapConfig,
+)
 
 
 @dataclass
@@ -34,20 +61,25 @@ class ReconstructionCfg:
     """
     Arguments for 3D reconstruction using depth maps
     """
+
     # directory where the environment with the depth (and semantic) images is located
     data_dir: str = "/home/pascal/viplanner/imperative_learning/data"
     # environment name
-    env: str = "town01"  #  ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
+    env: str = (  #  ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
+        "town01"
+    )
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"
     # higher resolution depth images available for reconstruction  (meaning that the depth images are also taked by the semantic camera)
     high_res_depth: bool = False
-    
+
     # reconstruction parameters
     voxel_size: float = 0.05  # [m] 0.05 for matterport 0.1 for carla
     start_idx: int = 0  # start index for reconstruction
-    max_images: Optional[int] = 1000  # maximum number of images to reconstruct, if None, all images are used
+    max_images: Optional[int] = (
+        1000  # maximum number of images to reconstruct, if None, all images are used
+    )
     depth_scale: float = 1000.0  # depth scale factor
     # semantic reconstruction
     semantics: bool = True
@@ -55,10 +87,11 @@ class ReconstructionCfg:
     # speed vs. memory trade-off parameters
     point_cloud_batch_size: int = 200  # 3d points of nbr images added to point cloud at once (higher values use more memory but faster)
 
-    """ Internal functions """    
+    """ Internal functions """
+
     def get_data_path(self) -> str:
         return os.path.join(self.data_dir, self.env)
-    
+
     def get_out_path(self) -> str:
         return os.path.join(self.out_dir, self.env)
 
@@ -66,18 +99,23 @@ class ReconstructionCfg:
 @dataclass
 class SemCostMapConfig:
     """Configuration for the semantic cost map"""
+
     # point-cloud filter parameters
-    ground_height: Optional[float] = -0.2  # None for matterport  -0.5 for carla  -1.0 for nomoko
+    ground_height: Optional[float] = (
+        -0.2
+    )  # None for matterport  -0.5 for carla  -1.0 for nomoko
     robot_height: float = 0.70
     robot_height_factor: float = 3.0
     nb_neighbors: int = 100
     std_ratio: float = 2.0  # keep high, otherwise ground will be removed
     downsample: bool = False
-    # smooting
+    # smoothing
     nb_neigh: int = 15
     change_decimal: int = 3
-    conv_crit: float = 0.45  # ration of points that have to change by at least the #change_decimal decimal value to converge  
-    nb_tasks: Optional[int] = 10  # number of tasks for parallel processing, if None, all available cores are used
+    conv_crit: float = 0.45  # ration of points that have to change by at least the #change_decimal decimal value to converge
+    nb_tasks: Optional[int] = (
+        10  # number of tasks for parallel processing, if None, all available cores are used
+    )
     sigma_smooth: float = 2.5
     max_iterations: int = 1
     # obstacle threshold  (multiplied with highest loss value defined for a semantic class)
@@ -88,12 +126,16 @@ class SemCostMapConfig:
     # loss values rounded up to decimal #round_decimal_traversable equal to 0.0 are selected and the traversable gradient is determined based on them
     round_decimal_traversable: int = 2
     # compute height map
-    compute_height_map: bool = False  # false for matterport, true for carla and nomoko
+    compute_height_map: bool = (
+        False  # false for matterport, true for carla and nomoko
+    )
+
 
 @dataclass
 class TsdfCostMapConfig:
     """Configuration for the tsdf cost map"""
-    # offset of the point cloud 
+
+    # offset of the point cloud
     offset_z: float = 0.0
     # filter parameters
     ground_height: float = 0.35
@@ -108,9 +150,10 @@ class TsdfCostMapConfig:
     free_space_threshold: float = 0.5
 
 
-@ dataclass 
+@dataclass
 class GeneralCostMapConfig:
     """General Cost Map Configuration"""
+
     # path to point cloud
     root_path: str = "/home/pascal/viplanner/imperative_learning/data/town01_more_data_reconstruct"  #  JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM town01 2azQ1b91cZZ B6ByNegPMKs nomoko_zurich
     ply_file: str = "cloud.ply"
@@ -121,33 +164,44 @@ class GeneralCostMapConfig:
     # smoothing parameters
     sigma_smooth: float = 3.0
     # cost map expansion
-    x_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    y_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    x_max: Optional[float] = None  # 346.22 # [m] if None, the maximum of the point cloud is used
-    y_max: Optional[float] = None  # 336.65 # [m] if None, the maximum of the point cloud is used
+    x_min: Optional[float] = (
+        None  # -8.05  # [m] if None, the minimum of the point cloud is used
+    )
+    y_min: Optional[float] = (
+        None  # -8.05  # [m] if None, the minimum of the point cloud is used
+    )
+    x_max: Optional[float] = (
+        None  # 346.22 # [m] if None, the maximum of the point cloud is used
+    )
+    y_max: Optional[float] = (
+        None  # 336.65 # [m] if None, the maximum of the point cloud is used
+    )
 
 
 @dataclass
 class CostMapConfig:
     """General Cost Map Configuration"""
+
     # cost map domains
     semantics: bool = True
     geometry: bool = False
-    
+
     # name
     map_name: str = "cost_map_sem"
-    
+
     # general cost map configuration
     general: GeneralCostMapConfig = GeneralCostMapConfig()
-    
+
     # individual cost map configurations
     sem_cost_map: SemCostMapConfig = SemCostMapConfig()
     tsdf_cost_map: TsdfCostMapConfig = TsdfCostMapConfig()
-    
+
     # visualize cost map
     visualize: bool = True
 
     # FILLED BY CODE -> DO NOT CHANGE ###
     x_start: float = None
     y_start: float = None
+
+
 # EoF

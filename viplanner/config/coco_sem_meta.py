@@ -6,43 +6,6 @@ try:
 except ModuleNotFoundError:
     COCO_CATEGORIES = None
 
-_COCO_MAPPING_UNIQUE = {
-    "road": "road",
-    "sidewalk": "pavement-merged",
-    "crosswalk": "pavement-merged",
-    "floor": "floor-other-merged",
-    "gravel": "gravel",
-    "sand": "sand",
-    "snow": "snow",
-    "stairs": "stairs",
-    "person": "person",
-    "anymal": "bird",
-    "vehicle": "car",
-    "on_rails": "train",
-    "motorcycle": "motorcycle",
-    "bicycle": "bicycle",
-    "building": "building-other-merged",
-    "wall": "wall-other-merged",
-    "fence": "fence-merged",
-    "bridge": "bridge",
-    "tunnel": "bridge",
-    "pole": "parking meter",
-    "traffic_sign": "stop sign",
-    "traffic_light": "traffic light",
-    "bench": "bench",
-    "vegetation": "tree-merged",
-    "terrain": "grass-merged",
-    "water_surface": "river",
-    "sky": "sky-other-merged",
-    "background": "sky-other-merged",
-    "dynamic": "backpack",
-    "static": "unknown",
-    "furniture": "chair",
-    "door": "door-stuff",
-    "ceiling": "ceiling-merged",
-    "indoor_soft": "towel",
-}
-
 _COCO_MAPPING = {
     "road": ["road"],
     "sidewalk": [

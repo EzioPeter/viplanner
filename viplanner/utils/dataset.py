@@ -1,8 +1,6 @@
 """
 @author     Pascal Roth
 @email      rothpa@student.ethz.ch
-@author     Fan Yang
-@email      fanyang1@ethz.ch
 
 @brief      prepare dataset for VIPlanner training and inference
 """

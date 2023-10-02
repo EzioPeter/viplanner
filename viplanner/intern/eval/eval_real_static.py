@@ -20,12 +20,13 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 
 # viplanner
-from viplanner.config import Mask2FormerCfg, TrainCfg
-from viplanner.dataset import PlannerDataGenerator
+from viplanner.config import TrainCfg
+from viplanner.intern.m2f.config import Mask2FormerCfg
 from viplanner.intern.m2f.m2f_utils import M2FWrapper
+from viplanner.intern.rosbag.rosbag_base_handler import RealWorldDataHandler
 from viplanner.traj_cost_opt import TrajCost, TrajOpt, TrajViz
+from viplanner.utils.dataset import PlannerDataGenerator
 from viplanner.utils.eval_utils import BaseEvaluator
-from viplanner.utils.rosbag_base_handler import RealWorldDataHandler
 from viplanner.utils.trainer import Trainer
 
 # set random seed for reproducibility

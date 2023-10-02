@@ -111,15 +111,3 @@ class TrajOpt:
             plt.show()
 
         return waypoints
-
-
-if __name__ == "__main__":
-    traj_opt = TrajOpt()
-    traj_opt.debug = True
-    preds = torch.tensor(
-        [[[0, 0, 1], [1, 2, 1], [3, 3, 1], [4, 6, 1], [7, 7, 1], [10, 8, 1]]],
-        dtype=torch.float32,
-    )
-    step = 0.1
-    # traj_opt.TrajGeneratorFromPFreeRot(preds, step)
-    traj_opt.interpolate_waypoints(preds)

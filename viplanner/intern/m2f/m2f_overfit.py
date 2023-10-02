@@ -56,8 +56,10 @@ from detectron2.projects.deeplab import add_deeplab_config, build_lr_scheduler
 from detectron2.solver.build import maybe_add_gradient_clipping
 from detectron2.utils.logger import setup_logger
 
+from viplanner.intern.m2f.config import Mask2FormerCfg
+from viplanner.intern.segments.config import SegmentsCfg
+
 # viplanner
-from viplanner.config import Mask2FormerCfg, SegmentsCfg
 from viplanner.third_party.mask2former.datasets.prepare_coco_semantic_annos_from_panoptic_annos import (
     separate_coco_semantic_from_panoptic,
 )

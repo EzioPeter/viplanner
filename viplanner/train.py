@@ -40,7 +40,7 @@ if __name__ == "__main__":
         wb_project="viplanner-Carla",
     )
     trainer = Trainer(carla)
-    # trainer.train()
+    trainer.train()
     trainer.test()
     trainer.save_config()
     torch.cuda.empty_cache()

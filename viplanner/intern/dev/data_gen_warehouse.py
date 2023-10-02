@@ -1,5 +1,4 @@
 # python
-
 from viplanner.config import (
     CostMapConfig,
     GeneralCostMapConfig,

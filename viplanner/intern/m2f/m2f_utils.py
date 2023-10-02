@@ -21,7 +21,8 @@ from detectron2.utils.logger import setup_logger
 from tqdm import tqdm
 
 # viplanner
-from viplanner.config import Mask2FormerCfg, VIPlannerSemMetaHandler, get_class_for_id
+from viplanner.config import VIPlannerSemMetaHandler, get_class_for_id
+from viplanner.intern.m2f.config import Mask2FormerCfg
 from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 
 

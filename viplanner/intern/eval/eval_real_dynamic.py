@@ -46,10 +46,7 @@ class RealWorldEvaluatorDynamic(BaseEvaluator):
         cost_map_dir = os.path.join(self.data_dir, "maps")
         if not os.path.exists(cost_map_dir):
             cost_map_dir = None
-            print(
-                "[INFO]  No cost map directory found, skipping cost map"
-                " evaluation."
-            )
+            print("[INFO]  No cost map directory found, skipping cost map" " evaluation.")
 
         # init base class
         super().__init__(tolerance, cost_map_dir, cost_map_name)
@@ -68,9 +65,7 @@ class RealWorldEvaluatorDynamic(BaseEvaluator):
         # separate data
         path_masks = self._sep_data()
         # evaluate
-        for idx, curr_goal in enumerate(
-            tqdm(self.odom_goal, desc="Process goal points")
-        ):
+        for idx, curr_goal in enumerate(tqdm(self.odom_goal, desc="Process goal points")):
             if not any(path_masks[idx]):
                 continue
 
@@ -78,14 +73,9 @@ class RealWorldEvaluatorDynamic(BaseEvaluator):
 
             self.length_goal[idx] = np.linalg.norm(odom_points[0] - curr_goal)
             self.length_path[idx] = sum(
-                [
-                    np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-                    for (x1, y1), (x2, y2) in zip(odom_points, odom_points[1:])
-                ]
+                [np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) for (x1, y1), (x2, y2) in zip(odom_points, odom_points[1:])]
             )
-            self.goal_distances[idx] = np.linalg.norm(
-                odom_points[-1] - curr_goal
-            )
+            self.goal_distances[idx] = np.linalg.norm(odom_points[-1] - curr_goal)
 
         # plot results
         eval_dir = os.path.join(self.data_dir, "eval_dynamic")
@@ -104,9 +94,7 @@ class RealWorldEvaluatorDynamic(BaseEvaluator):
         return
 
     def _sep_data(self) -> None:
-        path_masks = np.zeros(
-            (len(self.time_goal), len(self.time_base)), dtype=bool
-        )
+        path_masks = np.zeros((len(self.time_goal), len(self.time_base)), dtype=bool)
         for idx, goal_time in enumerate(self.time_goal[:-1]):
             if idx == len(self.time_goal) - 1:
                 path_masks[idx] = self.time_base >= goal_time
@@ -140,9 +128,7 @@ if __name__ == "__main__":
         action="store_true",
         help="Save visualizations of the predictions",
     )
-    parser.add_argument(
-        "-d", "--debug", action="store_true", help="Debug mode"
-    )
+    parser.add_argument("-d", "--debug", action="store_true", help="Debug mode")
 
     args = parser.parse_args()
 

@@ -26,11 +26,9 @@ class ROSArgparse:
         if rospy.has_param(name):
             rospy.loginfo("Get param %s", name)
         else:
-            rospy.logwarn(
-                "Couldn't find param: %s, Using default: %s", name, default
-            )
+            rospy.logwarn("Couldn't find param: %s, Using default: %s", name, default)
         value = rospy.get_param(name, default)
-        variable = name[name.rfind("/") + 1:].replace("-", "_")
+        variable = name[name.rfind("/") + 1 :].replace("-", "_")
         if isinstance(value, str):
             exec(f"self.{variable}='{value}'")
         else:

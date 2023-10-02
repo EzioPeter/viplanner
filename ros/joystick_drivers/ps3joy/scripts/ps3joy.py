@@ -77,10 +77,7 @@ class uinputjoy:
             self.file = self.open_uinput()
             if self.file is None:
                 print(
-                    (
-                        "Can't open uinput device. Is it accessible by this"
-                        " user? Did you mean to run as root?"
-                    ),
+                    ("Can't open uinput device. Is it accessible by this" " user? Did you mean to run as root?"),
                     file=sys.stderr,
                 )
                 raise OSError
@@ -94,10 +91,7 @@ class uinputjoy:
         uinput_user_dev = "80sHHHHi" + (uinput.ABS_MAX + 1) * 4 * "i"
 
         if len(axes) != len(axmin) or len(axes) != len(axmax):
-            raise Exception(
-                "uinputjoy.__init__: axes, axmin and axmax should have same"
-                " length"
-            )
+            raise Exception("uinputjoy.__init__: axes, axmin and axmax should have same" " length")
 
         absmin = [0] * (uinput.ABS_MAX + 1)
         absmax = [0] * (uinput.ABS_MAX + 1)
@@ -135,9 +129,7 @@ class uinputjoy:
         fcntl.ioctl(self.file, UI_DEV_CREATE)
 
         self.value = [None] * (len(buttons) + len(axes))
-        self.type = [uinput.EV_KEY] * len(buttons) + [uinput.EV_ABS] * len(
-            axes
-        )
+        self.type = [uinput.EV_KEY] * len(buttons) + [uinput.EV_ABS] * len(axes)
         self.code = buttons + axes
 
     def update(self, value):
@@ -173,9 +165,7 @@ class BadJoystickException(Exception):
 
 
 class decoder:
-    def __init__(
-        self, inactivity_timeout=float(1e3000), continuous_motion_output=False
-    ):
+    def __init__(self, inactivity_timeout=float(1e3000), continuous_motion_output=False):
         # buttons=[uinput.BTN_SELECT, uinput.BTN_THUMBL, uinput.BTN_THUMBR, uinput.BTN_START,
         #         uinput.BTN_FORWARD, uinput.BTN_RIGHT, uinput.BTN_BACK, uinput.BTN_LEFT,
         #         uinput.BTN_TL, uinput.BTN_TR, uinput.BTN_TL2, uinput.BTN_TR2,
@@ -200,9 +190,7 @@ class decoder:
             if continuous_motion_output:
                 axfuzz[i] = 0
                 axflat[i] = 0
-        for i in range(
-            4, len(axmin) - 4
-        ):  # Buttons should be zero when not pressed
+        for i in range(4, len(axmin) - 4):  # Buttons should be zero when not pressed
             axmin[i] = -axmax[i]
         self.joy = uinputjoy(buttons, axes, axmin, axmax, axfuzz, axflat)
         self.axmid = [sum(pair) / 2 for pair in zip(axmin, axmax)]
@@ -221,8 +209,7 @@ class decoder:
             prefix = data.pop(0)
             if prefix != 161:
                 print(
-                    "Unexpected prefix (%i). Is this a PS3 Dual Shock or Six"
-                    " Axis?" % prefix,
+                    "Unexpected prefix (%i). Is this a PS3 Dual Shock or Six" " Axis?" % prefix,
                     file=sys.stderr,
                 )
                 return self.step_error
@@ -234,26 +221,20 @@ class decoder:
             out = out + data
             self.joy.update(out)
             axis_motion = [
-                abs(out[17:][i] - self.axmid[i]) > 20
-                for i in range(0, len(out) - 17 - 4)
+                abs(out[17:][i] - self.axmid[i]) > 20 for i in range(0, len(out) - 17 - 4)
             ]  # 17 buttons, 4 inertial sensors
             if any(out[0:17]) or any(axis_motion):
                 return self.step_active
             return self.step_idle
         elif len(rawdata) == 13:
             print(
-                (
-                    "Your bluetooth adapter is not supported. "
-                    "Does it support Bluetooth 2.0?"
-                ),
+                ("Your bluetooth adapter is not supported. " "Does it support Bluetooth 2.0?"),
                 file=sys.stderr,
             )
             raise BadJoystickException()
         else:
             print(
-                "Unexpected packet length (%i). "
-                "Is this a PS3 Dual Shock or Six Axis?"
-                % len(rawdata),
+                "Unexpected packet length (%i). " "Is this a PS3 Dual Shock or Six Axis?" % len(rawdata),
                 file=sys.stderr,
             )
             return self.step_error
@@ -270,9 +251,7 @@ class decoder:
                 (rd, wr, err) = select.select([intr], [], [], 0.1)
                 curtime = time.time()
                 if len(rd) + len(wr) + len(err) == 0:  # Timeout
-                    ctrl.send(
-                        "\x53\xf4\x42\x03\x00\x00"
-                    )  # Try activating the stream.
+                    ctrl.send("\x53\xf4\x42\x03\x00\x00")  # Try activating the stream.
                 else:  # Got a frame.
                     if not activated:
                         print("Connection activated")
@@ -283,10 +262,7 @@ class decoder:
                         print("Got Bluetooth error %s. Disconnecting." % s)
                         return
                     if len(rawdata) == 0:  # Orderly shutdown of socket
-                        print(
-                            "Joystick shut down the connection, battery may be"
-                            " discharged."
-                        )
+                        print("Joystick shut down the connection, battery may be" " discharged.")
                         return
                     stepout = self.step(rawdata)
                     if stepout != self.step_error:
@@ -296,8 +272,7 @@ class decoder:
                 if curtime - lastactivitytime > self.inactivity_timeout:
                     print(
                         "Joystick inactive for %.0f seconds. "
-                        "Disconnecting to save battery."
-                        % self.inactivity_timeout
+                        "Disconnecting to save battery." % self.inactivity_timeout
                     )
                     return
                 if curtime - lastvalidtime >= 0.1:
@@ -305,14 +280,9 @@ class decoder:
                     self.fullstop()
                 if curtime - lastvalidtime >= 5:
                     # Disconnect if we don't hear a valid frame for 5 seconds
-                    print(
-                        "No valid data for 5 seconds. Disconnecting. "
-                        "This should not happen, please report it."
-                    )
+                    print("No valid data for 5 seconds. Disconnecting. " "This should not happen, please report it.")
                     return
-                time.sleep(
-                    0.005
-                )  # No need to blaze through the loop when there is an error
+                time.sleep(0.005)  # No need to blaze through the loop when there is an error
         finally:
             self.fullstop()
 
@@ -325,9 +295,7 @@ class Quit(Exception):
 
 def check_hci_status():
     # Check if hci0 is up and pscanning, take action as necessary.
-    proc = subprocess.Popen(
-        ["hciconfig"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    proc = subprocess.Popen(["hciconfig"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
     if out.find("UP") == -1:
         os.system("hciconfig hci0 up > /dev/null 2>&1")
@@ -386,10 +354,7 @@ class connection_manager:
     def listen(self, intr_sock, ctrl_sock):
         self.n = 0
         while not self.shutdown:
-            print(
-                "Waiting for connection. Disconnect your PS3 joystick from USB"
-                " and press the pairing button."
-            )
+            print("Waiting for connection. Disconnect your PS3 joystick from USB" " and press the pairing button.")
             try:
                 intr_sock.settimeout(5)
                 ctrl_sock.settimeout(1)
@@ -408,10 +373,7 @@ class connection_manager:
                         (ctrl, (cdev, cport)) = ctrl_sock.accept()
                     except Exception as e:
                         print(
-                            (
-                                "Got interrupt connection without control"
-                                " connection. Giving up on it."
-                            ),
+                            ("Got interrupt connection without control" " connection. Giving up on it."),
                             file=sys.stderr,
                         )
                         continue
@@ -421,10 +383,7 @@ class connection_manager:
                             print("Connection terminated.")
                         else:
                             print(
-                                (
-                                    "Simultaneous connection from two"
-                                    " different devices. Ignoring both."
-                                ),
+                                ("Simultaneous connection from two" " different devices. Ignoring both."),
                                 file=sys.stderr,
                             )
                     finally:
@@ -457,11 +416,7 @@ def usage(errcode):
     )
     print("<n>: inactivity timeout in seconds (saves battery life).")
     print("<f>: file name to redirect output to.")
-    print(
-        "Unless "
-        + no_disable_bluetoothd_string
-        + " is specified, bluetoothd will be stopped."
-    )
+    print("Unless " + no_disable_bluetoothd_string + " is specified, bluetoothd will be stopped.")
     raise Quit(errcode)
 
 
@@ -490,9 +445,7 @@ if __name__ == "__main__":
         disable_bluetoothd = True
         continuous_output = False
 
-        for arg in sys.argv[
-            1:
-        ]:  # Be very tolerant in case we are roslaunched.
+        for arg in sys.argv[1:]:  # Be very tolerant in case we are roslaunched.
             if arg == "--help":
                 usage(0)
             elif is_arg_with_param(arg, inactivity_timout_string):
@@ -529,23 +482,14 @@ if __name__ == "__main__":
         try:
             while os.system("hciconfig hci0 > /dev/null 2>&1") != 0:
                 print(
-                    (
-                        "No bluetooth dongle found or bluez rosdep not"
-                        " installed. Will retry in 5 seconds."
-                    ),
+                    ("No bluetooth dongle found or bluez rosdep not" " installed. Will retry in 5 seconds."),
                     file=sys.stderr,
                 )
                 time.sleep(5)
             if inactivity_timeout == float(1e3000):
-                print(
-                    "No inactivity timeout was set. (Run with --help for"
-                    " details.)"
-                )
+                print("No inactivity timeout was set. (Run with --help for" " details.)")
             else:
-                print(
-                    "Inactivity timeout set to %.0f seconds."
-                    % inactivity_timeout
-                )
+                print("Inactivity timeout set to %.0f seconds." % inactivity_timeout)
             cm = connection_manager(
                 decoder(
                     inactivity_timeout=inactivity_timeout,

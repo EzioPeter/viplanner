@@ -60,8 +60,7 @@ class SimEvaluator(BaseEvaluator):
         # check if enough environments are given
         if isinstance(self.environment, list):
             assert len(self.environment) == len(model_dirs), (
-                "Number of environments and models must match to assign each"
-                " model its own environment!"
+                "Number of environments and models must match to assign each" " model its own environment!"
             )
 
         # init buffers
@@ -79,17 +78,13 @@ class SimEvaluator(BaseEvaluator):
             if use_prev_results:
                 # check if all file exist
                 if isinstance(self.environment, list):
-                    data_dir = os.path.join(
-                        DATA_PARENT_DIR, self.environment[idx]
-                    )
+                    data_dir = os.path.join(DATA_PARENT_DIR, self.environment[idx])
                 else:
                     data_dir = os.path.join(DATA_PARENT_DIR, self.environment)
                 eval_dir = os.path.join(data_dir, f"eval_{model_name}")
                 all_file_exists = all(
                     [
-                        os.path.isfile(
-                            os.path.join(eval_dir, f"{file_name}.txt")
-                        )
+                        os.path.isfile(os.path.join(eval_dir, f"{file_name}.txt"))
                         for file_name in [
                             "length_goal",
                             "length_path",
@@ -101,46 +96,21 @@ class SimEvaluator(BaseEvaluator):
                 )
 
                 if all_file_exists:
-                    length_goal_list.append(
-                        np.loadtxt(os.path.join(eval_dir, "length_goal.txt"))
-                    )
-                    length_path_list.append(
-                        np.loadtxt(os.path.join(eval_dir, "length_path.txt"))
-                    )
-                    path_extension_list.append(
-                        np.loadtxt(
-                            os.path.join(eval_dir, "path_extension.txt")
-                        )
-                    )
-                    goal_distance_list.append(
-                        np.loadtxt(
-                            os.path.join(eval_dir, "goal_distances.txt")
-                        )
-                    )
-                    obstacle_loss_list.append(
-                        np.loadtxt(
-                            os.path.join(eval_dir, "loss_obstacles.txt")
-                        )
-                    )
+                    length_goal_list.append(np.loadtxt(os.path.join(eval_dir, "length_goal.txt")))
+                    length_path_list.append(np.loadtxt(os.path.join(eval_dir, "length_path.txt")))
+                    path_extension_list.append(np.loadtxt(os.path.join(eval_dir, "path_extension.txt")))
+                    goal_distance_list.append(np.loadtxt(os.path.join(eval_dir, "goal_distances.txt")))
+                    obstacle_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_obstacles.txt")))
                     self._use_cost_map = True
                     # obstacle_max_loss_list.append(np.loadtxt(os.path.join(eval_dir, "loss_max_obstacles.txt")))
                     continue
-                else:
-                    print(
-                        "[INFO] No previous results found, running"
-                        " evaluation..."
-                    )
+                print("[INFO] No previous results found, running" " evaluation...")
 
             # load trainer, config and data
             if isinstance(self.environment, list):
                 train_cfg = self.load_config(model_dir, idx=idx)
-                if idx == 0 or (
-                    idx > 0
-                    and self.environment[idx] != self.environment[idx - 1]
-                ):
-                    self.trainer = Trainer(
-                        train_cfg
-                    )  # can get new trainer since data and cost changes
+                if idx == 0 or (idx > 0 and self.environment[idx] != self.environment[idx - 1]):
+                    self.trainer = Trainer(train_cfg)  # can get new trainer since data and cost changes
                     self.setup_data_cost()  # load individual data and cost
                 else:
                     # load new config
@@ -190,9 +160,7 @@ class SimEvaluator(BaseEvaluator):
 
     def load_config(self, model_dir: str, idx: int = 0) -> TrainCfg:
         # load config
-        train_config: TrainCfg = TrainCfg.from_yaml(
-            os.path.join(model_dir, "model.yaml")
-        )
+        train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dir, "model.yaml"))
         # set environment
         if isinstance(self.environment, list):
             train_config.env_list = [self.environment[idx]]
@@ -201,39 +169,25 @@ class SimEvaluator(BaseEvaluator):
         # set data config
         if self.carla:
             if isinstance(train_config.data_cfg, list):
-                carla_idx = [
-                    data_cfg.carla for data_cfg in train_config.data_cfg
-                ].index(True)
+                carla_idx = [data_cfg.carla for data_cfg in train_config.data_cfg].index(True)
                 if carla_idx:
                     print(
-                        "[INFO] Carla data found, only using first data"
-                        f" config: {train_config.data_cfg[carla_idx]}"
+                        "[INFO] Carla data found, only using first data" f" config: {train_config.data_cfg[carla_idx]}"
                     )
-                    train_config.data_cfg = [
-                        train_config.data_cfg[carla_idx[0]]
-                    ]
+                    train_config.data_cfg = [train_config.data_cfg[carla_idx[0]]]
                 else:
-                    print(
-                        "[WARNING] No Carla data found, using first data"
-                        f" config: {train_config.data_cfg[0]}"
-                    )
+                    print("[WARNING] No Carla data found, using first data" f" config: {train_config.data_cfg[0]}")
                     train_config.data_cfg = [train_config.data_cfg[0]]
             else:
                 if train_config.data_cfg.carla:
                     print(f"[INFO] Carla data found: {train_config.data_cfg}")
                     train_config.data_cfg = [train_config.data_cfg]
                 else:
-                    print(
-                        "[WARNING] No Carla data found, using data config:"
-                        f" {train_config.data_cfg}"
-                    )
+                    print("[WARNING] No Carla data found, using data config:" f" {train_config.data_cfg}")
                     train_config.data_cfg = [train_config.data_cfg]
         else:
             if isinstance(train_config.data_cfg, list):
-                print(
-                    "[INFO] Using first data config:"
-                    f" {train_config.data_cfg[0]}"
-                )
+                print("[INFO] Using first data config:" f" {train_config.data_cfg[0]}")
                 train_config.data_cfg = [train_config.data_cfg[0]]
             else:
                 train_config.data_cfg = [train_config.data_cfg]
@@ -248,9 +202,7 @@ class SimEvaluator(BaseEvaluator):
     def setup_data_cost(self):
         # get dataloader for training
         self.trainer._load_data(train=False)
-        _, test_loader = self.trainer._get_dataloader(
-            train=False, allow_augmentation=False
-        )
+        _, test_loader = self.trainer._get_dataloader(train=False, allow_augmentation=False)
         self.test_loader = test_loader[0]
 
         # set cost map
@@ -278,9 +230,7 @@ class SimEvaluator(BaseEvaluator):
 
                 if self.trainer._cfg.sem or self.trainer._cfg.rgb:
                     image = inputs[0].cuda(self.trainer._cfg.gpu_id)  # depth
-                    sem_rgb_image = inputs[1].cuda(
-                        self.trainer._cfg.gpu_id
-                    )  # semantic
+                    sem_rgb_image = inputs[1].cuda(self.trainer._cfg.gpu_id)  # semantic
                     preds, fear = self.trainer.net(image, sem_rgb_image, goal)
                 else:
                     image = inputs[0].cuda(self.trainer._cfg.gpu_id)
@@ -306,73 +256,41 @@ class SimEvaluator(BaseEvaluator):
                     fear = fear.squeeze(0)
 
                 # optimize
-                waypoints = self._traj_cost.opt.TrajGeneratorFromPFreeRot(
-                    preds, step=0.1
-                )
-                waypoints_world = (
-                    self._traj_cost.TransformPoints(odom, waypoints)
-                    .tensor()
-                    .cpu()
-                    .numpy()
-                )
-                goal_world = (
-                    self._traj_cost.TransformPoints(odom, goal[:, None, :3])
-                    .tensor()
-                    .cpu()
-                    .numpy()
-                )
+                waypoints = self._traj_cost.opt.TrajGeneratorFromPFreeRot(preds, step=0.1)
+                waypoints_world = self._traj_cost.TransformPoints(odom, waypoints).tensor().cpu().numpy()
+                goal_world = self._traj_cost.TransformPoints(odom, goal[:, None, :3]).tensor().cpu().numpy()
                 # evaluate
-                self.goal_distances[
-                    pred_counter : pred_counter + len(goal)
-                ] = np.linalg.norm(
+                self.goal_distances[pred_counter : pred_counter + len(goal)] = np.linalg.norm(
                     waypoints_world[:, -1, :2] - goal_world[:, 0, :2], axis=1
                 )
-                self.length_path[pred_counter : pred_counter + len(goal)] = (
-                    np.sum(
-                        np.linalg.norm(
-                            waypoints_world[:, 1:, :2]
-                            - waypoints_world[:, :-1, :2],
-                            axis=2,
-                        ),
-                        axis=1,
-                    )
-                )
-                self.length_goal[pred_counter : pred_counter + len(goal)] = (
+                self.length_path[pred_counter : pred_counter + len(goal)] = np.sum(
                     np.linalg.norm(
-                        goal_world[:, 0, :2] - odom[:, :2].cpu().numpy(),
-                        axis=1,
-                    )
+                        waypoints_world[:, 1:, :2] - waypoints_world[:, :-1, :2],
+                        axis=2,
+                    ),
+                    axis=1,
                 )
-                mean_loss, max_loss = self._traj_cost.obs_cost_eval(
-                    odom, waypoints
+                self.length_goal[pred_counter : pred_counter + len(goal)] = np.linalg.norm(
+                    goal_world[:, 0, :2] - odom[:, :2].cpu().numpy(),
+                    axis=1,
                 )
-                self.loss_obstacles[
-                    pred_counter : pred_counter + len(goal)
-                ] = mean_loss.cpu().numpy()
-                self.loss_max_obstacles[
-                    pred_counter : pred_counter + len(goal)
-                ] = max_loss.cpu().numpy()
+                mean_loss, max_loss = self._traj_cost.obs_cost_eval(odom, waypoints)
+                self.loss_obstacles[pred_counter : pred_counter + len(goal)] = mean_loss.cpu().numpy()
+                self.loss_max_obstacles[pred_counter : pred_counter + len(goal)] = max_loss.cpu().numpy()
                 # path extension as (path length - straight line start to final point on path) / (straight line start to final point on path)
                 straight_distance = np.linalg.norm(
                     waypoints_world[:, -1, :2] - odom[:, :2].cpu().numpy(),
                     axis=1,
                 )
-                self.path_extension[
-                    pred_counter : pred_counter + len(goal)
-                ] = (
-                    self.length_path[pred_counter : pred_counter + len(goal)]
-                    - straight_distance
+                self.path_extension[pred_counter : pred_counter + len(goal)] = (
+                    self.length_path[pred_counter : pred_counter + len(goal)] - straight_distance
                 ) / straight_distance
                 pred_counter += len(goal)
 
                 if self.debug:
                     path_diff = (
-                        self.length_path[
-                            pred_counter : pred_counter + len(goal)
-                        ]
-                        - self.length_goal[
-                            pred_counter : pred_counter + len(goal)
-                        ]
+                        self.length_path[pred_counter : pred_counter + len(goal)]
+                        - self.length_goal[pred_counter : pred_counter + len(goal)]
                     )
                     largest_indices = torch.tensor(np.argsort(path_diff)[-30:])
                     self.trainer.data_traj_viz[0].VizTrajectory(
@@ -412,19 +330,13 @@ class SimEvaluator(BaseEvaluator):
 
         np.savetxt(os.path.join(eval_dir, "length_path.txt"), self.length_path)
         np.savetxt(os.path.join(eval_dir, "length_goal.txt"), self.length_goal)
-        np.savetxt(
-            os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances
-        )
-        np.savetxt(
-            os.path.join(eval_dir, "loss_obstacles.txt"), self.loss_obstacles
-        )
+        np.savetxt(os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances)
+        np.savetxt(os.path.join(eval_dir, "loss_obstacles.txt"), self.loss_obstacles)
         np.savetxt(
             os.path.join(eval_dir, "loss_max_obstacles.txt"),
             self.loss_max_obstacles,
         )
-        np.savetxt(
-            os.path.join(eval_dir, "path_extension.txt"), self.path_extension
-        )
+        np.savetxt(os.path.join(eval_dir, "path_extension.txt"), self.path_extension)
 
         # plot data
         self.plt_single_model(eval_dir, show=False)
@@ -439,9 +351,7 @@ class SimEvaluator(BaseEvaluator):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="Model Eval", description="Evaluate VIPmodels"
-    )
+    parser = argparse.ArgumentParser(prog="Model Eval", description="Evaluate VIPmodels")
     parser.add_argument(
         "-m",
         "--model_dirs",
@@ -491,10 +401,7 @@ if __name__ == "__main__":
         "-ff",
         "--fear_filter",
         action="store_true",
-        help=(
-            "Filter all fear trajectories for evaluation (filtered fear values"
-            " above 0.5)"
-        ),
+        help=("Filter all fear trajectories for evaluation (filtered fear values" " above 0.5)"),
         default=True,
     )
     parser.add_argument(

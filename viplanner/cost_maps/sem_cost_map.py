@@ -16,7 +16,6 @@ from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
-import pandas as pd
 import scipy
 
 # imperative-cost-map
@@ -63,16 +62,9 @@ class SemCostMap:
     def pcd_init(self) -> None:
         # load pcd and filter it
         print("COST-MAP INIT START")
-        print(
-            "start loading and filtering point cloud from:"
-            f" {self._cfg_general.ply_file}"
-        )
-        pc_path = os.path.join(
-            self._cfg_general.root_path, self._cfg_general.ply_file
-        )
-        assert os.path.exists(
-            pc_path
-        ), f"point cloud file does not exist: {pc_path}"
+        print("start loading and filtering point cloud from:" f" {self._cfg_general.ply_file}")
+        pc_path = os.path.join(self._cfg_general.root_path, self._cfg_general.ply_file)
+        assert os.path.exists(pc_path), f"point cloud file does not exist: {pc_path}"
         self.pcd = o3d.io.read_point_cloud(pc_path)
 
         # filter for x and y coordinates
@@ -136,9 +128,7 @@ class SemCostMap:
         return
 
     def create_costmap(self) -> Tuple[list, list]:
-        assert (
-            self._init_done
-        ), "cost map not initialized, call pcd_init() first"
+        assert self._init_done, "cost map not initialized, call pcd_init() first"
         print("COST-MAP CREATION START")
 
         # get the loss for each grid cell
@@ -155,9 +145,7 @@ class SemCostMap:
 
     """Helper functions"""
 
-    def _pcd_ground_height_map(
-        self, pcd: o3d.geometry.PointCloud
-    ) -> np.ndarray:
+    def _pcd_ground_height_map(self, pcd: o3d.geometry.PointCloud) -> np.ndarray:
         "Start building height map"
         # for each grid cell, get the point with the highest z value
         pts = np.asarray(pcd.points)
@@ -173,17 +161,13 @@ class SemCostMap:
         color = color.astype(int)
         for class_name, class_color in self.sem_meta.class_color.items():
             pts_idx_of_class = (color == class_color).all(axis=1).nonzero()[0]
-            pts_ground[pts_idx_of_class] = self.sem_meta.class_ground[
-                class_name
-            ]
+            pts_ground[pts_idx_of_class] = self.sem_meta.class_ground[class_name]
 
         # filter outliers
         pts_ground_idx = pts_idx[pts_ground]
         if False:
             pcd_ground = pcd.select_by_index(pts_ground_idx)
-            _, ind = pcd_ground.remove_radius_outlier(
-                nb_points=5, radius=5 * self._cfg_general.resolution
-            )
+            _, ind = pcd_ground.remove_radius_outlier(nb_points=5, radius=5 * self._cfg_general.resolution)
             pts_ground_idx = pts_ground_idx[ind]
             pts_ground_red = np.zeros(pts_grid_idx_red.shape[0], dtype=bool)
             pts_ground_red[np.where(pts_ground)[0][ind]] = True
@@ -192,30 +176,22 @@ class SemCostMap:
         # fit kdtree to the points on the ground and assign ground height to all other points based on the nearest neighbor
         pts_ground_location = pts[pts_ground_idx]
         ground_kdtree = scipy.spatial.KDTree(pts_ground_location)
-        _, non_ground_neighbor_idx = ground_kdtree.query(
-            pts[pts_idx[~pts_ground]], workers=-1
-        )
+        _, non_ground_neighbor_idx = ground_kdtree.query(pts[pts_idx[~pts_ground]], workers=-1)
 
         # init height map and assign ground height to all points on the ground
         height_pts_ground = np.zeros(pts_grid_idx_red.shape[0])
         height_pts_ground[pts_ground] = pts_ground_location[:, 2]
-        height_pts_ground[~pts_ground] = pts_ground_location[
-            non_ground_neighbor_idx, 2
-        ]
+        height_pts_ground[~pts_ground] = pts_ground_location[non_ground_neighbor_idx, 2]
 
         # fill the holes
         height_map = np.full((self._num_x, self._num_y), np.nan)
-        height_map[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = (
-            height_pts_ground
-        )
+        height_map[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = height_pts_ground
         hole_idx = np.vstack(np.where(np.isnan(height_map))).T
 
         kdtree_grid = scipy.spatial.KDTree(pts_grid_idx_red)
         distance, neighbor_idx = kdtree_grid.query(hole_idx, k=3, workers=-1)
         weights = distance / np.sum(distance, axis=1)[:, None]
-        height_map[hole_idx[:, 0], hole_idx[:, 1]] = np.sum(
-            height_pts_ground[neighbor_idx] * weights, axis=1
-        )
+        height_map[hole_idx[:, 0], hole_idx[:, 1]] = np.sum(height_pts_ground[neighbor_idx] * weights, axis=1)
 
         if self.visualize:
             # visualize the height map
@@ -232,19 +208,11 @@ class SemCostMap:
 
         if self.height_map is not None:
             pts_grid_idx = (
-                np.round(
-                    (pts[:, :2] - np.array([self._start_x, self._start_y]))
-                    / self._cfg_general.resolution
-                )
+                np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)
             ).astype(int)
-            pts[:, 2] -= self.height_map[
-                pts_grid_idx[:, 0], pts_grid_idx[:, 1]
-            ]
+            pts[:, 2] -= self.height_map[pts_grid_idx[:, 0], pts_grid_idx[:, 1]]
 
-        pts_ceil_idx = (
-            pts[:, 2]
-            < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
-        )
+        pts_ceil_idx = pts[:, 2] < self._cfg_sem.robot_height * self._cfg_sem.robot_height_factor
         pts_ground_idx = (
             pts[:, 2] > self._cfg_sem.ground_height
             if self._cfg_sem.ground_height is not None
@@ -256,9 +224,7 @@ class SemCostMap:
 
         # downsampling
         if self._cfg_sem.downsample:
-            pcd_height_filtered = pcd_height_filtered.voxel_down_sample(
-                self._cfg_general.resolution
-            )
+            pcd_height_filtered = pcd_height_filtered.voxel_down_sample(self._cfg_general.resolution)
             print("Voxel Downsampling applied")
 
         # remove statistical outliers
@@ -284,24 +250,10 @@ class SemCostMap:
             round(self._start_x, 3),
             round(self._start_y, 3),
         )
-        self._num_x = (
-            np.ceil(
-                (max_x - min_x) / self._cfg_general.resolution / 10
-            ).astype(int)
-            * 10
-        )
-        self._num_y = (
-            np.ceil(
-                (max_y - min_y) / self._cfg_general.resolution / 10
-            ).astype(int)
-            * 10
-        )
-        self._start_x = (
-            max_x + min_x
-        ) / 2.0 - self._num_x / 2.0 * self._cfg_general.resolution
-        self._start_y = (
-            max_y + min_y
-        ) / 2.0 - self._num_y / 2.0 * self._cfg_general.resolution
+        self._num_x = np.ceil((max_x - min_x) / self._cfg_general.resolution / 10).astype(int) * 10
+        self._num_y = np.ceil((max_y - min_y) / self._cfg_general.resolution / 10).astype(int) * 10
+        self._start_x = (max_x + min_x) / 2.0 - self._num_x / 2.0 * self._cfg_general.resolution
+        self._start_y = (max_y + min_y) / 2.0 - self._num_y / 2.0 * self._cfg_general.resolution
 
         print(f"cost map size set to: {self._num_x} x {self._num_y}")
         if prev_param != (
@@ -331,10 +283,7 @@ class SemCostMap:
         # identify points with unknown classes --> remove from point cloud
         known_idx = np.where(pts_class_idx != -1)[0]
         self.pcd_filtered = self.pcd_filtered.select_by_index(known_idx)
-        print(
-            f"Class of {len(known_idx)} points identified"
-            f" ({len(known_idx) / len(color)} %)."
-        )
+        print(f"Class of {len(known_idx)} points identified" f" ({len(known_idx) / len(color)} %).")
 
         return pts_class_idx[known_idx]
 
@@ -367,9 +316,9 @@ class SemCostMap:
         # turn distance into weight
         # pt_dist_weighted = pt_dist * np.linspace(1, 0.01, nb_neigh)
         pt_dist_inv = 1.0 / pt_dist
-        pt_dist_inv[~np.isfinite(pt_dist_inv)] = (
-            0.0  # set inf to 0 (inf or nan values when closest point at the same position)
-        )
+        pt_dist_inv[
+            ~np.isfinite(pt_dist_inv)
+        ] = 0.0  # set inf to 0 (inf or nan values when closest point at the same position)
         pt_weights = scipy.special.softmax(pt_dist_inv, axis=1)
 
         # smooth losses
@@ -377,15 +326,10 @@ class SemCostMap:
         pts_loss_smooth = pts_loss_local.copy()
         while counter < max_iterations:
             counter += 1
-            pts_loss_smooth = np.sum(
-                pts_loss_smooth[pt_neigh_idx] * pt_weights, axis=1
-            )
+            pts_loss_smooth = np.sum(pts_loss_smooth[pt_neigh_idx] * pt_weights, axis=1)
 
             conv_rate = (
-                np.sum(
-                    np.round(pts_loss_smooth, change_decimal)
-                    != np.round(pts_loss_local, change_decimal)
-                )
+                np.sum(np.round(pts_loss_smooth, change_decimal) != np.round(pts_loss_local, change_decimal))
                 / pts_loss_local.shape[0]
             )
 
@@ -400,9 +344,9 @@ class SemCostMap:
         return pts_loss_smooth
 
     @staticmethod
-    def _smoother_init(l: mp.Lock) -> None:
+    def _smoother_init(l_local: mp.Lock) -> None:
         global lock
-        lock = l
+        lock = l_local
         return
 
     def _get_grid_loss(self) -> np.ndarray:
@@ -420,9 +364,7 @@ class SemCostMap:
 
         # get points
         pts = np.asarray(self.pcd_filtered.points)
-        pts_grid = (
-            pts[:, :2] - np.array([self._start_x, self._start_y])
-        ) / self._cfg_general.resolution
+        pts_grid = (pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution
 
         # get loss for each point
         pts_loss = np.zeros(class_idx.shape[0])
@@ -430,20 +372,12 @@ class SemCostMap:
             pts_loss[class_idx == sem_class] = self.sem_meta.losses[sem_class]
 
         # split task index
-        num_tasks = (
-            self._cfg_sem.nb_tasks
-            if self._cfg_sem.nb_tasks
-            else mp.cpu_count()
-        )
-        pts_task_idx = np.array_split(
-            np.random.permutation(pts_loss.shape[0]), num_tasks
-        )
+        num_tasks = self._cfg_sem.nb_tasks if self._cfg_sem.nb_tasks else mp.cpu_count()
+        pts_task_idx = np.array_split(np.random.permutation(pts_loss.shape[0]), num_tasks)
 
         # create pool with lock
-        l = mp.Lock()
-        pool = mp.pool.Pool(
-            processes=num_tasks, initializer=self._smoother_init, initargs=(l,)
-        )
+        lock_local = mp.Lock()
+        pool = mp.pool.Pool(processes=num_tasks, initializer=self._smoother_init, initargs=(lock_local,))
         loss_array = pool.map(
             partial(
                 self._smoother,
@@ -498,15 +432,11 @@ class SemCostMap:
         pts_grid_idx_red, pts_idx = self._get_unqiue_grid_idx(pts)
 
         grid_loss = np.ones((self._num_x, self._num_y)) * -10
-        grid_loss[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = (
-            smooth_loss[pts_idx]
-        )
+        grid_loss[pts_grid_idx_red[:, 0], pts_grid_idx_red[:, 1]] = smooth_loss[pts_idx]
 
         # get grid idx of all (non-) classified points
         non_classified_idx = np.where(grid_loss == -10)
-        non_classified_idx = np.vstack(
-            (non_classified_idx[0], non_classified_idx[1])
-        ).T
+        non_classified_idx = np.vstack((non_classified_idx[0], non_classified_idx[1])).T
 
         kdtree = scipy.spatial.KDTree(pts_grid_idx_red)
         distances, idx = kdtree.query(non_classified_idx, k=1)
@@ -528,28 +458,18 @@ class SemCostMap:
             non_classified_idx[~within_mesh, 0],
             non_classified_idx[~within_mesh, 1],
         ] = OBSTACLE_LOSS
-        grid_loss = scipy.ndimage.gaussian_filter(
-            grid_loss, sigma=self._cfg_sem.sigma_smooth
-        )
+        grid_loss = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_sem.sigma_smooth)
 
         # get different loss levels
         loss_levels = np.unique(self.sem_meta.losses)
-        assert (
-            round(loss_levels[0], 3) == 0.0
-        ), f"Lowest loss level should be 0.0, instead found {loss_levels[0]}."
+        assert round(loss_levels[0], 3) == 0.0, f"Lowest loss level should be 0.0, instead found {loss_levels[0]}."
         if round(loss_levels[-1], 3) == 1.0:
-            print(
-                "WARNING: Highest loss level should be 1.0, instead found"
-                f" {loss_levels[-1]}."
-            )
+            print("WARNING: Highest loss level should be 1.0, instead found" f" {loss_levels[-1]}.")
 
         # intended traversable area is best traversed with maximum distance to any area with higher cost
         # apply distance transform to nearest obstacle to enforce smallest loss when distance is max
         traversable_idx = np.where(
-            np.round(
-                grid_loss, decimals=self._cfg_sem.round_decimal_traversable
-            )
-            == loss_levels[0]
+            np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[0]
         )
         grid_loss[traversable_idx] = (
             self._distance_based_gradient(
@@ -562,45 +482,30 @@ class SemCostMap:
         )
 
         # outside of the mesh is an obstacle and all points over obstacle threshold of grid loss are obstacles
-        obs_within_mesh_idx = np.where(
-            grid_loss > self._cfg_sem.obstacle_threshold * loss_levels[-1]
-        )
+        obs_within_mesh_idx = np.where(grid_loss > self._cfg_sem.obstacle_threshold * loss_levels[-1])
         obs_idx = (
-            np.hstack(
-                (obs_within_mesh_idx[0], non_classified_idx[~within_mesh, 0])
-            ),
-            np.hstack(
-                (obs_within_mesh_idx[1], non_classified_idx[~within_mesh, 1])
-            ),
+            np.hstack((obs_within_mesh_idx[0], non_classified_idx[~within_mesh, 0])),
+            np.hstack((obs_within_mesh_idx[1], non_classified_idx[~within_mesh, 1])),
         )
-        grid_loss[obs_idx] = self._distance_based_gradient(
-            obs_idx, None, None, True
-        )
+        grid_loss[obs_idx] = self._distance_based_gradient(obs_idx, None, None, True)
 
         # repeat distance transform for intermediate loss levels
         for i in range(1, len(loss_levels) - 1):
             loss_level_idx = np.where(
-                np.round(
-                    grid_loss, decimals=self._cfg_sem.round_decimal_traversable
-                )
-                == loss_levels[i]
+                np.round(grid_loss, decimals=self._cfg_sem.round_decimal_traversable) == loss_levels[i]
             )
             grid_loss[loss_level_idx] = self._distance_based_gradient(
                 loss_level_idx, loss_levels[i], loss_levels[i + 1], False
             )
 
-        assert (
-            grid_loss == -10
-        ).any() == False, "There are still grid cells without a loss value."
+        assert (grid_loss == -10).any() is False, "There are still grid cells without a loss value."
 
         # elevate grid_loss to avoid negative values due to negative reward in area with smallest loss level
         if np.min(grid_loss) < 0:
             grid_loss = grid_loss + np.abs(np.min(grid_loss))
 
         # smooth loss again
-        loss_smooth = scipy.ndimage.gaussian_filter(
-            grid_loss, sigma=self._cfg_general.sigma_smooth
-        )
+        loss_smooth = scipy.ndimage.gaussian_filter(grid_loss, sigma=self._cfg_general.sigma_smooth)
 
         # plot grid classes and losses
         if self.visualize:
@@ -611,24 +516,12 @@ class SemCostMap:
             axs[0, 1].imshow(loss_smooth, cmap="jet")
             axs[1, 0].set_title("grid loss x-grad")
             axs[1, 0].imshow(
-                np.log(
-                    np.abs(
-                        scipy.ndimage.sobel(grid_loss, axis=0, mode="constant")
-                    )
-                    + math.e
-                )
-                - 1,
+                np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=0, mode="constant")) + math.e) - 1,
                 cmap="jet",
             )
             axs[1, 1].set_title("grid loss y-grad")
             axs[1, 1].imshow(
-                np.log(
-                    np.abs(
-                        scipy.ndimage.sobel(grid_loss, axis=1, mode="constant")
-                    )
-                    + math.e
-                )
-                - 1,
+                np.log(np.abs(scipy.ndimage.sobel(grid_loss, axis=1, mode="constant")) + math.e) - 1,
                 cmap="jet",
             )
             plt.show()
@@ -640,10 +533,7 @@ class SemCostMap:
         Will select the points that are unique in their grid position and have the highest z location
         """
         pts_grid_idx = (
-            np.round(
-                (pts[:, :2] - np.array([self._start_x, self._start_y]))
-                / self._cfg_general.resolution
-            )
+            np.round((pts[:, :2] - np.array([self._start_x, self._start_y])) / self._cfg_general.resolution)
         ).astype(int)
 
         # convert pts_grid_idx to 1d array
@@ -656,9 +546,7 @@ class SemCostMap:
         # sorts pts_grid_idx_1d so all unique elements are together
         pts_grid_idx_1d_sorted = pts_grid_idx_1d[idx_sort]
         # returns the unique values, the index of the first occurrence of a value, and the count for each element
-        vals, idx_start, count = np.unique(
-            pts_grid_idx_1d_sorted, return_counts=True, return_index=True
-        )
+        vals, idx_start, count = np.unique(pts_grid_idx_1d_sorted, return_counts=True, return_index=True)
         # splits the indices into separate arrays
         pts_grid_location_map = np.split(idx_sort, idx_start[1:])
 

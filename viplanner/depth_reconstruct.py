@@ -75,7 +75,6 @@ class DepthReconstruction:
         self._pcd: o3d.geometry.PointCloud = None
 
         print("Ready to read depth data.")
-        return None
 
     # public methods
     def depth_reconstruction(self):
@@ -96,10 +95,7 @@ class DepthReconstruction:
             )
             self._cfg.point_cloud_batch_size = self._end_idx - self._start_idx
 
-        print(
-            "total number of images for reconstruction:"
-            f" {int(self._end_idx - self._start_idx)}"
-        )
+        print("total number of images for reconstruction:" f" {int(self._end_idx - self._start_idx)}")
 
         # get pixel tensor for reprojection
         pixels = self._computePixelTensor()
@@ -107,20 +103,20 @@ class DepthReconstruction:
         # init point-cloud
         self._pcd = o3d.geometry.PointCloud()  # point size (n, 3)
         first_batch = True
-        img_counter = 0
 
         # init lists
         points_all = []
         if self._cfg.semantics:
             sem_map_all = []
 
-        for img_idx in tqdm(
-            range(self._end_idx - self._start_idx),
-            desc="Reconstructing 3D Points",
+        for img_counter, img_idx in enumerate(
+            tqdm(
+                range(self._end_idx - self._start_idx),
+                desc="Reconstructing 3D Points",
+            )
         ):
             im = self._load_depth_image(img_idx)
             extrinsics = self.extrinsics_depth[img_idx + self._start_idx]
-            img_counter += 1
 
             # project points in world frame
             rot = tf.Rotation.from_quat(extrinsics[3:]).as_matrix()
@@ -134,9 +130,7 @@ class DepthReconstruction:
                 img_path = os.path.join(
                     self._cfg.get_data_path(),
                     "semantics",
-                    str(self._start_idx + img_idx).zfill(4)
-                    + self._cfg.sem_suffix
-                    + ".png",
+                    str(self._start_idx + img_idx).zfill(4) + self._cfg.sem_suffix + ".png",
                 )
                 sem_image = cv2.imread(img_path)  # load in BGR format
                 sem_image = cv2.cvtColor(sem_image, cv2.COLOR_BGR2RGB)
@@ -144,9 +138,7 @@ class DepthReconstruction:
                 points_all.append(points_final)
                 sem_map_all.append(sem_points)
             elif self._cfg.semantics:
-                sem_annotation, filter_idx = self._get_semantic_image(
-                    points_final, img_idx
-                )
+                sem_annotation, filter_idx = self._get_semantic_image(points_final, img_idx)
                 points_all.append(points_final[filter_idx])
                 sem_map_all.append(sem_annotation)
             else:
@@ -154,19 +146,12 @@ class DepthReconstruction:
 
             # update point cloud
             if img_counter % self._cfg.point_cloud_batch_size == 0:
-                print(
-                    "updating open3d geometry point cloud with"
-                    f" {self._cfg.point_cloud_batch_size} images ..."
-                )
+                print("updating open3d geometry point cloud with" f" {self._cfg.point_cloud_batch_size} images ...")
 
                 if first_batch:
-                    self._pcd.points = o3d.utility.Vector3dVector(
-                        np.vstack(points_all)
-                    )
+                    self._pcd.points = o3d.utility.Vector3dVector(np.vstack(points_all))
                     if self._cfg.semantics:
-                        self._pcd.colors = o3d.utility.Vector3dVector(
-                            np.vstack(sem_map_all) / 255.0
-                        )
+                        self._pcd.colors = o3d.utility.Vector3dVector(np.vstack(sem_map_all) / 255.0)
                     first_batch = False
 
                 else:
@@ -182,15 +167,12 @@ class DepthReconstruction:
                     sem_map_all = []
 
                 # apply downsampling
-                print(
-                    "downsampling point cloud with voxel size"
-                    f" {self._cfg.voxel_size} ..."
-                )
+                print("downsampling point cloud with voxel size" f" {self._cfg.voxel_size} ...")
                 self._pcd = self._pcd.voxel_down_sample(self._cfg.voxel_size)
 
         # add last batch
         if len(points_all) > 0:
-            print(f"updating open3d geometry point cloud with last images ...")
+            print("updating open3d geometry point cloud with last images ...")
             self._pcd.points.extend(np.vstack(points_all))
             points_all = None
             if self._cfg.semantics:
@@ -198,10 +180,7 @@ class DepthReconstruction:
                 sem_map_all = None
 
             # apply downsampling
-            print(
-                "downsampling point cloud with voxel size"
-                f" {self._cfg.voxel_size} ..."
-            )
+            print(f"downsampling point cloud with voxel size {self._cfg.voxel_size} ...")
             self._pcd = self._pcd.voxel_down_sample(self._cfg.voxel_size)
 
         # update flag
@@ -217,19 +196,14 @@ class DepthReconstruction:
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(
             size=1.0, origin=np.min(np.asarray(self._pcd.points), axis=0)
         )
-        o3d.visualization.draw_geometries(
-            [self._pcd, origin], mesh_show_wireframe=True
-        )  # visualize point cloud
+        o3d.visualization.draw_geometries([self._pcd, origin], mesh_show_wireframe=True)  # visualize point cloud
         return
 
     def save_pcd(self):
         if not self._is_constructed:
             print("save points failed, no reconstructed cloud!")
 
-        print(
-            "save output files to: "
-            + os.path.join(self._cfg.data_dir, self._cfg.env)
-        )
+        print("save output files to: " + os.path.join(self._cfg.data_dir, self._cfg.env))
 
         # pre-create the folder for the mapping
         os.makedirs(
@@ -241,9 +215,7 @@ class DepthReconstruction:
             exist_ok=True,
         )
         os.makedirs(
-            os.path.join(
-                os.path.join(self._cfg.data_dir, self._cfg.env), "maps", "data"
-            ),
+            os.path.join(os.path.join(self._cfg.data_dir, self._cfg.env), "maps", "data"),
             exist_ok=True,
         )
         os.makedirs(
@@ -262,7 +234,6 @@ class DepthReconstruction:
         )  # save point cloud
 
         print("saved point cloud to ply file.")
-        return None
 
     @property
     def pcd(self):
@@ -279,8 +250,7 @@ class DepthReconstruction:
             self.extrinsics_sem = np.loadtxt(extrinsic_path, delimiter=",")
         if self._cfg.high_res_depth:
             assert self._cfg.semantics, (
-                "high res depth requires semantic images since depth should be"
-                " recorded with semantic camera"
+                "high res depth requires semantic images since depth should be" " recorded with semantic camera"
             )
             self.extrinsics_depth = self.extrinsics_sem
         else:
@@ -292,9 +262,7 @@ class DepthReconstruction:
         return
 
     def _read_intrinsic(self) -> None:
-        intrinsic_path = os.path.join(
-            self._cfg.get_data_path(), "intrinsics.txt"
-        )
+        intrinsic_path = os.path.join(self._cfg.get_data_path(), "intrinsics.txt")
         P = np.loadtxt(intrinsic_path, delimiter=",")  # assumes ROS P matrix
         self._intrinsic = list(P)
         if self._cfg.semantics:
@@ -310,27 +278,21 @@ class DepthReconstruction:
     def _load_depth_image(self, idx: int) -> np.ndarray:
         # get path to images
         if self._cfg.high_res_depth:
-            dir_path = os.path.join(
-                self._cfg.get_data_path(), "depth_high_res"
-            )
+            dir_path = os.path.join(self._cfg.get_data_path(), "depth_high_res")
         else:
             dir_path = os.path.join(self._cfg.get_data_path(), "depth")
 
         if os.path.isfile(
             os.path.join(
                 dir_path,
-                str(idx + self._start_idx).zfill(4)
-                + self._cfg.depth_suffix
-                + ".npy",
+                str(idx + self._start_idx).zfill(4) + self._cfg.depth_suffix + ".npy",
             )
         ):
             img_array = (
                 np.load(
                     os.path.join(
                         dir_path,
-                        str(idx + self._start_idx).zfill(4)
-                        + self._cfg.depth_suffix
-                        + ".npy",
+                        str(idx + self._start_idx).zfill(4) + self._cfg.depth_suffix + ".npy",
                     )
                 )
                 / self._cfg.depth_scale
@@ -338,14 +300,9 @@ class DepthReconstruction:
         else:
             img_path = os.path.join(
                 dir_path,
-                str(idx + self._start_idx).zfill(4)
-                + self._cfg.depth_suffix
-                + ".png",
+                str(idx + self._start_idx).zfill(4) + self._cfg.depth_suffix + ".png",
             )
-            img_array = (
-                cv2.imread(img_path, cv2.IMREAD_ANYDEPTH)
-                / self._cfg.depth_scale
-            )
+            img_array = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH) / self._cfg.depth_scale
 
         img_array[~np.isfinite(img_array)] = 0
         return img_array
@@ -358,9 +315,7 @@ class DepthReconstruction:
         pix_v = np.arange(0, depth_img.shape[0])
         grid = np.meshgrid(pix_u, pix_v)
         pixels = np.vstack(list(map(np.ravel, grid))).T
-        pixels = np.hstack(
-            [pixels, np.ones((len(pixels), 1))]
-        )  # add ones for 3D coordinates
+        pixels = np.hstack([pixels, np.ones((len(pixels), 1))])  # add ones for 3D coordinates
 
         # transform to camera frame
         k_inv = np.linalg.inv(self.K_depth)
@@ -373,26 +328,17 @@ class DepthReconstruction:
         img_path = os.path.join(
             self._cfg.get_data_path(),
             "semantics",
-            str(self._start_idx + idx).zfill(4)
-            + self._cfg.sem_suffix
-            + ".png",
+            str(self._start_idx + idx).zfill(4) + self._cfg.sem_suffix + ".png",
         )
         sem_image = cv2.imread(img_path)  # loads in bgr order
         sem_image = cv2.cvtColor(sem_image, cv2.COLOR_BGR2RGB)
         pose_sem = self.extrinsics_sem[idx + self._cfg.start_idx]
         # transform points to semantic camera frame
-        points_sem_cam_frame = (
-            tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T
-            @ (points - pose_sem[:3]).T
-        ).T
+        points_sem_cam_frame = (tf.Rotation.from_quat(pose_sem[3:]).as_matrix().T @ (points - pose_sem[:3]).T).T
         # normalize points
-        points_sem_cam_frame_norm = (
-            points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
-        )
+        points_sem_cam_frame_norm = points_sem_cam_frame / points_sem_cam_frame[:, 0][:, np.newaxis]
         # reorder points be camera convention (z-forward)
-        points_sem_cam_frame_norm = points_sem_cam_frame_norm[
-            :, [1, 2, 0]
-        ] * np.array([-1, -1, 1])
+        points_sem_cam_frame_norm = points_sem_cam_frame_norm[:, [1, 2, 0]] * np.array([-1, -1, 1])
         # transform points to pixel coordinates
         pixels = (self.K_sem @ points_sem_cam_frame_norm.T).T
         # filter points outside of image
@@ -408,9 +354,7 @@ class DepthReconstruction:
             pixels[filter_idx, 0].astype(int),
         ]
         # remove all pixels that have no semantic annotation
-        non_classified_idx = np.all(
-            sem_annotation == self.sem_handler.class_color["static"], axis=1
-        )
+        non_classified_idx = np.all(sem_annotation == self.sem_handler.class_color["static"], axis=1)
         sem_annotation = sem_annotation[~non_classified_idx]
         filter_idx[np.where(filter_idx)[0][non_classified_idx]] = False
 

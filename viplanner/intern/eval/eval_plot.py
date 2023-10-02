@@ -13,13 +13,8 @@ import numpy as np
 import scipy.spatial.transform as tf
 import torch
 
-from viplanner.intern.rosbag.rosbag_base_handler import (
-    CAMERA_FLIP_MAT,
-    ROS_TO_ROBOTICS_MAT,
-    RealWorldDataHandler,
-)
-
 # viplanner
+from viplanner.intern.rosbag.rosbag_base_handler import RealWorldDataHandler
 from viplanner.traj_cost_opt import TrajViz
 
 
@@ -45,17 +40,15 @@ class EvalPlotter(RealWorldDataHandler):
         super().load_data()
         # get path
         path = np.load(os.path.join(self.dir, "path.npy"))  # 3D
-        path_idx, img_idx = self.synchronize_data(
-            self.depth_time, path[:, 0, 3:], threshold=0.2
-        )
+        path_idx, img_idx = self.synchronize_data(self.depth_time, path[:, 0, 3:], threshold=0.2)
 
         # path given in camera convention, transform to robot convention
-        path_depth = (
-            path[path_idx, :, :3] - self.odom_depth[img_idx, None, :3]
-        ) @ tf.Rotation.from_quat(self.odom_depth[img_idx, 3:]).as_matrix()
-        path_rgb = (
-            path[path_idx, :, :3] - self.odom_bgr[img_idx, None, :3]
-        ) @ tf.Rotation.from_quat(self.odom_bgr[img_idx, 3:]).as_matrix()
+        path_depth = (path[path_idx, :, :3] - self.odom_depth[img_idx, None, :3]) @ tf.Rotation.from_quat(
+            self.odom_depth[img_idx, 3:]
+        ).as_matrix()
+        path_rgb = (path[path_idx, :, :3] - self.odom_bgr[img_idx, None, :3]) @ tf.Rotation.from_quat(
+            self.odom_bgr[img_idx, 3:]
+        ).as_matrix()
 
         # reduce data to valid depth images, bgr and odom points
         self.odom_bgr = torch.from_numpy(self.odom_bgr[img_idx]).float()
@@ -71,29 +64,21 @@ class EvalPlotter(RealWorldDataHandler):
         goals = np.loadtxt(os.path.join(self.dir, "odom_goal.txt"))
         if len(goals.shape) == 1:
             goals = np.expand_dims(goals, axis=0)
-        goal_switch_idx = self.synchronize_data(
-            self.depth_time, goals[:, 3:], threshold=10.0
-        )
+        goal_switch_idx = self.synchronize_data(self.depth_time, goals[:, 3:], threshold=10.0)
         self.goal_depth = np.zeros((len(self.path_depth), 3))
         self.goal_rgb = np.zeros((len(self.path_rgb), 3))
         goal_idx = None
         remove_idx = []
         for idx in range(len(self.path_depth)):
             if (idx == goal_switch_idx[1]).any():
-                goal_idx = goal_switch_idx[0][
-                    np.where(idx == goal_switch_idx[1])[0][0]
-                ]
+                goal_idx = goal_switch_idx[0][np.where(idx == goal_switch_idx[1])[0][0]]
             elif goal_idx is None:
                 remove_idx.append(idx)
                 continue
-            self.goal_depth[idx] = (
-                goals[goal_idx, :3] - self.odom_depth[idx, :3].numpy()
-            ) @ tf.Rotation.from_quat(
+            self.goal_depth[idx] = (goals[goal_idx, :3] - self.odom_depth[idx, :3].numpy()) @ tf.Rotation.from_quat(
                 self.odom_depth[idx, 3:].numpy()
             ).as_matrix()
-            self.goal_rgb[idx] = (
-                goals[goal_idx, :3] - self.odom_bgr[idx, :3].numpy()
-            ) @ tf.Rotation.from_quat(
+            self.goal_rgb[idx] = (goals[goal_idx, :3] - self.odom_bgr[idx, :3].numpy()) @ tf.Rotation.from_quat(
                 self.odom_bgr[idx, 3:].numpy()
             ).as_matrix()
 
@@ -122,9 +107,7 @@ class EvalPlotter(RealWorldDataHandler):
                 cv2.IMREAD_UNCHANGED,
             )
         )
-        self.bgr_img_shape = np.shape(
-            cv2.imread(os.path.join(self.dir, "bgr", self.bgr_img_list[0]))
-        )
+        self.bgr_img_shape = np.shape(cv2.imread(os.path.join(self.dir, "bgr", self.bgr_img_list[0])))
 
         # semantics
         if self.semantics:
@@ -162,26 +145,12 @@ class EvalPlotter(RealWorldDataHandler):
                 )
                 / 1000.0
             )  # rotate by 180 deg
-            bgr_img = cv2.imread(
-                os.path.join(self.dir, "bgr", self.bgr_img_list[idx])
-            )
-            self.bgr_img[idx] = (
-                torch.from_numpy(
-                    cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
-                ).permute(2, 0, 1)
-                / 255.0
-            )
+            bgr_img = cv2.imread(os.path.join(self.dir, "bgr", self.bgr_img_list[idx]))
+            self.bgr_img[idx] = torch.from_numpy(cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)).permute(2, 0, 1) / 255.0
 
             if self.semantics:
-                sem_img = cv2.imread(
-                    os.path.join(self.dir, "semantics", self.sem_img_list[idx])
-                )
-                self.sem_img[idx] = (
-                    torch.from_numpy(
-                        cv2.cvtColor(sem_img, cv2.COLOR_BGR2RGB)
-                    ).permute(2, 0, 1)
-                    / 255.0
-                )
+                sem_img = cv2.imread(os.path.join(self.dir, "semantics", self.sem_img_list[idx]))
+                self.sem_img[idx] = torch.from_numpy(cv2.cvtColor(sem_img, cv2.COLOR_BGR2RGB)).permute(2, 0, 1) / 255.0
 
         return
 
@@ -224,22 +193,16 @@ class EvalPlotter(RealWorldDataHandler):
 
         for idx in range(len(projected_img_depth)):
             cv2.imwrite(
-                os.path.join(
-                    self.dir, "depth_projected", self.depth_img_list[idx]
-                ),
+                os.path.join(self.dir, "depth_projected", self.depth_img_list[idx]),
                 projected_img_depth[idx],
             )
             cv2.imwrite(
-                os.path.join(
-                    self.dir, "rgb_projected", self.bgr_img_list[idx]
-                ),
+                os.path.join(self.dir, "rgb_projected", self.bgr_img_list[idx]),
                 projected_img_rgb[idx],
             )
             if self.semantics:
                 assert cv2.imwrite(
-                    os.path.join(
-                        self.dir, "sem_projected", self.bgr_img_list[idx]
-                    ),
+                    os.path.join(self.dir, "sem_projected", self.bgr_img_list[idx]),
                     projected_img_sem[idx],
                 )
 

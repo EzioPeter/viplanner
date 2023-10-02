@@ -116,9 +116,7 @@ class joysim(threading.Thread):
                         newval = newval + 1
                 buttout.append(newval)
             joy_coding = "!1B2x3B1x4B4x12B15x4H"
-            self.intr.send(
-                struct.pack(joy_coding, 161, *(buttout + [0] + axval))
-            )
+            self.intr.send(struct.pack(joy_coding, 161, *(buttout + [0] + axval)))
         else:
             print("Tried to publish while inactive")
 

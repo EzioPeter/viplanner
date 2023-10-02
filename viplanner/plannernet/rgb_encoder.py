@@ -1,5 +1,4 @@
 import argparse
-import os
 import pickle
 from typing import Optional
 
@@ -15,21 +14,13 @@ try:
     PRE_TRAIN_POSSIBLE = True
 except ImportError:
     PRE_TRAIN_POSSIBLE = False
-    print(
-        "[Warning] Pre-trained ResNet50 models cannot be used since detectron2"
-        " not found"
-    )
+    print("[Warning] Pre-trained ResNet50 models cannot be used since detectron2" " not found")
 
 try:
-    from viplanner.third_party.mask2former.mask2former import (
-        add_maskformer2_config,
-    )
+    from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 except ImportError:
     PRE_TRAIN_POSSIBLE = False
-    print(
-        "[Warning] Pre-trained ResNet50 models cannot be used since"
-        " mask2former not found"
-    )
+    print("[Warning] Pre-trained ResNet50 models cannot be used since" " mask2former not found")
 
 
 def get_m2f_cfg(cfg_path: str):  # -> CfgNode:
@@ -43,9 +34,7 @@ def get_m2f_cfg(cfg_path: str):  # -> CfgNode:
 
 
 class RGBEncoder(nn.Module):
-    def __init__(
-        self, cfg, weight_path: Optional[str] = None, freeze: bool = True
-    ) -> None:
+    def __init__(self, cfg, weight_path: Optional[str] = None, freeze: bool = True) -> None:
         super().__init__()
 
         # load pre-trained resnet
@@ -58,14 +47,9 @@ class RGBEncoder(nn.Module):
             with open(weight_path, "rb") as file:
                 model_file = pickle.load(file, encoding="latin1")
 
-            model_file["model"] = {
-                k.replace("backbone.", ""): torch.tensor(v)
-                for k, v in model_file["model"].items()
-            }
+            model_file["model"] = {k.replace("backbone.", ""): torch.tensor(v) for k, v in model_file["model"].items()}
 
-            missing_keys, unexpected_keys = self.backbone.load_state_dict(
-                model_file["model"], strict=False
-            )
+            missing_keys, unexpected_keys = self.backbone.load_state_dict(model_file["model"], strict=False)
             if len(missing_keys) != 0:
                 print(f"[WARNING] Missing keys: {missing_keys}")
                 print(f"[WARNING] Unexpected keys: {unexpected_keys}")
@@ -82,9 +66,7 @@ class RGBEncoder(nn.Module):
         return
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.backbone(x)[
-            "res5"
-        ]  # size = (N, 2048, 12, 20) (height and width same as ResNet18)
+        x = self.backbone(x)["res5"]  # size = (N, 2048, 12, 20) (height and width same as ResNet18)
         x = self.conv1(x)  # size = (N, 512,  12, 20)
         return x
 

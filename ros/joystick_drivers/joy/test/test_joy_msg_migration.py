@@ -88,18 +88,13 @@ class TestJoyMsgsMigration(unittest.TestCase):
 
         self.assertTrue(
             type_match is not None,
-            (
-                "Full definition file malformed.  First line should be:"
-                " '[my_package/my_msg]:'"
-            ),
+            ("Full definition file malformed.  First line should be:" " '[my_package/my_msg]:'"),
         )
 
         saved_type = type_match.groups()[0]
         saved_full_text = f.read()
 
-        saved_classes = roslib.genpy.generate_dynamic(
-            saved_type, saved_full_text
-        )
+        saved_classes = roslib.genpy.generate_dynamic(saved_type, saved_full_text)
 
         self.assertTrue(
             saved_classes is not None,
@@ -141,10 +136,7 @@ class TestJoyMsgsMigration(unittest.TestCase):
         m.deserialize(buff.getvalue())
 
         # Strifying them helps make the comparison easier until I figure out why the equality operator is failing
-        self.assertTrue(
-            roslib.message.strify_message(msg)
-            == roslib.message.strify_message(m)
-        )
+        self.assertTrue(roslib.message.strify_message(msg) == roslib.message.strify_message(m))
         #    self.assertTrue(msgs[0][1] == m)
 
         # Cleanup

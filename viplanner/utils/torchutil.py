@@ -1,6 +1,5 @@
 import collections
 import math
-import numbers
 import random
 import time
 from itertools import repeat
@@ -10,7 +9,6 @@ import torch
 import torch.fft
 import torch.nn.functional as F
 import torchvision
-import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
 from torch import nn
 
@@ -82,9 +80,7 @@ class MovAvg(nn.Module):
 
 
 class ConvLoss(nn.Module):
-    def __init__(
-        self, input_size, kernel_size, stride, in_channels=3, color=1
-    ):
+    def __init__(self, input_size, kernel_size, stride, in_channels=3, color=1):
         super().__init__()
         self.color, input_size, kernel_size, stride = (
             color,
@@ -92,13 +88,8 @@ class ConvLoss(nn.Module):
             _pair(kernel_size),
             _pair(stride),
         )
-        self.conv = nn.Conv2d(
-            in_channels, 1, kernel_size=kernel_size, stride=stride, bias=False
-        )
-        self.conv.weight.data = (
-            torch.ones(self.conv.weight.size()).cuda()
-            / self.conv.weight.numel()
-        )
+        self.conv = nn.Conv2d(in_channels, 1, kernel_size=kernel_size, stride=stride, bias=False)
+        self.conv.weight.data = torch.ones(self.conv.weight.size()).cuda() / self.conv.weight.numel()
         self.width = (input_size[0] - kernel_size[0]) // stride[0] + 1
         self.height = (input_size[0] - kernel_size[1]) // stride[1] + 1
         self.pool = nn.MaxPool2d((self.width, self.height))
@@ -177,11 +168,7 @@ class Split2d(nn.Module):
 
     def forward(self, x):
         output = self.unfold(x).view(x.size(0), x.size(1), self.h, self.w, -1)
-        return (
-            output.permute(0, 4, 1, 2, 3)
-            .contiguous()
-            .view(-1, x.size(1), self.h, self.w)
-        )
+        return output.permute(0, 4, 1, 2, 3).contiguous().view(-1, x.size(1), self.h, self.w)
 
 
 class FiveSplit2d(nn.Module):
@@ -275,9 +262,7 @@ class RandomMotionBlur:
             w = self.w5[torch.randint(0, 4, (1,))].unsqueeze(0)
             kernel_size = 5
 
-        return F.conv2d(img.unsqueeze(1), w, padding=kernel_size // 2).squeeze(
-            1
-        )
+        return F.conv2d(img.unsqueeze(1), w, padding=kernel_size // 2).squeeze(1)
 
     def __repr__(self):
         return self.__class__.__name__ + f"(p={self.p})"
@@ -331,7 +316,7 @@ class EarlyStopScheduler(torch.optim.lr_scheduler.ReduceLROnPlateau):
         if self.num_bad_epochs > self.patience:
             self.cooldown_counter = self.cooldown
             self.num_bad_epochs = 0
-            return self._reduce_lr(epoch)
+            self._reduce_lr(epoch)
 
     def _reduce_lr(self, epoch):
         for i, param_group in enumerate(self.optimizer.param_groups):
@@ -340,10 +325,7 @@ class EarlyStopScheduler(torch.optim.lr_scheduler.ReduceLROnPlateau):
             if old_lr - new_lr > self.eps:
                 param_group["lr"] = new_lr
                 if self.verbose:
-                    print(
-                        "Epoch {:5d}: reducing learning rate"
-                        " of group {} to {:.4e}.".format(epoch, i, new_lr)
-                    )
+                    print("Epoch {:5d}: reducing learning rate" " of group {} to {:.4e}.".format(epoch, i, new_lr))
                 return False
             else:
                 return True
@@ -458,17 +440,11 @@ def rolls2d(inputs, shifts, dims=[-2, -1]):
     N, C, H, W = inputs.size()
     assert shift_size[-1] == 2 and N == shift_size[1]
     if len(shift_size) == 2:
-        return torch.stack(
-            [inputs[i].roll(shifts[i].tolist(), dims) for i in range(N)], dim=0
-        )
+        return torch.stack([inputs[i].roll(shifts[i].tolist(), dims) for i in range(N)], dim=0)
     elif len(shift_size) == 3:
         B = shift_size[0]
         o = torch.stack(
-            [
-                inputs[i].roll(shifts[j, i].tolist(), dims)
-                for j in range(B)
-                for i in range(N)
-            ],
+            [inputs[i].roll(shifts[j, i].tolist(), dims) for j in range(B) for i in range(N)],
             dim=0,
         )
         return o.view(B, N, C, H, W)

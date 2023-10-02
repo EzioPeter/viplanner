@@ -2,7 +2,6 @@ import os
 
 import cv2
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import open3d as o3d
 import open3d.visualization.rendering as rendering
@@ -25,9 +24,7 @@ def plotter(pcd, path, transparent=False):
     else:
         render.scene.set_background([0.0, 0.0, 0.0, 1.0])  # RGBA
     camera_up = [0, 0, 1]  # camera orientation
-    render.scene.camera.look_at(
-        pcd_median, pcd_median + np.array([0, 0, 30]), camera_up
-    )
+    render.scene.camera.look_at(pcd_median, pcd_median + np.array([0, 0, 30]), camera_up)
     render.scene.add_geometry("pcd", pcd, mtl)
 
     # project to image
@@ -38,9 +35,7 @@ def plotter(pcd, path, transparent=False):
     if transparent:
         img_o3d_white = np.all(img_o3d > 230, axis=2)
         img_o3d[img_o3d_white] = [255, 255, 255]
-        img_o3d_transparent = np.zeros(
-            (img_o3d.shape[0], img_o3d.shape[1], 4), dtype=np.uint8
-        )
+        img_o3d_transparent = np.zeros((img_o3d.shape[0], img_o3d.shape[1], 4), dtype=np.uint8)
         img_o3d_transparent[:, :, :3] = img_o3d
         img_o3d_transparent[~img_o3d_white, 3] = 255
         img_o3d = img_o3d_transparent

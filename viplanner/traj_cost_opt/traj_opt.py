@@ -7,7 +7,6 @@ class CubicSplineTorch:
     # Reference: https://stackoverflow.com/questions/61616810/how-to-do-cubic-spline-interpolation-and-integration-in-pytorch
     def __init__(self):
         self.init_m = torch.tensor([1.0, 0.0, 0.0], dtype=torch.float32)
-        return None
 
     def h_poly(self, t):
         alpha = torch.arange(4, device=t.device, dtype=t.dtype)
@@ -20,12 +19,8 @@ class CubicSplineTorch:
         return A @ tt
 
     def interp(self, x, y, xs):
-        m = (y[:, 1:, :] - y[:, :-1, :]) / torch.unsqueeze(
-            x[:, 1:] - x[:, :-1], 2
-        )
-        m = torch.cat(
-            [m[:, None, 0], (m[:, 1:] + m[:, :-1]) / 2, m[:, None, -1]], 1
-        )
+        m = (y[:, 1:, :] - y[:, :-1, :]) / torch.unsqueeze(x[:, 1:] - x[:, :-1], 2)
+        m = torch.cat([m[:, None, 0], (m[:, 1:] + m[:, :-1]) / 2, m[:, None, -1]], 1)
         idxs = torch.searchsorted(x[0, 1:], xs[0, :])
         dx = x[:, idxs + 1] - x[:, idxs]
         hh = self.h_poly((xs - x[:, idxs]) / dx)

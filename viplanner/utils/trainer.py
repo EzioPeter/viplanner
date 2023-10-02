@@ -5,6 +5,8 @@
 @brief      VIPlanner trainer
 """
 
+import contextlib
+
 # python
 import os
 from typing import List, Optional, Tuple
@@ -22,11 +24,7 @@ import yaml
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
-from viplanner.dataset import (
-    MultiEpochsDataLoader,
-    PlannerData,
-    PlannerDataGenerator,
-)
+from viplanner.dataset import MultiEpochsDataLoader, PlannerData, PlannerDataGenerator
 from viplanner.plannernet import (
     PRE_TRAIN_POSSIBLE,
     AutoEncoder,
@@ -51,9 +49,7 @@ class Trainer:
         os.makedirs(self._cfg.curr_model_dir, exist_ok=True)
         self.model_path = os.path.join(self._cfg.curr_model_dir, "model.pt")
         if self._cfg.hierarchical:
-            self.model_dir_hierarch = os.path.join(
-                self._cfg.curr_model_dir, "hierarchical"
-            )
+            self.model_dir_hierarch = os.path.join(self._cfg.curr_model_dir, "hierarchical")
             os.makedirs(self.model_dir_hierarch, exist_ok=True)
             self.hierach_losses = {}
 
@@ -99,9 +95,7 @@ class Trainer:
         self._load_data(train=True)
         if self._cfg.hierarchical:
             step_counter = 0
-            train_loader_list, val_loader_list = self._get_dataloader(
-                step=step_counter
-            )
+            train_loader_list, val_loader_list = self._get_dataloader(step=step_counter)
         else:
             train_loader_list, val_loader_list = self._get_dataloader()
 
@@ -114,12 +108,8 @@ class Trainer:
             train_loss = 0
             val_loss = 0
             for i in range(len(train_loader_list)):
-                train_loss += self._train_epoch(
-                    train_loader_list[i], epoch, env_id=i
-                )
-                val_loss += self._test_epoch(
-                    val_loader_list[i], env_id=i, epoch=epoch
-                )
+                train_loss += self._train_epoch(train_loader_list[i], epoch, env_id=i)
+                val_loss += self._test_epoch(val_loader_list[i], env_id=i, epoch=epoch)
 
             train_loss /= len(train_loader_list)
             val_loss /= len(train_loader_list)
@@ -146,10 +136,7 @@ class Trainer:
                 print("[INFO] Early Stopping!")
                 break
 
-            if (
-                self._cfg.hierarchical
-                and (epoch + 1) % self._cfg.hierarchical_step == 0
-            ):
+            if self._cfg.hierarchical and (epoch + 1) % self._cfg.hierarchical_step == 0:
                 torch.save(
                     (self.net.state_dict(), self.best_loss),
                     os.path.join(
@@ -162,9 +149,7 @@ class Trainer:
                     ),
                 )
                 step_counter += 1
-                train_loader_list, val_loader_list = self._get_dataloader(
-                    step=step_counter
-                )
+                train_loader_list, val_loader_list = self._get_dataloader(step=step_counter)
                 self.hierach_losses[epoch] = self.best_loss
 
         torch.cuda.empty_cache()
@@ -197,7 +182,7 @@ class Trainer:
         self.test_loss = self._test_epoch(
             test_loader[0],
             env_id=0,
-            is_visual=False if os.getenv("EXPERIMENT_DIRECTORY") else True,
+            is_visual=not os.getenv("EXPERIMENT_DIRECTORY"),
             fov_angle=self.data_generators[0].alpha_fov,
             dataset="test",
         )
@@ -205,13 +190,9 @@ class Trainer:
         # cleanup data
         for generator in self.data_generators:
             generator.cleanup()
-        return
 
     def save_config(self) -> None:
-        print(
-            f"[INFO] val_loss: {self.best_loss:.2f}, test_loss,"
-            f"{self.test_loss:.4f}"
-        )
+        print(f"[INFO] val_loss: {self.best_loss:.2f}, test_loss," f"{self.test_loss:.4f}")
         """ Save config and loss to file"""
         path, _ = os.path.splitext(self.model_path)
         yaml_path = path + ".yaml"
@@ -222,15 +203,11 @@ class Trainer:
 
         # dump yaml
         with open(yaml_path, "w+") as file:
-            yaml.dump(
-                save_dict, file, allow_unicode=True, default_flow_style=False
-            )
+            yaml.dump(save_dict, file, allow_unicode=True, default_flow_style=False)
 
         # logging
-        try:
+        with contextlib.suppress(Exception):
             wandb.finish()
-        except:  # noqa: E722
-            pass
 
         # plot hierarchical losses
         if self._cfg.hierarchical:
@@ -242,11 +219,7 @@ class Trainer:
             plt.xlabel("Epoch")
             plt.ylabel("Validation Loss")
             plt.title("Hierarchical Losses")
-            plt.savefig(
-                os.path.join(
-                    self.model_dir_hierarch, "hierarchical_losses.png"
-                )
-            )
+            plt.savefig(os.path.join(self.model_dir_hierarch, "hierarchical_losses.png"))
             plt.close()
 
         return
@@ -258,14 +231,11 @@ class Trainer:
         if not isinstance(self._cfg.data_cfg, list):
             self._cfg.data_cfg = [self._cfg.data_cfg] * len(self._cfg.env_list)
         assert len(self._cfg.data_cfg) == len(self._cfg.env_list), (
-            "Either single DataCfg or number matching number of environments"
-            "must be provided"
+            "Either single DataCfg or number matching number of environments" "must be provided"
         )
 
         for idx, env_name in enumerate(self._cfg.env_list):
-            if (train and idx == self._cfg.test_env_id) or (
-                not train and idx != self._cfg.test_env_id
-            ):
+            if (train and idx == self._cfg.test_env_id) or (not train and idx != self._cfg.test_env_id):
                 continue
 
             data_path = os.path.join(self._cfg.data_dir, env_name)
@@ -335,13 +305,9 @@ class Trainer:
                     " not installed or mask2former not found in thrid_party"
                     " folder"
                 )
-                pre_train_cfg = os.path.join(
-                    self._cfg.all_model_dir, self._cfg.pre_train_cfg
-                )
+                pre_train_cfg = os.path.join(self._cfg.all_model_dir, self._cfg.pre_train_cfg)
                 pre_train_weights = (
-                    os.path.join(
-                        self._cfg.all_model_dir, self._cfg.pre_train_weights
-                    )
+                    os.path.join(self._cfg.all_model_dir, self._cfg.pre_train_weights)
                     if self._cfg.pre_train_weights
                     else None
                 )
@@ -352,9 +318,7 @@ class Trainer:
                 m2f_cfg = None
                 pre_train_weights = None
 
-            self.net = DualAutoEncoder(
-                self._cfg, m2f_cfg=m2f_cfg, weight_path=pre_train_weights
-            )
+            self.net = DualAutoEncoder(self._cfg, m2f_cfg=m2f_cfg, weight_path=pre_train_weights)
         else:
             self.net = AutoEncoder(self._cfg.in_channel, self._cfg.knodes)
 
@@ -367,10 +331,7 @@ class Trainer:
         if resume:
             model_state_dict, self.best_loss = torch.load(self.model_path)
             self.net.load_state_dict(model_state_dict)
-            print(
-                f"Resume train from {self.model_path} with loss "
-                f"{self.best_loss}"
-            )
+            print(f"Resume train from {self.model_path} with loss " f"{self.best_loss}")
 
         return
 
@@ -411,12 +372,7 @@ class Trainer:
 
         if step is not None:
             self.fov_ratio = (
-                1.0
-                - (
-                    self._cfg.hierarchical_front_step_ratio
-                    + self._cfg.hierarchical_back_step_ratio
-                )
-                * step
+                1.0 - (self._cfg.hierarchical_front_step_ratio + self._cfg.hierarchical_back_step_ratio) * step
             )
             self.front_ratio = self._cfg.hierarchical_front_step_ratio * step
             self.back_ratio = self._cfg.hierarchical_back_step_ratio * step
@@ -610,10 +566,7 @@ class Trainer:
 
                 test_loss += loss.item()
 
-                if (
-                    is_visual
-                    and len(preds_viz) * batch_idx < self._cfg.n_visualize
-                ):
+                if is_visual and len(preds_viz) * batch_idx < self._cfg.n_visualize:
                     if batch_idx == 0:
                         odom_viz = odom.cpu()
                         goal_viz = goal.cpu()
@@ -623,9 +576,7 @@ class Trainer:
                         odom_viz = torch.cat((odom_viz, odom.cpu()), dim=0)
                         goal_viz = torch.cat((goal_viz, goal.cpu()), dim=0)
                         fear_viz = torch.cat((fear_viz, fear.cpu()), dim=0)
-                        augment_viz = torch.cat(
-                            (augment_viz, inputs[4].cpu()), dim=0
-                        )
+                        augment_viz = torch.cat((augment_viz, inputs[4].cpu()), dim=0)
                     preds_viz.append(preds.cpu())
                     wp_viz.append(waypoints.cpu())
                     image_viz.append(image.cpu())
@@ -655,9 +606,7 @@ class Trainer:
                     fov_angle=fov_angle,
                     augment_viz=augment_viz,
                 )
-                self.data_traj_viz[env_id].VizImages(
-                    preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, image_viz
-                )
+                self.data_traj_viz[env_id].VizImages(preds_viz, wp_viz, odom_viz, goal_viz, fear_viz, image_viz)
         return test_loss / (batch_idx + 1)
 
     def _loss(

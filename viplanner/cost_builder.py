@@ -15,9 +15,7 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
     # create semantic cost map
     if cfg.semantics:
         print("============ Creating Semantic Map from cloud ===============")
-        sem_cost_map = SemCostMap(
-            cfg.general, cfg.sem_cost_map, visualize=cfg.visualize
-        )
+        sem_cost_map = SemCostMap(cfg.general, cfg.sem_cost_map, visualize=cfg.visualize)
         sem_cost_map.pcd_init()
         data, coord = sem_cost_map.create_costmap()
     # create tsdf cost map
@@ -26,11 +24,7 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
         tsdf_cost_map = TsdfCostMap(cfg.general, cfg.tsdf_cost_map)
         tsdf_cost_map.ReadPointFromFile()
         data, coord = tsdf_cost_map.CreateTSDFMap()
-        (
-            tsdf_cost_map.VizCloud(tsdf_cost_map.obs_pcd)
-            if cfg.visualize
-            else None
-        )
+        (tsdf_cost_map.VizCloud(tsdf_cost_map.obs_pcd) if cfg.visualize else None)
     else:
         raise ValueError("no cost map type selected")
 

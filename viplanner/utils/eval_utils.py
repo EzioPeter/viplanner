@@ -80,16 +80,12 @@ class BaseEvaluator:
     ##
 
     def _load_cost_map(self) -> None:
-        self._traj_cost: TrajCost = TrajCost(
-            gpu_id=None
-        )  # use cpu for evaluation
+        self._traj_cost: TrajCost = TrajCost(gpu_id=None)  # use cpu for evaluation
         self._traj_cost.SetMap(self.cost_map_dir, self.cost_map_name)
         self._use_cost_map = True
         return
 
-    def _get_cost_map_loss(
-        self, path: Union[torch.Tensor, np.ndarray]
-    ) -> float:
+    def _get_cost_map_loss(self, path: Union[torch.Tensor, np.ndarray]) -> float:
         if isinstance(path, np.ndarray):
             waypoints = torch.tensor(path, dtype=torch.float32)
         else:
@@ -108,12 +104,8 @@ class BaseEvaluator:
         # Evaluate results
         goal_reached = self.goal_distances < self.distance_tolerance
         goal_reached_rate = sum(goal_reached) / len(goal_reached)
-        avg_distance_to_goal = sum(self.goal_distances) / len(
-            self.goal_distances
-        )
-        avg_distance_to_goal_reached = sum(
-            self.goal_distances[goal_reached]
-        ) / sum(goal_reached)
+        avg_distance_to_goal = sum(self.goal_distances) / len(self.goal_distances)
+        avg_distance_to_goal_reached = sum(self.goal_distances[goal_reached]) / sum(goal_reached)
 
         print(
             "All path segments been passed. Results: \nReached goal rate"
@@ -129,19 +121,11 @@ class BaseEvaluator:
         }
 
         if self._use_cost_map:
-            within_obs_threshold = np.sum(
-                self.loss_obstacles < self.obs_loss_threshold
-            ) / len(self.loss_obstacles)
+            within_obs_threshold = np.sum(self.loss_obstacles < self.obs_loss_threshold) / len(self.loss_obstacles)
             avg_obs_loss = sum(self.loss_obstacles) / len(self.loss_obstacles)
-            avg_obs_loss_reached = sum(
-                self.loss_obstacles[goal_reached]
-            ) / sum(goal_reached)
+            avg_obs_loss_reached = sum(self.loss_obstacles[goal_reached]) / sum(goal_reached)
             max_obs_loss = max(self.loss_obstacles)
-            max_obs_loss_reached = (
-                max(self.loss_obstacles[goal_reached])
-                if sum(goal_reached) > 0
-                else np.inf
-            )
+            max_obs_loss_reached = max(self.loss_obstacles[goal_reached]) if sum(goal_reached) > 0 else np.inf
 
             print(
                 "Within obs threshold"
@@ -195,9 +179,7 @@ class BaseEvaluator:
             # get subset of path predictions with goal length x
             subset_idx = np.round(self.length_goal, 1) == x
 
-            mean_path_extension.append(
-                np.mean(self.path_extension[subset_idx])
-            )
+            mean_path_extension.append(np.mean(self.path_extension[subset_idx]))
             std_path_extension.append(np.std(self.path_extension[subset_idx]))
 
             mean_goal_distance.append(np.mean(self.goal_distances[subset_idx]))
@@ -208,7 +190,7 @@ class BaseEvaluator:
                 mean_obs_loss.append(np.mean(self.loss_obstacles[subset_idx]))
                 std_obs_loss.append(np.std(self.loss_obstacles[subset_idx]))
 
-        ## plot with the distance to the goal depending on the length between goal and start
+        # plot with the distance to the goal depending on the length between goal and start
         fig, ax = plt.subplots(figsize=(12, 10))
         fig.suptitle("Path Length Increase", fontsize=20)
         ax.plot(
@@ -244,17 +226,13 @@ class BaseEvaluator:
         else:
             plt.close()
 
-        ## plot to compare the increase in path length depending on the distance between goal and start
-        goal_success_mean = np.sum(
-            self.goal_distances < self.distance_tolerance
-        ) / len(self.goal_distances)
+        # plot to compare the increase in path length depending on the distance between goal and start
+        goal_success_mean = np.sum(self.goal_distances < self.distance_tolerance) / len(self.goal_distances)
 
         # Create a figure and two axis objects, with the second one sharing the x-axis of the first
         fig, ax1 = plt.subplots(figsize=(12, 10))
         ax2 = ax1.twinx()
-        fig.subplots_adjust(
-            hspace=0.4
-        )  # Add some vertical spacing between the two plots
+        fig.subplots_adjust(hspace=0.4)  # Add some vertical spacing between the two plots
 
         # Plot the goal distance data
         ax1.plot(
@@ -310,11 +288,11 @@ class BaseEvaluator:
             plt.close()
 
         if self._use_cost_map:
-            ## plot to compare the obs loss depending on the distance between goal and start
+            # plot to compare the obs loss depending on the distance between goal and start
             avg_obs_loss = np.mean(self.loss_obstacles)
-            obs_threshold_success_rate = np.sum(
-                self.loss_obstacles < self.obs_loss_threshold
-            ) / len(self.loss_obstacles)
+            obs_threshold_success_rate = np.sum(self.loss_obstacles < self.obs_loss_threshold) / len(
+                self.loss_obstacles
+            )
 
             fig, ax = plt.subplots(figsize=(12, 10))
             fig.suptitle("Obstacle Loss", fontsize=20)
@@ -377,9 +355,7 @@ class BaseEvaluator:
         axs_goal.tick_params(axis="both", which="major", labelsize=16)
 
         if self._use_cost_map:
-            assert (
-                obs_loss_list is not None
-            ), "If cost map is used, obs_loss_list must be provided"
+            assert obs_loss_list is not None, "If cost map is used, obs_loss_list must be provided"
             # obs loss plot
             fig_obs, axs_obs = plt.subplots(figsize=(12, 10))
             # fig_obs.suptitle("Mean Obstacle Loss Along Path", fontsize=24)
@@ -395,9 +371,7 @@ class BaseEvaluator:
             else:
                 model_name = model_names[idx]
 
-            goal_success_bool = (
-                goal_distance_list[idx] < self.distance_tolerance
-            )
+            goal_success_bool = goal_distance_list[idx] < self.distance_tolerance
 
             unique_goal_length = np.unique(np.round(length_goal_list[idx], 0))
             mean_path_extension = []
@@ -416,19 +390,11 @@ class BaseEvaluator:
                 # get subset of path predictions with goal length x
                 subset_idx = np.round(length_goal_list[idx], 0) == x
 
-                mean_path_extension.append(
-                    np.mean(path_extension_list[idx][subset_idx])
-                )
-                std_path_extension.append(
-                    np.std(path_extension_list[idx][subset_idx])
-                )
+                mean_path_extension.append(np.mean(path_extension_list[idx][subset_idx]))
+                std_path_extension.append(np.std(path_extension_list[idx][subset_idx]))
 
-                mean_goal_distance.append(
-                    np.mean(goal_distance_list[idx][subset_idx])
-                )
-                std_goal_distance.append(
-                    np.std(goal_distance_list[idx][subset_idx])
-                )
+                mean_goal_distance.append(np.mean(goal_distance_list[idx][subset_idx]))
+                std_goal_distance.append(np.std(goal_distance_list[idx][subset_idx]))
 
                 if self._use_cost_map:
                     y_obs_subset = obs_loss_list[idx][subset_idx]
@@ -437,10 +403,7 @@ class BaseEvaluator:
                         std_obs_loss.append(np.std(y_obs_subset))
                         goal_length_obs_exists.append(x)
                     else:
-                        print(
-                            f"Warning: No obs loss for {model_name} at goal"
-                            f" distance {x}"
-                        )
+                        print(f"Warning: No obs loss for {model_name} at goal" f" distance {x}")
 
                 unqiue_goal_length_used.append(x)
 
@@ -448,39 +411,32 @@ class BaseEvaluator:
             goal_length_obs_exists = np.array(goal_length_obs_exists)
 
             bar_pos = bar_width / 2 + idx * bar_width - 0.4
-            ## plot to compare the increase in path length depending in on the distance between goal and start for the successful paths
+            # plot to compare the increase in path length depending in on the distance between goal and start for the successful paths
             avg_increase = np.mean(path_extension_list[idx])
             axs_path.bar(
                 unique_goal_length + bar_pos,
                 mean_path_extension,
                 width=bar_width,
-                label=(
-                    f"{model_name} (avg {round(avg_increase, 5)*100:.2f} %))"
-                ),
+                label=(f"{model_name} (avg {round(avg_increase, 5)*100:.2f} %))"),
                 alpha=0.8,
             )  # yerr=std_path_extension,
             # axs_path.plot(goal_length_path_exists, mean_path_extension, label=f'{model_name} ({round(avg_increase, 5)*100:.2f} %))')
             # axs_path.fill_between(goal_length_path_exists, np.array(mean_path_extension) - np.array(std_path_extension), np.array(mean_path_extension) + np.array(std_path_extension), alpha=0.2)
 
-            ## plot with the distance to the goal depending on the length between goal and start
-            goal_success = np.sum(goal_success_bool) / len(
-                goal_distance_list[idx]
-            )
+            # plot with the distance to the goal depending on the length between goal and start
+            goal_success = np.sum(goal_success_bool) / len(goal_distance_list[idx])
             axs_goal.bar(
                 unique_goal_length + bar_pos,
                 mean_goal_distance,
                 width=bar_width,
-                label=(
-                    f"{model_name} (success rate"
-                    f" {round(goal_success, 5)*100:.2f} %)"
-                ),
+                label=(f"{model_name} (success rate" f" {round(goal_success, 5)*100:.2f} %)"),
                 alpha=0.8,
-            )  #  yerr=std_goal_distance,
+            )  # yerr=std_goal_distance,
             # axs_goal.plot(unique_goal_length, mean_goal_distance, label=f'{model_name} ({round(goal_success, 5)*100:.2f} %)')
             # axs_goal.fill_between(unique_goal_length, np.array(mean_goal_distance) - np.array(std_goal_distance), np.array(mean_goal_distance) + np.array(std_goal_distance), alpha=0.2)
 
             if self._use_cost_map:
-                ## plot with the distance to the goal depending on the length between goal and start
+                # plot with the distance to the goal depending on the length between goal and start
                 avg_obs_loss = np.mean(obs_loss_list[idx])
                 axs_obs.bar(
                     goal_length_obs_exists + bar_pos,

@@ -1,5 +1,6 @@
 import os
 
+
 def rename_files_with_numbering(directory):
     # Ensure the directory exists
     if not os.path.exists(directory):
@@ -17,7 +18,7 @@ def rename_files_with_numbering(directory):
     for filename in files:
         if not filename.endswith(".png"):
             continue
-        
+
         # Construct the new file name
         new_name = f"{count:04d}_depth.png"  # Use leading zeros for consistent naming
         new_path = os.path.join(directory, new_name)
@@ -31,7 +32,10 @@ def rename_files_with_numbering(directory):
         # Increment the counter
         count += 1
 
+
 if __name__ == "__main__":
-    target_directory = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_both_door/video_depth_projected"
+    target_directory = (
+        "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_both_door/video_depth_projected"
+    )
     # target_directory = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_crosswalk_sidewalk_wet_success/video_sem_after_projected"
     rename_files_with_numbering(target_directory)

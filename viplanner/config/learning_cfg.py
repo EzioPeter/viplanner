@@ -23,9 +23,7 @@ def construct_datacfg(loader, node):
     add_dicts = {}
     for node_entry in node.value:
         if isinstance(node_entry[1], yaml.MappingNode):
-            add_dicts[node_entry[0].value] = loader.construct_mapping(
-                node_entry[1]
-            )
+            add_dicts[node_entry[0].value] = loader.construct_mapping(node_entry[1])
             node.value.remove(node_entry)
 
     return DataCfg(**loader.construct_mapping(node), **add_dicts)
@@ -58,9 +56,7 @@ class DataCfg:
     max_goal_distance: float = 15.0
     min_goal_distance: float = 0.5
     "maximum and minimum distance between odom and goal"
-    distance_scheme: dict = field(
-        default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05}
-    )
+    distance_scheme: dict = field(default_factory=lambda: {1: 0.2, 3: 0.35, 5: 0.25, 7.5: 0.15, 10: 0.05})
     # select goal points for the samples according to the scheme:
     # {distance: percentage of goals}, distances have to be increasing
     # and max distance has to be equal to max_goal_distance
@@ -88,31 +84,15 @@ class DataCfg:
     extend_kernel_size: Tuple[int, int] = field(default_factory=lambda: [5, 5])
 
     # noise augmentation --> will be applied to a scaled image with range between [0, 1]
-    depth_salt_pepper: Optional[float] = (
-        None  # Proportion of image pixels to replace with noise on range [0, 1]
-    )
-    depth_gaussian: Optional[float] = (
-        None  # Standard deviation of the noise to add (no clipping applied)
-    )
-    depth_random_polygons_nb: Optional[int] = (
-        None  # Number of random polygons to add
-    )
-    depth_random_polygon_size: int = (
-        10  # Size of the random polygons in pixels
-    )
+    depth_salt_pepper: Optional[float] = None  # Proportion of image pixels to replace with noise on range [0, 1]
+    depth_gaussian: Optional[float] = None  # Standard deviation of the noise to add (no clipping applied)
+    depth_random_polygons_nb: Optional[int] = None  # Number of random polygons to add
+    depth_random_polygon_size: int = 10  # Size of the random polygons in pixels
 
-    sem_rgb_pepper: Optional[float] = (
-        None  # Proportion of pixels to randomly set to 0
-    )
-    sem_rgb_black_img: Optional[float] = (
-        None  # Randomly set this proportion of images to complete black images  -->
-    )
-    sem_rgb_random_polygons_nb: Optional[int] = (
-        None  # Number of random polygons to add
-    )
-    sem_rgb_random_polygon_size: int = (
-        20  # Size of the random polygons in pixels
-    )
+    sem_rgb_pepper: Optional[float] = None  # Proportion of pixels to randomly set to 0
+    sem_rgb_black_img: Optional[float] = None  # Randomly set this proportion of images to complete black images  -->
+    sem_rgb_random_polygons_nb: Optional[int] = None  # Number of random polygons to add
+    sem_rgb_random_polygon_size: int = 20  # Size of the random polygons in pixels
 
 
 @dataclass
@@ -180,12 +160,8 @@ class TrainCfg:
     knodes: int = 5
     "number of max waypoints predicted"
     pre_train_sem: bool = True
-    pre_train_cfg: Optional[str] = (
-        "m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml"
-    )
-    pre_train_weights: Optional[str] = (
-        "m2f_model/coco/panoptic/model_final_94dc52.pkl"
-    )
+    pre_train_cfg: Optional[str] = "m2f_model/coco/panoptic/maskformer2_R50_bs16_50ep.yaml"
+    pre_train_weights: Optional[str] = "m2f_model/coco/panoptic/model_final_94dc52.pkl"
     pre_train_freeze: bool = True
     "loading of a pre-trained rgb encoder from mask2former (possible is ResNet 50 or 101)"
     # NOTE: `pre_train_cfg` and `pre_train_weights` are assumed to be found under `file_path/models` (see above)
@@ -239,14 +215,12 @@ class TrainCfg:
         optim = "SGD" if self.optimizer == "sgd" else "Adam"
         name = f"_{self.file_name}" if self.file_name is not None else ""
         epoch = epoch if epoch is not None else self.epochs
-        hierarch = f"_hierarch" if self.hierarchical else ""
+        hierarch = "_hierarch" if self.hierarchical else ""
         return f"plannernet_env{self.env_list[0]}_ep{epoch}_input{input_domain}_cost{cost_name}_optim{optim}{hierarch}{name}"
 
     @property
     def all_model_dir(self):
-        return os.path.join(
-            os.getenv("EXPERIMENT_DIRECTORY", self.file_path), "models"
-        )
+        return os.path.join(os.getenv("EXPERIMENT_DIRECTORY", self.file_path), "models")
 
     @property
     def curr_model_dir(self):
@@ -254,15 +228,11 @@ class TrainCfg:
 
     @property
     def data_dir(self):
-        return os.path.join(
-            os.getenv("EXPERIMENT_DIRECTORY", self.file_path), "data"
-        )
+        return os.path.join(os.getenv("EXPERIMENT_DIRECTORY", self.file_path), "data")
 
     @property
     def log_dir(self):
-        return os.path.join(
-            os.getenv("EXPERIMENT_DIRECTORY", self.file_path), "logs"
-        )
+        return os.path.join(os.getenv("EXPERIMENT_DIRECTORY", self.file_path), "logs")
 
     @classmethod
     def from_yaml(cls, yaml_path: str):

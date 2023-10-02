@@ -49,36 +49,19 @@ def change_annotation(annotation_file: str, matching: int = 9):
         coco_train_json = json.load(file)
 
     # reduce number of images
-    images_filelist = [
-        single_image["file_name"][:-4]
-        for single_image in coco_train_json["images"]
-    ]
-    annotations_filelist = [
-        single_annotation["file_name"][:-4]
-        for single_annotation in coco_train_json["annotations"]
-    ]
+    images_filelist = [single_image["file_name"][:-4] for single_image in coco_train_json["images"]]
+    annotations_filelist = [single_annotation["file_name"][:-4] for single_annotation in coco_train_json["annotations"]]
     annotations_ids = [
-        [
-            curr_ann["category_id"]
-            for curr_ann in single_annotation["segments_info"]
-        ]
+        [curr_ann["category_id"] for curr_ann in single_annotation["segments_info"]]
         for single_annotation in coco_train_json["annotations"]
     ]
 
     annotation_nb_intended_ids = [
-        len(intended_ids.intersection(set(single_annotation_ids)))
-        for single_annotation_ids in annotations_ids
+        len(intended_ids.intersection(set(single_annotation_ids))) for single_annotation_ids in annotations_ids
     ]
 
-    selected_images = (
-        np.array(annotations_filelist)[
-            np.array(annotation_nb_intended_ids) > matching
-        ]
-    ).tolist()
-    print(
-        f"Selected {len(selected_images)} images out of"
-        f" {len(annotations_filelist)} images."
-    )
+    selected_images = (np.array(annotations_filelist)[np.array(annotation_nb_intended_ids) > matching]).tolist()
+    print(f"Selected {len(selected_images)} images out of" f" {len(annotations_filelist)} images.")
     images_selected_idx = []
     annotations_selected_idx = []
     for image in selected_images:
@@ -88,20 +71,13 @@ def change_annotation(annotation_file: str, matching: int = 9):
     # save reduced json
     coco_train_json_reduced = {
         "info": coco_train_json["info"],
-        "images": [
-            coco_train_json["images"][idx] for idx in images_selected_idx
-        ],
-        "annotations": [
-            coco_train_json["annotations"][idx]
-            for idx in annotations_selected_idx
-        ],
+        "images": [coco_train_json["images"][idx] for idx in images_selected_idx],
+        "annotations": [coco_train_json["annotations"][idx] for idx in annotations_selected_idx],
         "categories": coco_train_json["categories"],
     }
     path, ending = os.path.splitext(annotation_file)
-    json.dump(
-        coco_train_json_reduced,
-        open(os.path.join(coco_data_path, f"{path}_reduced{ending}"), "w"),
-    )
+    with open(os.path.join(coco_data_path, f"{path}_reduced{ending}"), "w") as file:
+        json.dump(coco_train_json_reduced, file)
     print("done")
 
 

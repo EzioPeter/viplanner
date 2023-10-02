@@ -21,9 +21,7 @@ from detectron2.projects.deeplab import add_deeplab_config
 # viplanner-ros
 from viplanner.config.coco_meta import get_class_for_id
 from viplanner.config.viplanner_sem_meta import VIPlannerSemMetaHandler
-from viplanner.third_party.mask2former.mask2former import (
-    add_maskformer2_config,
-)
+from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 
 
 class Predictor:
@@ -72,6 +70,7 @@ class Predictor:
             with torch.cuda.amp.autocast():  # 16 bit precision to speed up
                 return self.model([inputs])[0]
 
+
 class Mask2FormerInference:
     """Run Inference on Mask2Former model to estimate semantic segmentation"""
 
@@ -107,9 +106,7 @@ class Mask2FormerInference:
         self.viplanner_sem_class_color_map = viplanner_meta.class_color
         self.coco_viplanner_color_mapping = {}
         for coco_id, viplanner_cls_name in coco_viplanner_cls_mapping.items():
-            self.coco_viplanner_color_mapping[coco_id] = (
-                viplanner_meta.class_color[viplanner_cls_name]
-            )
+            self.coco_viplanner_color_mapping[coco_id] = viplanner_meta.class_color[viplanner_cls_name]
 
         return
 
@@ -123,22 +120,15 @@ class Mask2FormerInference:
         predictions = self.predictor(image)
         panoptic_seg, seg_infos = predictions["panoptic_seg"]
         # create output
-        panoptic_mask = np.zeros(
-            (panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8
-        )
+        panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
         for sinfo in seg_infos:
             try:
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = (
-                    self.coco_viplanner_color_mapping[sinfo["category_id"]]
-                )
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = self.coco_viplanner_color_mapping[
+                    sinfo["category_id"]
+                ]
             except KeyError:
-                rospy.logwarn(
-                    f"Category {sinfo['category_id']+1} not found in"
-                    " coco_viplanner_cls_mapping."
-                )
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = (
-                    self.viplanner_sem_class_color_map["static"]
-                )
+                rospy.logwarn(f"Category {sinfo['category_id']+1} not found in" " coco_viplanner_cls_mapping.")
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = self.viplanner_sem_class_color_map["static"]
 
         if self.debug:
             import matplotlib.pyplot as plt

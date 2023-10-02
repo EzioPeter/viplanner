@@ -42,13 +42,9 @@ class CostMapPCD:
         # args
         self.cfg: CostMapConfig = cfg
         self.load_from_file: bool = load_from_file
-        self.tsdf_array: torch.Tensor = torch.tensor(
-            tsdf_array, device=self.device
-        )
+        self.tsdf_array: torch.Tensor = torch.tensor(tsdf_array, device=self.device)
         self.viz_points: np.ndarray = viz_points
-        self.ground_array: torch.Tensor = torch.tensor(
-            ground_array, device=self.device
-        )
+        self.ground_array: torch.Tensor = torch.tensor(ground_array, device=self.device)
 
         # init flag
         self.map_init = False
@@ -72,17 +68,11 @@ class CostMapPCD:
         self.SetUpCostArray()
         # update pcd instance
         xv, yv = np.meshgrid(
-            np.linspace(
-                0, self.num_x * self.cfg.general.resolution, self.num_x
-            ),
-            np.linspace(
-                0, self.num_y * self.cfg.general.resolution, self.num_y
-            ),
+            np.linspace(0, self.num_x * self.cfg.general.resolution, self.num_x),
+            np.linspace(0, self.num_y * self.cfg.general.resolution, self.num_y),
             indexing="ij",
         )
-        T = np.concatenate(
-            (np.expand_dims(xv, axis=0), np.expand_dims(yv, axis=0)), axis=0
-        )
+        T = np.concatenate((np.expand_dims(xv, axis=0), np.expand_dims(yv, axis=0)), axis=0)
         T = np.concatenate(
             (
                 T,
@@ -91,14 +81,10 @@ class CostMapPCD:
             axis=0,
         )
         if self.load_from_file:
-            wps = T.reshape(3, -1).T + np.array(
-                [self.cfg.x_start, self.cfg.y_start, 0.0]
-            )
+            wps = T.reshape(3, -1).T + np.array([self.cfg.x_start, self.cfg.y_start, 0.0])
             self.pcd_tsdf.points = o3d.utility.Vector3dVector(wps)
         else:
-            self.pcd_tsdf.points = o3d.utility.Vector3dVector(
-                T.reshape(3, -1).T
-            )
+            self.pcd_tsdf.points = o3d.utility.Vector3dVector(T.reshape(3, -1).T)
 
         self.map_init = True
         return
@@ -121,19 +107,12 @@ class CostMapPCD:
             device=points.device,
         ).expand(1, 1, -1)
         if isinstance(points, pp.LieTensor):
-            H = (
-                points.tensor()[:, :, 0:2] - start_xy
-            ) / self.cfg.general.resolution
+            H = (points.tensor()[:, :, 0:2] - start_xy) / self.cfg.general.resolution
         else:
             H = (points[:, :, 0:2] - start_xy) / self.cfg.general.resolution
         mask = torch.logical_and(
             (H > 0).all(axis=2),
-            (
-                H
-                < torch.tensor([self.num_x, self.num_y], device=points.device)[
-                    None, None, :
-                ]
-            ).all(axis=2),
+            (H < torch.tensor([self.num_x, self.num_y], device=points.device)[None, None, :]).all(axis=2),
         )
         return self.NormInds(H), H[mask, :]
 
@@ -219,27 +198,15 @@ class CostMapPCD:
         return
 
     @classmethod
-    def ReadTSDFMap(
-        cls, root_path: str, map_name: str, gpu_id: Optional[int] = None
-    ):
+    def ReadTSDFMap(cls, root_path: str, map_name: str, gpu_id: Optional[int] = None):
         # read config
-        with open(
-            os.path.join(
-                root_path, "maps", "params", f"config_{map_name}.yaml"
-            )
-        ) as f:
+        with open(os.path.join(root_path, "maps", "params", f"config_{map_name}.yaml")) as f:
             cfg: CostMapConfig = CostMapConfig(**yaml.load(f, Loader))
 
         # load data
-        tsdf_array = np.loadtxt(
-            os.path.join(root_path, "maps", "data", map_name + "_map.txt")
-        )
-        viz_points = np.loadtxt(
-            os.path.join(root_path, "maps", "cloud", map_name + "_cloud.txt")
-        )
-        ground_array = np.loadtxt(
-            os.path.join(root_path, "maps", "data", map_name + "_ground.txt")
-        )
+        tsdf_array = np.loadtxt(os.path.join(root_path, "maps", "data", map_name + "_map.txt"))
+        viz_points = np.loadtxt(os.path.join(root_path, "maps", "cloud", map_name + "_cloud.txt"))
+        ground_array = np.loadtxt(os.path.join(root_path, "maps", "data", map_name + "_ground.txt"))
 
         return cls(
             cfg=cfg,
@@ -253,9 +220,7 @@ class CostMapPCD:
 
 if __name__ == "__main__":
     # parse environment directory and cost_map name
-    parser = argparse.ArgumentParser(
-        prog="Show Costmap", description="Show Costmap"
-    )
+    parser = argparse.ArgumentParser(prog="Show Costmap", description="Show Costmap")
     parser.add_argument(
         "-e",
         "--env",
@@ -263,9 +228,7 @@ if __name__ == "__main__":
         help="path to the environment directory",
         required=True,
     )
-    parser.add_argument(
-        "-m", "--map", type=str, help="name of the cost_map", required=True
-    )
+    parser.add_argument("-m", "--map", type=str, help="name of the cost_map", required=True)
     args = parser.parse_args()
 
     # show costmap

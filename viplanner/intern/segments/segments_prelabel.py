@@ -30,14 +30,10 @@ from viplanner.utils.m2f_utils import M2FWrapper
 def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):
     # create client
     client = SegmentsClient(segments_cfg.api_key)
-    release = client.get_release(
-        segments_cfg.dataset_name, segments_cfg.version
-    )
+    release = client.get_release(segments_cfg.dataset_name, segments_cfg.version)
 
     # Initialize a new dataset, this time containing only unlabeled images
-    dataset = SegmentsDataset(
-        release, labelset="ground-truth", filter_by="UNLABELED"
-    )
+    dataset = SegmentsDataset(release, labelset="ground-truth", filter_by="UNLABELED")
 
     # get m2f model
     m2f_wrapper = M2FWrapper(m2f_cfg)
@@ -47,9 +43,7 @@ def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):
     coco_viplanner_cls_mapping = get_class_for_id()
     coco_viplanner_mapping = {}
     for coco_id, viplanner_cls_name in coco_viplanner_cls_mapping.items():
-        coco_viplanner_mapping[coco_id] = viplanner_meta.class_id[
-            viplanner_cls_name
-        ]
+        coco_viplanner_mapping[coco_id] = viplanner_meta.class_id[viplanner_cls_name]
 
     # init plot to show predictions
     fig, ax = plt.subplots()

@@ -21,14 +21,8 @@ from detectron2.utils.logger import setup_logger
 from tqdm import tqdm
 
 # viplanner
-from viplanner.config import (
-    Mask2FormerCfg,
-    VIPlannerSemMetaHandler,
-    get_class_for_id,
-)
-from viplanner.third_party.mask2former.mask2former import (
-    add_maskformer2_config,
-)
+from viplanner.config import Mask2FormerCfg, VIPlannerSemMetaHandler, get_class_for_id
+from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 
 
 class M2FWrapper:
@@ -48,15 +42,12 @@ class M2FWrapper:
             coco_id,
             viplanner_cls_name,
         ) in self.coco_viplanner_cls_mapping.items():
-            self.coco_viplanner_color_mapping[coco_id] = (
-                self.viplanner_meta.class_color[viplanner_cls_name]
-            )
+            self.coco_viplanner_color_mapping[coco_id] = self.viplanner_meta.class_color[viplanner_cls_name]
 
         return
 
     def load_m2f_pred(self) -> None:
         setup_logger(name="fvcore")
-        logger = setup_logger()
 
         cfg = get_cfg()
         add_deeplab_config(cfg)
@@ -96,9 +87,7 @@ class M2FWrapper:
         :return: None
         """
         # check folder and create semantics folder
-        assert os.path.isdir(
-            data_folder
-        ), f"Folder {data_folder} does not exist!"
+        assert os.path.isdir(data_folder), f"Folder {data_folder} does not exist!"
         parent_folder, _ = os.path.split(data_folder)
         sem_folder = os.path.join(parent_folder, sem_folder_name)
         os.makedirs(sem_folder, exist_ok=True)
@@ -131,9 +120,7 @@ class M2FWrapper:
 
             # save image
             sem_img_path = os.path.join(sem_folder, img_name)
-            cv2.imwrite(
-                sem_img_path, cv2.cvtColor(panoptic_mask, cv2.COLOR_RGB2BGR)
-            )
+            cv2.imwrite(sem_img_path, cv2.cvtColor(panoptic_mask, cv2.COLOR_RGB2BGR))
 
             # show image
             if show_pred:
@@ -146,22 +133,15 @@ class M2FWrapper:
         panoptic_seg, seg_infos = predictions["panoptic_seg"]
 
         # create output
-        panoptic_mask = np.zeros(
-            (panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8
-        )
+        panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
         for sinfo in seg_infos:
             try:
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = (
-                    self.coco_viplanner_color_mapping[sinfo["category_id"]]
-                )
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = self.coco_viplanner_color_mapping[
+                    sinfo["category_id"]
+                ]
             except KeyError:
-                print(
-                    f"Category {sinfo['category_id']+1} not found in"
-                    " coco_viplanner_cls_mapping."
-                )
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = (
-                    self.viplanner_sem_class_color_map["static"]
-                )
+                print(f"Category {sinfo['category_id']+1} not found in" " coco_viplanner_cls_mapping.")
+                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = self.viplanner_sem_class_color_map["static"]
 
         return panoptic_mask
 
@@ -170,9 +150,7 @@ if __name__ == "__main__":
     m2f_cfg = Mask2FormerCfg()
     wrapper = M2FWrapper(m2f_cfg)
 
-    parser = argparse.ArgumentParser(
-        description="Prelabel images with a given model"
-    )
+    parser = argparse.ArgumentParser(description="Prelabel images with a given model")
     parser.add_argument(
         "-d",
         "--dataset_dir",

@@ -15,10 +15,10 @@ import logging
 
 # python
 import os
-import random
 from collections import OrderedDict
 from typing import Any, Dict, List, Set
 
+import numpy as np
 import torch
 
 try:
@@ -28,7 +28,7 @@ try:
     from shapely.errors import ShapelyDeprecationWarning
 
     warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
-except:
+except:  # noqa: E722
     pass
 
 # detectron2
@@ -41,12 +41,7 @@ from detectron2.data.datasets import (
     register_coco_panoptic_separated,
 )
 from detectron2.data.datasets.builtin_meta import COCO_CATEGORIES
-from detectron2.engine import (
-    DefaultTrainer,
-    default_argument_parser,
-    default_setup,
-    launch,
-)
+from detectron2.engine import DefaultTrainer, default_setup, launch
 from detectron2.evaluation import (
     CityscapesInstanceEvaluator,
     CityscapesSemSegEvaluator,
@@ -107,9 +102,7 @@ class Trainer(DefaultTrainer):
             )
         # instance segmentation
         if evaluator_type == "coco":
-            evaluator_list.append(
-                COCOEvaluator(dataset_name, output_dir=output_folder)
-            )
+            evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
         # panoptic segmentation
         if evaluator_type in [
             "coco_panoptic_seg",
@@ -118,88 +111,48 @@ class Trainer(DefaultTrainer):
             "mapillary_vistas_panoptic_seg",
         ]:
             if cfg.MODEL.MASK_FORMER.TEST.PANOPTIC_ON:
-                evaluator_list.append(
-                    COCOPanopticEvaluator(dataset_name, output_folder)
-                )
+                evaluator_list.append(COCOPanopticEvaluator(dataset_name, output_folder))
         # COCO
-        if (
-            evaluator_type == "coco_panoptic_seg"
-            and cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON
-        ):
-            evaluator_list.append(
-                COCOEvaluator(dataset_name, output_dir=output_folder)
-            )
-        if (
-            evaluator_type == "coco_panoptic_seg"
-            and cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON
-        ):
-            evaluator_list.append(
-                SemSegEvaluator(
-                    dataset_name, distributed=True, output_dir=output_folder
-                )
-            )
+        if evaluator_type == "coco_panoptic_seg" and cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON:
+            evaluator_list.append(COCOEvaluator(dataset_name, output_dir=output_folder))
+        if evaluator_type == "coco_panoptic_seg" and cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON:
+            evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
         # Mapillary Vistas
-        if (
-            evaluator_type == "mapillary_vistas_panoptic_seg"
-            and cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON
-        ):
-            evaluator_list.append(
-                InstanceSegEvaluator(dataset_name, output_dir=output_folder)
-            )
-        if (
-            evaluator_type == "mapillary_vistas_panoptic_seg"
-            and cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON
-        ):
-            evaluator_list.append(
-                SemSegEvaluator(
-                    dataset_name, distributed=True, output_dir=output_folder
-                )
-            )
+        if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON:
+            evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
+        if evaluator_type == "mapillary_vistas_panoptic_seg" and cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON:
+            evaluator_list.append(SemSegEvaluator(dataset_name, distributed=True, output_dir=output_folder))
         # Cityscapes
         if evaluator_type == "cityscapes_instance":
             assert torch.cuda.device_count() > comm.get_rank(), (
-                "CityscapesEvaluator currently do not work with multiple"
-                " machines."
+                "CityscapesEvaluator currently do not work with multiple" " machines."
             )
             return CityscapesInstanceEvaluator(dataset_name)
         if evaluator_type == "cityscapes_sem_seg":
             assert torch.cuda.device_count() > comm.get_rank(), (
-                "CityscapesEvaluator currently do not work with multiple"
-                " machines."
+                "CityscapesEvaluator currently do not work with multiple" " machines."
             )
             return CityscapesSemSegEvaluator(dataset_name)
         if evaluator_type == "cityscapes_panoptic_seg":
             if cfg.MODEL.MASK_FORMER.TEST.SEMANTIC_ON:
                 assert torch.cuda.device_count() > comm.get_rank(), (
-                    "CityscapesEvaluator currently do not work with multiple"
-                    " machines."
+                    "CityscapesEvaluator currently do not work with multiple" " machines."
                 )
                 evaluator_list.append(CityscapesSemSegEvaluator(dataset_name))
             if cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON:
                 assert torch.cuda.device_count() > comm.get_rank(), (
-                    "CityscapesEvaluator currently do not work with multiple"
-                    " machines."
+                    "CityscapesEvaluator currently do not work with multiple" " machines."
                 )
-                evaluator_list.append(
-                    CityscapesInstanceEvaluator(dataset_name)
-                )
+                evaluator_list.append(CityscapesInstanceEvaluator(dataset_name))
         # ADE20K
-        if (
-            evaluator_type == "ade20k_panoptic_seg"
-            and cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON
-        ):
-            evaluator_list.append(
-                InstanceSegEvaluator(dataset_name, output_dir=output_folder)
-            )
+        if evaluator_type == "ade20k_panoptic_seg" and cfg.MODEL.MASK_FORMER.TEST.INSTANCE_ON:
+            evaluator_list.append(InstanceSegEvaluator(dataset_name, output_dir=output_folder))
         # LVIS
         if evaluator_type == "lvis":
             return LVISEvaluator(dataset_name, output_dir=output_folder)
         if len(evaluator_list) == 0:
-            raise NotImplementedError(
-                f"no Evaluator for the dataset {dataset_name} with the type"
-                f" {evaluator_type}"
-            )
-        elif len(evaluator_list) == 1:
+            raise NotImplementedError(f"no Evaluator for the dataset {dataset_name} with the type" f" {evaluator_type}")
+        if len(evaluator_list) == 1:
             return evaluator_list[0]
         return DatasetEvaluators(evaluator_list)
 
@@ -242,9 +195,7 @@ class Trainer(DefaultTrainer):
         weight_decay_norm = cfg.SOLVER.WEIGHT_DECAY_NORM
         weight_decay_embed = cfg.SOLVER.WEIGHT_DECAY_EMBED
 
-        defaults = {}
-        defaults["lr"] = cfg.SOLVER.BASE_LR
-        defaults["weight_decay"] = cfg.SOLVER.WEIGHT_DECAY
+        defaults = {"lr": cfg.SOLVER.BASE_LR, "weight_decay": cfg.SOLVER.WEIGHT_DECAY}
 
         norm_module_types = (
             torch.nn.BatchNorm1d,
@@ -263,9 +214,7 @@ class Trainer(DefaultTrainer):
         params: List[Dict[str, Any]] = []
         memo: Set[torch.nn.parameter.Parameter] = set()
         for module_name, module in model.named_modules():
-            for module_param_name, value in module.named_parameters(
-                recurse=False
-            ):
+            for module_param_name, value in module.named_parameters(recurse=False):
                 if not value.requires_grad:
                     continue
                 # Avoid duplicating parameters
@@ -275,13 +224,8 @@ class Trainer(DefaultTrainer):
 
                 hyperparams = copy.copy(defaults)
                 if "backbone" in module_name:
-                    hyperparams["lr"] = (
-                        hyperparams["lr"] * cfg.SOLVER.BACKBONE_MULTIPLIER
-                    )
-                if (
-                    "relative_position_bias_table" in module_param_name
-                    or "absolute_pos_embed" in module_param_name
-                ):
+                    hyperparams["lr"] = hyperparams["lr"] * cfg.SOLVER.BACKBONE_MULTIPLIER
+                if "relative_position_bias_table" in module_param_name or "absolute_pos_embed" in module_param_name:
                     print(module_param_name)
                     hyperparams["weight_decay"] = 0.0
                 if isinstance(module, norm_module_types):
@@ -301,9 +245,7 @@ class Trainer(DefaultTrainer):
 
             class FullModelGradientClippingOptimizer(optim):
                 def step(self, closure=None):
-                    all_params = itertools.chain(
-                        *[x["params"] for x in self.param_groups]
-                    )
+                    all_params = itertools.chain(*[x["params"] for x in self.param_groups])
                     torch.nn.utils.clip_grad_norm_(all_params, clip_norm_val)
                     super().step(closure=closure)
 
@@ -311,16 +253,14 @@ class Trainer(DefaultTrainer):
 
         optimizer_type = cfg.SOLVER.OPTIMIZER
         if optimizer_type == "SGD":
-            optimizer = maybe_add_full_model_gradient_clipping(
-                torch.optim.SGD
-            )(params, cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM)
+            optimizer = maybe_add_full_model_gradient_clipping(torch.optim.SGD)(
+                params, cfg.SOLVER.BASE_LR, momentum=cfg.SOLVER.MOMENTUM
+            )
         elif optimizer_type == "ADAMW":
-            optimizer = maybe_add_full_model_gradient_clipping(
-                torch.optim.AdamW
-            )(params, cfg.SOLVER.BASE_LR)
+            optimizer = maybe_add_full_model_gradient_clipping(torch.optim.AdamW)(params, cfg.SOLVER.BASE_LR)
         else:
             raise NotImplementedError(f"no optimizer type {optimizer_type}")
-        if not cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE == "full_model":
+        if cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE != "full_model":
             optimizer = maybe_add_gradient_clipping(cfg, optimizer)
         return optimizer
 
@@ -365,21 +305,13 @@ class M2FOverfit:
     def prepare_datasets(self) -> None:
         # metadata
         coco_meta = {
-            "thing_classes": MetadataCatalog.data[
-                "coco_2017_train_panoptic"
-            ].thing_classes,
-            "thing_colors": MetadataCatalog.data[
-                "coco_2017_train_panoptic"
-            ].thing_colors,
+            "thing_classes": MetadataCatalog.data["coco_2017_train_panoptic"].thing_classes,
+            "thing_colors": MetadataCatalog.data["coco_2017_train_panoptic"].thing_colors,
             "thing_dataset_id_to_contiguous_id": MetadataCatalog.data[
                 "coco_2017_train_panoptic"
             ].thing_dataset_id_to_contiguous_id,
-            "stuff_classes": MetadataCatalog.data[
-                "coco_2017_train_panoptic"
-            ].stuff_classes,
-            "stuff_colors": MetadataCatalog.data[
-                "coco_2017_train_panoptic"
-            ].stuff_colors,
+            "stuff_classes": MetadataCatalog.data["coco_2017_train_panoptic"].stuff_classes,
+            "stuff_colors": MetadataCatalog.data["coco_2017_train_panoptic"].stuff_colors,
             "stuff_dataset_id_to_contiguous_id": MetadataCatalog.data[
                 "coco_2017_train_panoptic"
             ].stuff_dataset_id_to_contiguous_id,
@@ -397,19 +329,12 @@ class M2FOverfit:
                 coco_train_json = json.load(file)
 
             # reduce number of images
-            images_filelist = [
-                single_image["file_name"][:-4]
-                for single_image in coco_train_json["images"]
-            ]
+            images_filelist = [single_image["file_name"][:-4] for single_image in coco_train_json["images"]]
             annotations_filelist = [
-                single_annotation["file_name"][:-4]
-                for single_annotation in coco_train_json["annotations"]
+                single_annotation["file_name"][:-4] for single_annotation in coco_train_json["annotations"]
             ]
             annotations_ids = [
-                [
-                    curr_ann["category_id"]
-                    for curr_ann in single_annotation["segments_info"]
-                ]
+                [curr_ann["category_id"] for curr_ann in single_annotation["segments_info"]]
                 for single_annotation in coco_train_json["annotations"]
             ]
 
@@ -450,46 +375,28 @@ class M2FOverfit:
                 199,
             }
             annotation_nb_intended_ids = [
-                len(intended_ids.intersection(set(single_annotation_ids)))
-                for single_annotation_ids in annotations_ids
+                len(intended_ids.intersection(set(single_annotation_ids))) for single_annotation_ids in annotations_ids
             ]
 
-            selected_images = (
-                np.array(annotations_filelist)[
-                    np.array(annotation_nb_intended_ids) > 9
-                ]
-            ).tolist()
+            selected_images = (np.array(annotations_filelist)[np.array(annotation_nb_intended_ids) > 9]).tolist()
             images_selected_idx = []
             annotations_selected_idx = []
             for image in selected_images:
-                annotations_selected_idx.append(
-                    annotations_filelist.index(image)
-                )
+                annotations_selected_idx.append(annotations_filelist.index(image))
                 images_selected_idx.append(images_filelist.index(image))
 
             # save reduced json
             coco_train_json_reduced = {
                 "info": coco_train_json["info"],
-                "images": [
-                    coco_train_json["images"][idx]
-                    for idx in images_selected_idx
-                ],
-                "annotations": [
-                    coco_train_json["annotations"][idx]
-                    for idx in annotations_selected_idx
-                ],
+                "images": [coco_train_json["images"][idx] for idx in images_selected_idx],
+                "annotations": [coco_train_json["annotations"][idx] for idx in annotations_selected_idx],
                 "categories": coco_train_json["categories"],
             }
-            json.dump(
-                coco_train_json_reduced,
-                open(
-                    os.path.join(
-                        self.m2f_cfg.coco_data_path,
-                        "annotations/panoptic_train2017_reduced.json",
-                    ),
-                    "w",
-                ),
-            )
+            with open(
+                os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_train2017_reduced.json"),
+                "w",
+            ) as file:
+                json.dump(coco_train_json_reduced, file)
             print("done")
 
             # used json file
@@ -502,23 +409,15 @@ class M2FOverfit:
             name=self.name_coco_train,
             metadata=coco_meta,
             image_root=os.path.join(self.m2f_cfg.coco_data_path, "train2017"),
-            panoptic_root=os.path.join(
-                self.m2f_cfg.coco_data_path, "annotations/panoptic_train2017"
-            ),
-            panoptic_json=os.path.join(
-                self.m2f_cfg.coco_data_path, annotation_json
-            ),
+            panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_train2017"),
+            panoptic_json=os.path.join(self.m2f_cfg.coco_data_path, annotation_json),
         )
         if not self.m2f_cfg.use_sem_seg:
             register_coco_panoptic(
                 name=self.name_coco_val,
                 metadata=coco_meta,
-                image_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "val2017"
-                ),
-                panoptic_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"
-                ),
+                image_root=os.path.join(self.m2f_cfg.coco_data_path, "val2017"),
+                panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
                 panoptic_json=os.path.join(
                     self.m2f_cfg.coco_data_path,
                     "annotations/panoptic_val2017.json",
@@ -529,19 +428,13 @@ class M2FOverfit:
             register_coco_panoptic_separated(
                 name=self.name_coco_val,
                 metadata=coco_meta,
-                image_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "val2017"
-                ),
-                panoptic_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"
-                ),
+                image_root=os.path.join(self.m2f_cfg.coco_data_path, "val2017"),
+                panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
                 panoptic_json=os.path.join(
                     self.m2f_cfg.coco_data_path,
                     "annotations/panoptic_val2017.json",
                 ),
-                sem_seg_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"
-                ),
+                sem_seg_root=os.path.join(self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"),
                 instances_json=None,
             )
             separate_coco_semantic_from_panoptic(
@@ -549,12 +442,8 @@ class M2FOverfit:
                     self.m2f_cfg.coco_data_path,
                     "annotations/panoptic_val2017.json",
                 ),
-                panoptic_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"
-                ),
-                sem_seg_root=os.path.join(
-                    self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"
-                ),
+                panoptic_root=os.path.join(self.m2f_cfg.coco_data_path, "annotations/panoptic_val2017"),
+                sem_seg_root=os.path.join(self.m2f_cfg.coco_data_path, "panoptic_semseg_val2017"),
                 categories=COCO_CATEGORIES,
             )
 
@@ -562,12 +451,8 @@ class M2FOverfit:
         register_coco_panoptic(
             name=self.name_zurich_train,
             metadata=coco_meta,
-            image_root=os.path.join(
-                self.segments_cfg.export_file_path, "train"
-            ),
-            panoptic_root=os.path.join(
-                self.segments_cfg.export_file_path, "annotations", "images"
-            ),
+            image_root=os.path.join(self.segments_cfg.export_file_path, "train"),
+            panoptic_root=os.path.join(self.segments_cfg.export_file_path, "annotations", "images"),
             panoptic_json=os.path.join(
                 self.segments_cfg.export_file_path,
                 "annotations",
@@ -605,11 +490,7 @@ class M2FOverfit:
         cfg["DATASETS"]["TEST"] = (self.name_coco_val,)
         # change batchsize and epochs
         cfg["SOLVER"]["IMS_PER_BATCH"] = self.m2f_cfg.batch_size
-        iter_steps = int(
-            self.m2f_cfg.epochs
-            * self.m2f_cfg.coco_nb_images
-            / self.m2f_cfg.batch_size
-        )
+        iter_steps = int(self.m2f_cfg.epochs * self.m2f_cfg.coco_nb_images / self.m2f_cfg.batch_size)
         cfg["SOLVER"]["MAX_ITER"] = int(iter_steps * 1.2)
         cfg["SOLVER"]["STEPS"] = (int(iter_steps / 2), iter_steps)
 
@@ -638,9 +519,9 @@ class M2FOverfit:
 
         if self.m2f_cfg.eval_only:
             model = Trainer.build_model(cfg)
-            DetectionCheckpointer(
-                model, save_dir=cfg.OUTPUT_DIR
-            ).resume_or_load(cfg.MODEL.WEIGHTS, resume=self.m2f_cfg.resume)
+            DetectionCheckpointer(model, save_dir=cfg.OUTPUT_DIR).resume_or_load(
+                cfg.MODEL.WEIGHTS, resume=self.m2f_cfg.resume
+            )
             res = Trainer.test(cfg, model)
             if cfg.TEST.AUG.ENABLED:
                 res.update(Trainer.test_with_TTA(cfg, model))

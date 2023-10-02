@@ -15,7 +15,7 @@ def extract_frames(video_path, num_frames, path, overlay: bool = True):
 
     ret, initial_frame = cap.read()
     if not ret:
-        print(f"Can't receive frame (stream end?). Exiting ...")
+        print("Can't receive frame (stream end?). Exiting ...")
         return None
 
     if not overlay:
@@ -29,18 +29,11 @@ def extract_frames(video_path, num_frames, path, overlay: bool = True):
             break
         if frame_id % frame_gap == 0:
             if overlay:
-                diff = np.abs(
-                    initial_frame.astype("int64") - frame.astype("int64")
-                )
-                changed_mask = np.any(
-                    diff > 20, axis=-1
-                )  # mask for changed pixels
+                diff = np.abs(initial_frame.astype("int64") - frame.astype("int64"))
+                changed_mask = np.any(diff > 20, axis=-1)  # mask for changed pixels
                 # Alpha blending: source image * alpha + background image * (1 - alpha)
                 output = (
-                    frame.astype("float32")
-                    / 255
-                    * changed_mask[:, :, np.newaxis]
-                    * 0.6
+                    frame.astype("float32") / 255 * changed_mask[:, :, np.newaxis] * 0.6
                     + output * changed_mask[:, :, np.newaxis] * 0.4
                     + output * (1 - changed_mask[:, :, np.newaxis])
                 )
@@ -62,13 +55,7 @@ def extract_frames(video_path, num_frames, path, overlay: bool = True):
 
 
 if __name__ == "__main__":
-    video_path = (  # specify your video path here
-        "/home/pascal/Downloads/IMG_5569.MOV"
-    )
-    output_path = (  #   output.png' # specify your output image path here
-        "/home/pascal/Downloads/video_crosswalk_5569"
-    )
-    num_frames = (
-        200  # specify the number of frames you want to extract and overlay
-    )
+    video_path = "/home/pascal/Downloads/IMG_5569.MOV"  # specify your video path here
+    output_path = "/home/pascal/Downloads/video_crosswalk_5569"  # output.png' # specify your output image path here
+    num_frames = 200  # specify the number of frames you want to extract and overlay
     extract_frames(video_path, num_frames, output_path, False)

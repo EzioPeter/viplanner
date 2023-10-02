@@ -47,9 +47,7 @@ class Mask2FormerCfg:
     # path to model config file
     config: str = "coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml"
     # path to model weights file
-    model: str = (  # 'm2f_overfit/model_zurich_70_0049999.pth' #
-        "coco/panoptic/swin/model_final_9fd0ae.pkl"
-    )
+    model: str = "coco/panoptic/swin/model_final_9fd0ae.pkl"  # 'm2f_overfit/model_zurich_70_0049999.pth' #
     # output directory
     output: str = "m2f_overfit"
 
@@ -64,14 +62,14 @@ class Mask2FormerCfg:
     machine_rank: int = 0
     num_machines: int = 1
     dist_url: str = "tcp://127.0.0.1:50152"
-    use_sem_seg: bool = False  # semantic segmentation evaluation  --> also requires instancs json file (not available yet)
+    use_sem_seg: bool = (
+        False  # semantic segmentation evaluation  --> also requires instancs json file (not available yet)
+    )
 
     @property
     def config_file(self) -> str:
         return os.path.join(
-            os.getenv(
-                "EXPERIMENT_DIRECTORY", "/home/pascal/viplanner/sem_seg"
-            ),
+            os.getenv("EXPERIMENT_DIRECTORY", "/home/pascal/viplanner/sem_seg"),
             "m2f_model",
             self.config,
         )
@@ -79,9 +77,7 @@ class Mask2FormerCfg:
     @property
     def model_file(self) -> str:
         return os.path.join(
-            os.getenv(
-                "EXPERIMENT_DIRECTORY", "/home/pascal/viplanner/sem_seg"
-            ),
+            os.getenv("EXPERIMENT_DIRECTORY", "/home/pascal/viplanner/sem_seg"),
             "m2f_model",
             self.model,
         )
@@ -100,9 +96,7 @@ class Mask2FormerCfg:
     @property
     def output_path(self) -> str:
         return os.path.join(
-            os.getenv(
-                "EXPERIMENT_DIRECTORY", "/home/pascal/viplanner/sem_seg"
-            ),
+            os.getenv("EXPERIMENT_DIRECTORY", "/home/pascal/viplanner/sem_seg"),
             "m2f_model",
             self.output,
         )

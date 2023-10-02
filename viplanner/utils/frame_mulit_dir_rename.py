@@ -1,6 +1,7 @@
 import os
 import shutil
 
+
 def copy_images_with_prefix(source_dirs, dest_dir, file_name):
     # global_counter
     counter = 0
@@ -13,7 +14,7 @@ def copy_images_with_prefix(source_dirs, dest_dir, file_name):
         # Iterate over all files in the source directory
         for filename in files:
             # Check if the file is an image (you can modify the condition as per your specific image file extensions)
-            if filename.lower().endswith('.png') and filename.startswith(file_name):
+            if filename.lower().endswith(".png") and filename.startswith(file_name):
                 # Construct the new filename by adding the source directory name as a prefix
                 new_filename = f"{file_name}_" + f"{counter}".zfill(4) + ".png"
 
@@ -21,6 +22,7 @@ def copy_images_with_prefix(source_dirs, dest_dir, file_name):
                 shutil.copy2(os.path.join(curr_dir, filename), os.path.join(dest_dir, new_filename))
 
                 counter += 1
+
 
 # Example usage
 source_dirs = [

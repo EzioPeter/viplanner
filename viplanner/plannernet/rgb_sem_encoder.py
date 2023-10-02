@@ -9,11 +9,7 @@ import torch
 # detectron2
 from detectron2.config import configurable
 from detectron2.data import MetadataCatalog
-from detectron2.modeling import (
-    META_ARCH_REGISTRY,
-    build_backbone,
-    build_sem_seg_head,
-)
+from detectron2.modeling import META_ARCH_REGISTRY, build_backbone, build_sem_seg_head
 from detectron2.modeling.backbone import Backbone
 from detectron2.structures import ImageList
 from torch import nn
@@ -97,15 +93,9 @@ class MaskFormerMod(nn.Module):
             # use backbone size_divisibility if not set
             size_divisibility = self.backbone.size_divisibility
         self.size_divisibility = size_divisibility
-        self.sem_seg_postprocess_before_inference = (
-            sem_seg_postprocess_before_inference
-        )
-        self.register_buffer(
-            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
-        )
-        self.register_buffer(
-            "pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False
-        )
+        self.sem_seg_postprocess_before_inference = sem_seg_postprocess_before_inference
+        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
+        self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
         # additional args
         self.semantic_on = semantic_on
@@ -148,9 +138,7 @@ class MaskFormerMod(nn.Module):
             dec_layers = cfg.MODEL.MASK_FORMER.DEC_LAYERS
             aux_weight_dict = {}
             for i in range(dec_layers - 1):
-                aux_weight_dict.update(
-                    {k + f"_{i}": v for k, v in weight_dict.items()}
-                )
+                aux_weight_dict.update({k + f"_{i}": v for k, v in weight_dict.items()})
             weight_dict.update(aux_weight_dict)
 
         losses = ["labels", "masks"]
@@ -171,9 +159,7 @@ class MaskFormerMod(nn.Module):
             "sem_seg_head": sem_seg_head,
             "criterion": criterion,
             "num_queries": cfg.MODEL.MASK_FORMER.NUM_OBJECT_QUERIES,
-            "object_mask_threshold": (
-                cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD
-            ),
+            "object_mask_threshold": (cfg.MODEL.MASK_FORMER.TEST.OBJECT_MASK_THRESHOLD),
             "overlap_threshold": cfg.MODEL.MASK_FORMER.TEST.OVERLAP_THRESHOLD,
             "metadata": MetadataCatalog.get(cfg.DATASETS.TRAIN[0]),
             "size_divisibility": cfg.MODEL.MASK_FORMER.SIZE_DIVISIBILITY,
@@ -241,9 +227,7 @@ class MaskFormerMod(nn.Module):
                 dtype=gt_masks.dtype,
                 device=gt_masks.device,
             )
-            padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = (
-                gt_masks
-            )
+            padded_masks[:, : gt_masks.shape[1], : gt_masks.shape[2]] = gt_masks
             new_targets.append(
                 {
                     "labels": targets_per_image.gt_classes,
@@ -254,9 +238,7 @@ class MaskFormerMod(nn.Module):
 
 
 @TRANSFORMER_DECODER_REGISTRY.register()
-class MultiScaleMaskedTransformerDecoderMod(
-    MultiScaleMaskedTransformerDecoder
-):
+class MultiScaleMaskedTransformerDecoderMod(MultiScaleMaskedTransformerDecoder):
     @configurable
     def __init__(
         self,
@@ -319,10 +301,7 @@ class MultiScaleMaskedTransformerDecoderMod(
         for i in range(self.num_feature_levels):
             size_list.append(x[i].shape[-2:])
             pos.append(self.pe_layer(x[i], None).flatten(2))
-            src.append(
-                self.input_proj[i](x[i]).flatten(2)
-                + self.level_embed.weight[i][None, :, None]
-            )
+            src.append(self.input_proj[i](x[i]).flatten(2) + self.level_embed.weight[i][None, :, None])
 
             # flatten NxCxHxW to HWxNxC
             pos[-1] = pos[-1].permute(2, 0, 1)
@@ -346,9 +325,7 @@ class MultiScaleMaskedTransformerDecoderMod(
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[
-                torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])
-            ] = False
+            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
                 output,
@@ -376,9 +353,7 @@ class MultiScaleMaskedTransformerDecoderMod(
             ) = self.forward_prediction_heads(
                 output,
                 mask_features,
-                attn_mask_target_size=size_list[
-                    (i + 1) % self.num_feature_levels
-                ],
+                attn_mask_target_size=size_list[(i + 1) % self.num_feature_levels],
             )
             predictions_class.append(outputs_class)
             predictions_mask.append(outputs_mask)

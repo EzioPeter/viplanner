@@ -1,4 +1,4 @@
-# Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py  
+# Modified from https://github.com/google-research/deeplab2/blob/main/data/coco_constants.py
 # File containing the meta info of all classes from the COCO dataset.
 
 try:

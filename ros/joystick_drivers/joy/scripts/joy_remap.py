@@ -49,24 +49,16 @@ class RestrictedEvaluator:
             try:
                 return var[idx]
             except IndexError:
-                raise IndexError(
-                    "Variable '%s' out of range: %d >= %d"
-                    % (node.value.id, idx, len(var))
-                )
+                raise IndexError("Variable '%s' out of range: %d >= %d" % (node.value.id, idx, len(var)))
         else:
             raise TypeError("Unsupported operation: %s" % node)
 
     def reval(self, expr, variables):
         expr = str(expr)
         if len(expr) > 1000:
-            raise ValueError(
-                "The length of an expression must not be more than 1000"
-                " characters"
-            )
+            raise ValueError("The length of an expression must not be more than 1000" " characters")
         try:
-            return self._reval_impl(
-                ast.parse(expr, mode="eval").body, variables
-            )
+            return self._reval_impl(ast.parse(expr, mode="eval").body, variables)
         except Exception as e:
             rospy.logerr(traceback.format_exc())
             raise e
@@ -89,10 +81,7 @@ class JoyRemap:
     def load_mappings(self, ns):
         btn_remap = rospy.get_param(ns + "/buttons", [])
         axes_remap = rospy.get_param(ns + "/axes", [])
-        rospy.loginfo(
-            "loaded remapping: %d buttons, %d axes"
-            % (len(btn_remap), len(axes_remap))
-        )
+        rospy.loginfo("loaded remapping: %d buttons, %d axes" % (len(btn_remap), len(axes_remap)))
         return {"buttons": btn_remap, "axes": axes_remap}
 
     def warn_remap(self, name):
@@ -110,9 +99,7 @@ class JoyRemap:
             try:
                 out_msg.axes[i] = self.evaluator.reval(exp, in_dic)
             except NameError as e:
-                rospy.logerr(
-                    "You are using vars other than 'buttons' or 'axes': %s" % e
-                )
+                rospy.logerr("You are using vars other than 'buttons' or 'axes': %s" % e)
             except UnboundLocalError as e:
                 rospy.logerr("Wrong form: %s" % e)
             except Exception as e:
@@ -123,9 +110,7 @@ class JoyRemap:
                 if self.evaluator.reval(exp, in_dic) > 0:
                     out_msg.buttons[i] = 1
             except NameError as e:
-                rospy.logerr(
-                    "You are using vars other than 'buttons' or 'axes': %s" % e
-                )
+                rospy.logerr("You are using vars other than 'buttons' or 'axes': %s" % e)
             except UnboundLocalError as e:
                 rospy.logerr("Wrong form: %s" % e)
             except Exception as e:

@@ -12,12 +12,8 @@ import numpy as np
 import pypose as pp
 import scipy.spatial.transform as tf
 
-ROS_TO_ROBOTICS_MAT = tf.Rotation.from_euler(
-    "XYZ", [-90, 0, -90], degrees=True
-).as_matrix()
-CAMERA_FLIP_MAT = tf.Rotation.from_euler(
-    "XYZ", [180, 0, 0], degrees=True
-).as_matrix()
+ROS_TO_ROBOTICS_MAT = tf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True).as_matrix()
+CAMERA_FLIP_MAT = tf.Rotation.from_euler("XYZ", [180, 0, 0], degrees=True).as_matrix()
 time_threshold = 0.1
 
 
@@ -26,9 +22,7 @@ class RealWorldDataHandler:
         self.dir = dir
         self.rotate = rotate  # true for ANYmal D and False for ANYmal C
 
-        if os.path.exists(
-            os.path.join(self.dir, "semantics")
-        ) or os.path.exists(os.path.join(self.dir, "sem")):
+        if os.path.exists(os.path.join(self.dir, "semantics")) or os.path.exists(os.path.join(self.dir, "sem")):
             self.semantics = True
             # if os.path.exists(os.path.join(self.dir, "sem")):
             #     os.rename(os.path.join(self.dir, "sem"), os.path.join(self.dir, "semantics"))
@@ -57,17 +51,13 @@ class RealWorldDataHandler:
         # load data timestamps and synchroniize them
         odom_bgr = np.loadtxt(os.path.join(self.dir, "odom_bgr.txt"))
         odom_depth = np.loadtxt(os.path.join(self.dir, "odom_depth.txt"))
-        depth_idx, bgr_idx = self.synchronize_data(
-            odom_bgr[:, 7:], odom_depth[:, 7:]
-        )
+        depth_idx, bgr_idx = self.synchronize_data(odom_bgr[:, 7:], odom_depth[:, 7:])
 
         # filter images that are timewise too close to each other
         timestamp_idx = [0]  # Always keep the first timestamp
         prev_timestamp = odom_depth[0, 7:]
         for idx, timestamp in enumerate(odom_depth[1:, 7:]):
-            time_diff = (timestamp[0] - prev_timestamp[0]) + (
-                timestamp[1] - prev_timestamp[1]
-            ) / 1e9
+            time_diff = (timestamp[0] - prev_timestamp[0]) + (timestamp[1] - prev_timestamp[1]) / 1e9
             if time_diff >= time_threshold:
                 timestamp_idx.append(idx + 1)
                 prev_timestamp = timestamp
@@ -75,49 +65,29 @@ class RealWorldDataHandler:
         bgr_idx = bgr_idx[timestamp_idx]
 
         # load intrinsics
-        self.K_depth = np.loadtxt(
-            os.path.join(self.dir, "intrinsics_depth.txt")
-        )
+        self.K_depth = np.loadtxt(os.path.join(self.dir, "intrinsics_depth.txt"))
         self.K_bgr = np.loadtxt(os.path.join(self.dir, "intrinsics_bgr.txt"))
 
         # reduce data to valid depth images, bgr and odom points
-        self.depth_img_list = np.array(
-            sorted(os.listdir(os.path.join(self.dir, "depth")))
-        )
+        self.depth_img_list = np.array(sorted(os.listdir(os.path.join(self.dir, "depth"))))
         self.depth_img_list = self.depth_img_list[depth_idx]
-        self.bgr_img_list = np.array(
-            sorted(os.listdir(os.path.join(self.dir, "bgr")))
-        )
-        nbr_bgr_images = len(self.bgr_img_list)
+        self.bgr_img_list = np.array(sorted(os.listdir(os.path.join(self.dir, "bgr"))))
         self.bgr_img_list = self.bgr_img_list[bgr_idx]
         self.depth_time = odom_depth[depth_idx, 7:]
         odom_depth = odom_depth[depth_idx, :7]
         odom_bgr = odom_bgr[bgr_idx, :7]
 
         if self.semantics:
-            self.sem_img_list = np.array(
-                sorted(os.listdir(os.path.join(self.dir, "semantics")))
-            )
-            if len(self.sem_img_list) == nbr_bgr_images:
-                self.sem_img_list = self.sem_img_list[bgr_idx]
-            else:
-                odom_sem = np.loadtxt(os.path.join(self.dir, "odom_sem.txt"))
-                sem_idx = self.synchronize_data(
-                    odom_bgr[:, 7:], odom_depth[:, 7:]
-                )[1]
+            self.sem_img_list = np.array(sorted(os.listdir(os.path.join(self.dir, "semantics"))))
+            self.sem_img_list = self.sem_img_list[bgr_idx]
 
         # transform rotations of depth and bgr image from ROS camera frame (z-forward) to robotics frame (x-forward)
-        depth_rot_mat = (
-            tf.Rotation.from_quat(odom_depth[:, 3:]).as_matrix()
-            @ ROS_TO_ROBOTICS_MAT
-        )
+        depth_rot_mat = tf.Rotation.from_quat(odom_depth[:, 3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT
         if not self.rotate:
             depth_rot_mat = depth_rot_mat @ CAMERA_FLIP_MAT
         odom_depth[:, 3:] = tf.Rotation.from_matrix(depth_rot_mat).as_quat()
         odom_bgr[:, 3:] = tf.Rotation.from_matrix(
-            tf.Rotation.from_quat(odom_bgr[:, 3:]).as_matrix()
-            @ ROS_TO_ROBOTICS_MAT
-            @ CAMERA_FLIP_MAT
+            tf.Rotation.from_quat(odom_bgr[:, 3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT
         ).as_quat()
         odom_depth_pp = pp.SE3(odom_depth)
 
@@ -125,14 +95,9 @@ class RealWorldDataHandler:
         self.odom_bgr = odom_bgr
         self.odom_depth_pp = odom_depth_pp
         return
-<<<<<<< HEAD:viplanner/utils/rosbag_base_handler.py
-    
+
     @staticmethod
     def synchronize_data(measurement_1, measurement_2, threshold=0.1):
-=======
-
-    def synchronize_data(self, measurement_1, measurement_2, threshold=0.1):
->>>>>>> 8a321425a124fb4f5a221dffbd44c11165ea4dcf:viplanner/intern/rosbag/rosbag_base_handler.py
         """
         Synchronize two measurements with different timestamps.
         """
@@ -150,9 +115,7 @@ class RealWorldDataHandler:
         next_diff = np.abs(measurement_2 - measurement_1[next_idx])
         use_prev = prev_diff < next_diff
         # Compute the synchronized timestamps as a tuple of (depth timestamp, index)
-        synced_timestamp = np.where(
-            use_prev, measurement_1[prev_idx], measurement_1[next_idx]
-        )
+        synced_timestamp = np.where(use_prev, measurement_1[prev_idx], measurement_1[next_idx])
         synced_idx = np.where(use_prev, prev_idx, next_idx)
         # Check if the synchronized timestamp is within a threshold
         within_threshold = np.abs(synced_timestamp - measurement_2) < threshold

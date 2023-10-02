@@ -85,10 +85,7 @@ class uinputjoy:
             self.file = self.open_uinput()
             if self.file is None:
                 print(
-                    (
-                        "Can't open uinput device. Is it accessible by this"
-                        " user? Did you mean to run as root?"
-                    ),
+                    ("Can't open uinput device. Is it accessible by this" " user? Did you mean to run as root?"),
                     file=sys.stderr,
                 )
                 raise OSError
@@ -102,10 +99,7 @@ class uinputjoy:
         uinput_user_dev = "80sHHHHi" + (uinput.ABS_MAX + 1) * 4 * "i"
 
         if len(axes) != len(axmin) or len(axes) != len(axmax):
-            raise Exception(
-                "uinputjoy.__init__: axes, axmin and axmax should have same"
-                " length"
-            )
+            raise Exception("uinputjoy.__init__: axes, axmin and axmax should have same" " length")
         absmin = [0] * (uinput.ABS_MAX + 1)
         absmax = [0] * (uinput.ABS_MAX + 1)
         absfuzz = [2] * (uinput.ABS_MAX + 1)
@@ -142,9 +136,7 @@ class uinputjoy:
         fcntl.ioctl(self.file, UI_DEV_CREATE)
 
         self.value = [None] * (len(buttons) + len(axes))
-        self.type = [uinput.EV_KEY] * len(buttons) + [uinput.EV_ABS] * len(
-            axes
-        )
+        self.type = [uinput.EV_KEY] * len(buttons) + [uinput.EV_ABS] * len(axes)
         self.code = buttons + axes
 
     def update(self, value):
@@ -201,9 +193,7 @@ class decoder:
             axmax[i] = 1023
             axfuzz[i] = 4
             axflat[i] = 4
-        for i in range(
-            4, len(axmin) - 4
-        ):  # Buttons should be zero when not pressed
+        for i in range(4, len(axmin) - 4):  # Buttons should be zero when not pressed
             axmin[i] = -axmax[i]
         self.joy = uinputjoy(buttons, axes, axmin, axmax, axfuzz, axflat)
         self.axmid = [sum(pair) / 2 for pair in zip(axmin, axmax)]
@@ -267,17 +257,14 @@ class decoder:
     def step(self, rawdata):  # Returns true if the packet was legal
         if len(rawdata) == 50:
             joy_coding = "!1B2x3B1x4B4x12B3x1B1B1B9x4H"
-            all_data = list(
-                struct.unpack(joy_coding, rawdata)
-            )  # removing power data
+            all_data = list(struct.unpack(joy_coding, rawdata))  # removing power data
             state_data = all_data[20:23]
             data = all_data[0:20] + all_data[23:]
             prefix = data.pop(0)
             self.diagnostics.publish(state_data)
             if prefix != 161:
                 print(
-                    "Unexpected prefix (%i). Is this a PS3 Dual Shock or Six"
-                    " Axis?" % prefix,
+                    "Unexpected prefix (%i). Is this a PS3 Dual Shock or Six" " Axis?" % prefix,
                     file=sys.stderr,
                 )
                 return self.step_error
@@ -289,8 +276,7 @@ class decoder:
             out = out + data
             self.joy.update(out)
             axis_motion = [
-                abs(out[17:][i] - self.axmid[i]) > 20
-                for i in range(0, len(out) - 17 - 4)
+                abs(out[17:][i] - self.axmid[i]) > 20 for i in range(0, len(out) - 17 - 4)
             ]  # 17 buttons, 4 inertial sensors
 
             if any(out[0:17]) or any(axis_motion):
@@ -298,18 +284,13 @@ class decoder:
             return self.step_idle
         elif len(rawdata) == 13:
             print(
-                (
-                    "Your bluetooth adapter is not supported. Does it support"
-                    " Bluetooth 2.0?"
-                ),
+                ("Your bluetooth adapter is not supported. Does it support" " Bluetooth 2.0?"),
                 file=sys.stderr,
             )
             raise BadJoystickException()
         else:
             print(
-                "Unexpected packet length (%i). Is this a PS3 Dual Shock or"
-                " Six Axis?"
-                % len(rawdata),
+                "Unexpected packet length (%i). Is this a PS3 Dual Shock or" " Six Axis?" % len(rawdata),
                 file=sys.stderr,
             )
             return self.step_error
@@ -319,15 +300,9 @@ class decoder:
 
     def set_feedback(self, msg):
         for feedback in msg.array:
-            if (
-                feedback.type == sensor_msgs.msg.JoyFeedback.TYPE_LED
-                and feedback.id < 4
-            ):
+            if feedback.type == sensor_msgs.msg.JoyFeedback.TYPE_LED and feedback.id < 4:
                 self.led_values[feedback.id] = int(round(feedback.intensity))
-            elif (
-                feedback.type == sensor_msgs.msg.JoyFeedback.TYPE_RUMBLE
-                and feedback.id < 2
-            ):
+            elif feedback.type == sensor_msgs.msg.JoyFeedback.TYPE_RUMBLE and feedback.id < 2:
                 self.rumble_cmd[feedback.id] = int(feedback.intensity * 255)
             else:
                 rospy.logwarn(
@@ -335,14 +310,8 @@ class decoder:
                     feedback.id,
                     feedback.type,
                 )
-        self.led_cmd = self.led_values[0] * pow(2, 1) + self.led_values[
-            1
-        ] * pow(2, 2)
-        self.led_cmd = (
-            self.led_cmd
-            + self.led_values[2] * pow(2, 3)
-            + self.led_values[3] * pow(2, 4)
-        )
+        self.led_cmd = self.led_values[0] * pow(2, 1) + self.led_values[1] * pow(2, 2)
+        self.led_cmd = self.led_cmd + self.led_values[2] * pow(2, 3) + self.led_values[3] * pow(2, 4)
         self.new_msg = True
 
     def send_cmd(self, ctrl):
@@ -397,9 +366,7 @@ class decoder:
                 (rd, wr, err) = select.select([intr], [], [], 0.1)
                 curtime = time.time()
                 if len(rd) + len(wr) + len(err) == 0:  # Timeout
-                    ctrl.send(
-                        "\x53\xf4\x42\x03\x00\x00"
-                    )  # Try activating the stream.
+                    ctrl.send("\x53\xf4\x42\x03\x00\x00")  # Try activating the stream.
                 else:  # Got a frame.
                     if not activated:
                         self.send_cmd(ctrl)
@@ -416,16 +383,10 @@ class decoder:
                         print("Got Bluetooth error %s. Disconnecting." % s)
                         return
                     if len(rawdata) == 0:  # Orderly shutdown of socket
-                        print(
-                            "Joystick shut down the connection, battery may be"
-                            " discharged."
-                        )
+                        print("Joystick shut down the connection, battery may be" " discharged.")
                         return
                     if not rosgraph.masterapi.is_online():
-                        print(
-                            "The roscore or node shutdown, ps3joy shutting"
-                            " down."
-                        )
+                        print("The roscore or node shutdown, ps3joy shutting" " down.")
                         return
 
                     stepout = self.step(rawdata)
@@ -436,8 +397,7 @@ class decoder:
                 if curtime - lastactivitytime > self.inactivity_timeout:
                     print(
                         "Joystick inactive for %.0f seconds. Disconnecting to"
-                        " save battery."
-                        % self.inactivity_timeout
+                        " save battery." % self.inactivity_timeout
                     )
                     return
                 if curtime - lastvalidtime >= 0.1:
@@ -445,14 +405,9 @@ class decoder:
                     self.fullstop()
                 if curtime - lastvalidtime >= 5:
                     # Disconnect if we don't hear a valid frame for 5 seconds
-                    print(
-                        "No valid data for 5 seconds. Disconnecting. This"
-                        " should not happen, please report it."
-                    )
+                    print("No valid data for 5 seconds. Disconnecting. This" " should not happen, please report it.")
                     return
-                time.sleep(
-                    0.005
-                )  # No need to blaze through the loop when there is an error
+                time.sleep(0.005)  # No need to blaze through the loop when there is an error
         finally:
             self.fullstop()
 
@@ -492,9 +447,7 @@ class Diagnostics:
         diag = DiagnosticArray()
         diag.header.stamp = curr_time
         # battery info
-        stat = DiagnosticStatus(
-            name="Battery", level=DiagnosticStatus.OK, message="OK"
-        )
+        stat = DiagnosticStatus(name="Battery", level=DiagnosticStatus.OK, message="OK")
         try:
             battery_state_code = state[STATE_INDEX_BATTERY]
             stat.message = self.STATE_TEXTS_BATTERY[battery_state_code]
@@ -502,10 +455,7 @@ class Diagnostics:
                 stat.level = DiagnosticStatus.WARN
                 if battery_state_code < 1:
                     stat.level = DiagnosticStatus.ERROR
-                stat.message = (
-                    "Please Recharge Battery (%s)."
-                    % self.STATE_TEXTS_BATTERY[battery_state_code]
-                )
+                stat.message = "Please Recharge Battery (%s)." % self.STATE_TEXTS_BATTERY[battery_state_code]
         except KeyError as ex:
             stat.message = "Invalid Battery State %s" % ex
             rospy.logwarn("Invalid Battery State %s" % ex)
@@ -518,9 +468,7 @@ class Diagnostics:
             message="OK",
         )
         try:
-            stat.message = self.STATE_TEXTS_CONNECTION[
-                state[STATE_INDEX_CONNECTION]
-            ]
+            stat.message = self.STATE_TEXTS_CONNECTION[state[STATE_INDEX_CONNECTION]]
         except KeyError as ex:
             stat.message = "Invalid Connection State %s" % ex
             rospy.logwarn("Invalid Connection State %s" % ex)
@@ -533,9 +481,7 @@ class Diagnostics:
             message="OK",
         )
         try:
-            stat.message = self.STATE_TEXTS_CHARGING[
-                state[STATE_INDEX_CHARGING]
-            ]
+            stat.message = self.STATE_TEXTS_CHARGING[state[STATE_INDEX_CHARGING]]
         except KeyError as ex:
             stat.message = "Invalid Charging State %s" % ex
             rospy.logwarn("Invalid Charging State %s" % ex)
@@ -553,9 +499,7 @@ class Quit(Exception):
 
 def check_hci_status():
     # Check if hci0 is up and pscanning, take action as necessary.
-    proc = subprocess.Popen(
-        ["hciconfig"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    proc = subprocess.Popen(["hciconfig"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (out, err) = proc.communicate()
     if out.find("UP") == -1:
         os.system("hciconfig hci0 up > /dev/null 2>&1")
@@ -613,10 +557,7 @@ class connection_manager:
     def listen(self, intr_sock, ctrl_sock):
         self.n = 0
         while not rospy.is_shutdown():
-            print(
-                "Waiting for connection. Disconnect your PS3 joystick from USB"
-                " and press the pairing button."
-            )
+            print("Waiting for connection. Disconnect your PS3 joystick from USB" " and press the pairing button.")
             try:
                 intr_sock.settimeout(5)
                 ctrl_sock.settimeout(1)
@@ -635,10 +576,7 @@ class connection_manager:
                         (ctrl, (cdev, cport)) = ctrl_sock.accept()
                     except Exception as e:
                         print(
-                            (
-                                "Got interrupt connection without control"
-                                " connection. Giving up on it."
-                            ),
+                            ("Got interrupt connection without control" " connection. Giving up on it."),
                             file=sys.stderr,
                         )
                         continue
@@ -649,10 +587,7 @@ class connection_manager:
                             quit(0)
                         else:
                             print(
-                                (
-                                    "Simultaneous connection from two"
-                                    " different devices. Ignoring both."
-                                ),
+                                ("Simultaneous connection from two" " different devices. Ignoring both."),
                                 file=sys.stderr,
                             )
                     finally:
@@ -683,11 +618,7 @@ def usage(errcode):
     )
     print("<n>: inactivity timeout in seconds (saves battery life).")
     print("<f>: file name to redirect output to.")
-    print(
-        "Unless "
-        + no_disable_bluetoothd_string
-        + " is specified, bluetoothd will be stopped."
-    )
+    print("Unless " + no_disable_bluetoothd_string + " is specified, bluetoothd will be stopped.")
     raise Quit(errcode)
 
 
@@ -707,9 +638,7 @@ if __name__ == "__main__":
         inactivity_timeout = float(1e3000)
         disable_bluetoothd = True
         daemon = False
-        for arg in sys.argv[
-            1:
-        ]:  # Be very tolerant in case we are roslaunched.
+        for arg in sys.argv[1:]:  # Be very tolerant in case we are roslaunched.
             if arg == "--help":
                 usage(0)
             elif is_arg_with_param(arg, inactivity_timout_string):
@@ -748,26 +677,15 @@ if __name__ == "__main__":
         try:
             while os.system("hciconfig hci0 > /dev/null 2>&1") != 0:
                 print(
-                    (
-                        "No bluetooth dongle found or bluez rosdep not"
-                        " installed. Will retry in 5 seconds."
-                    ),
+                    ("No bluetooth dongle found or bluez rosdep not" " installed. Will retry in 5 seconds."),
                     file=sys.stderr,
                 )
                 time.sleep(5)
             if inactivity_timeout == float(1e3000):
-                print(
-                    "No inactivity timeout was set. (Run with --help for"
-                    " details.)"
-                )
+                print("No inactivity timeout was set. (Run with --help for" " details.)")
             else:
-                print(
-                    "Inactivity timeout set to %.0f seconds."
-                    % inactivity_timeout
-                )
-            cm = connection_manager(
-                decoder(daemon, inactivity_timeout=inactivity_timeout)
-            )
+                print("Inactivity timeout set to %.0f seconds." % inactivity_timeout)
+            cm = connection_manager(decoder(daemon, inactivity_timeout=inactivity_timeout))
             cm.listen_bluetooth()
         finally:
             if disable_bluetoothd:

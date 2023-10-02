@@ -14,7 +14,7 @@ TERRAIN_LOSS = 1.0
 
 # original coco meta
 VIPLANNER_SEM_META = [
-    ### TRAVERSABLE SPACE ###
+    # TRAVERSABLE SPACE ###
     # traversable intended
     {
         "name": "sidewalk",
@@ -77,7 +77,7 @@ VIPLANNER_SEM_META = [
         "color": [255, 128, 0],
         "ground": True,
     },
-    ### OBSTACLES ###
+    # OBSTACLES ###
     # human
     {
         "name": "person",
@@ -297,7 +297,6 @@ class VIPlannerSemMetaHandler:
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    import numpy as np
 
     # init meta handler
     meta_handler = VIPlannerSemMetaHandler()
@@ -346,9 +345,7 @@ if __name__ == "__main__":
                 continue
             ax.imshow([[tuple(meta_handler.class_color[cls_order[i][j]])]])
             ax.set_title(cls_order[i][j], fontsize=16)
-            ax.set_xlabel(
-                meta_handler.class_color[cls_order[i][j]], fontsize=12
-            )
+            ax.set_xlabel(meta_handler.class_color[cls_order[i][j]], fontsize=12)
 
     # Set the overall title of the plot
     fig.suptitle("VIPlanner Semantic Classes Color Scheme", fontsize=22)
@@ -357,9 +354,7 @@ if __name__ == "__main__":
     plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
     plt.tight_layout()
-    plt.savefig(
-        "/home/pascal/viplanner_semantic_classes_color_scheme.png", dpi=300
-    )
+    plt.savefig("/home/pascal/viplanner_semantic_classes_color_scheme.png", dpi=300)
     # Show the plot
     plt.show()
 

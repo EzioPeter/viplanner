@@ -32,18 +32,12 @@ from viplanner.utils.trainer import Trainer
 torch.manual_seed(12)
 time_threshold = 0.1
 
-ROS_TO_ROBOTICS_MAT = tf.Rotation.from_euler(
-    "XYZ", [-90, 0, -90], degrees=True
-).as_matrix()
-CAMERA_FLIP_MAT = tf.Rotation.from_euler(
-    "XYZ", [180, 0, 0], degrees=True
-).as_matrix()
+ROS_TO_ROBOTICS_MAT = tf.Rotation.from_euler("XYZ", [-90, 0, -90], degrees=True).as_matrix()
+CAMERA_FLIP_MAT = tf.Rotation.from_euler("XYZ", [180, 0, 0], degrees=True).as_matrix()
 
 
 class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
-    def __init__(
-        self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg
-    ) -> None:
+    def __init__(self, args: argparse.Namespace, m2f_cfg: Mask2FormerCfg) -> None:
         """
         Make prediction on real world images and evaluate the generated paths. Expected args:
 
@@ -67,9 +61,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
 
         # create buffers and set nbr paths
         self.set_nbr_paths(
-            nbr_paths=(
-                len(self.depth_img_list) - max(self.args.goal_frame_advances)
-            )
+            nbr_paths=(len(self.depth_img_list) - max(self.args.goal_frame_advances))
             * len(self.args.goal_frame_advances)
         )
         self.create_buffers()
@@ -98,20 +90,14 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
     def load_data(self) -> None:
         # load data timestamps and synchroniize them
         odom_bgr = np.loadtxt(os.path.join(self.args.data_dir, "odom_bgr.txt"))
-        odom_depth = np.loadtxt(
-            os.path.join(self.args.data_dir, "odom_depth.txt")
-        )
-        depth_idx, bgr_idx = self.synchronize_data(
-            odom_bgr[:, 7:], odom_depth[:, 7:]
-        )
+        odom_depth = np.loadtxt(os.path.join(self.args.data_dir, "odom_depth.txt"))
+        depth_idx, bgr_idx = self.synchronize_data(odom_bgr[:, 7:], odom_depth[:, 7:])
 
         # filter images that are timewise too close to each other
         timestamp_idx = [0]  # Always keep the first timestamp
         prev_timestamp = odom_depth[0, 7:]
         for idx, timestamp in enumerate(odom_depth[1:, 7:]):
-            time_diff = (timestamp[0] - prev_timestamp[0]) + (
-                timestamp[1] - prev_timestamp[1]
-            ) / 1e9
+            time_diff = (timestamp[0] - prev_timestamp[0]) + (timestamp[1] - prev_timestamp[1]) / 1e9
             if time_diff >= time_threshold:
                 timestamp_idx.append(idx + 1)
                 prev_timestamp = timestamp
@@ -119,34 +105,23 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
         bgr_idx = bgr_idx[timestamp_idx]
 
         # load intrinsics
-        self.K_depth = np.loadtxt(
-            os.path.join(self.args.data_dir, "intrinsics_depth.txt")
-        )
-        self.K_bgr = np.loadtxt(
-            os.path.join(self.args.data_dir, "intrinsics_bgr.txt")
-        )
+        self.K_depth = np.loadtxt(os.path.join(self.args.data_dir, "intrinsics_depth.txt"))
+        self.K_bgr = np.loadtxt(os.path.join(self.args.data_dir, "intrinsics_bgr.txt"))
 
         # reduce data to valid depth images, bgr and odom points
-        self.depth_img_list = np.array(
-            sorted(os.listdir(os.path.join(self.args.data_dir, "depth")))
-        )
+        self.depth_img_list = np.array(sorted(os.listdir(os.path.join(self.args.data_dir, "depth"))))
         self.depth_img_list = self.depth_img_list[depth_idx]
-        self.bgr_img_list = np.array(
-            sorted(os.listdir(os.path.join(self.args.data_dir, "bgr")))
-        )
+        self.bgr_img_list = np.array(sorted(os.listdir(os.path.join(self.args.data_dir, "bgr"))))
         self.bgr_img_list = self.bgr_img_list[bgr_idx]
         odom_depth = odom_depth[depth_idx, :7]
         odom_bgr = odom_bgr[bgr_idx, :7]
 
         # transform rotations of depth and bgr image from ROS camera frame (z-forward) to robotics frame (x-forward)
         odom_depth[:, 3:] = tf.Rotation.from_matrix(
-            tf.Rotation.from_quat(odom_depth[:, 3:]).as_matrix()
-            @ ROS_TO_ROBOTICS_MAT
+            tf.Rotation.from_quat(odom_depth[:, 3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT
         ).as_quat()
         odom_bgr[:, 3:] = tf.Rotation.from_matrix(
-            tf.Rotation.from_quat(odom_bgr[:, 3:]).as_matrix()
-            @ ROS_TO_ROBOTICS_MAT
-            @ CAMERA_FLIP_MAT
+            tf.Rotation.from_quat(odom_bgr[:, 3:]).as_matrix() @ ROS_TO_ROBOTICS_MAT @ CAMERA_FLIP_MAT
         ).as_quat()
         odom_depth_pp = pp.SE3(odom_depth)
 
@@ -157,9 +132,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
 
     def run_model(self, model_dir: str) -> None:
         # load config
-        train_config: TrainCfg = TrainCfg.from_yaml(
-            os.path.join(model_dir, "model.yaml")
-        )
+        train_config: TrainCfg = TrainCfg.from_yaml(os.path.join(model_dir, "model.yaml"))
 
         # if semantics are used, load M2F model and estimate semantics
         if train_config.sem:
@@ -178,9 +151,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
         transform = transforms.Compose(
             [
                 transforms.ToTensor(),
-                transforms.Resize(
-                    (train_config.img_input_size), antialias=True
-                ),
+                transforms.Resize((train_config.img_input_size), antialias=True),
             ]
         )
 
@@ -190,9 +161,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
 
         # init trajectory optimizer and visualizer
         traj_opt = TrajOpt()
-        traj_viz = TrajViz(
-            intrinsics=self.K_depth, cam_resolution=train_config.img_input_size
-        )
+        traj_viz = TrajViz(intrinsics=self.K_depth, cam_resolution=train_config.img_input_size)
 
         # init pixel array
         depth_img = cv2.imread(
@@ -201,9 +170,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
         )
         depth_img = np.asarray(depth_img)
         x_nums, y_nums = depth_img.shape
-        depth_pixel_array = PlannerDataGenerator.compute_pixel_tensor(
-            x_nums, y_nums, self.K_depth
-        )
+        depth_pixel_array = PlannerDataGenerator.compute_pixel_tensor(x_nums, y_nums, self.K_depth)
 
         # make predictions
         pred_counter = 0
@@ -225,24 +192,12 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
                 depth_img[depth_img > train_config.data_cfg.max_depth] = 0.0
             depth_img[~np.isfinite(depth_img)] = 0.0
             if train_config.sem:
-                bgr_sem_img = cv2.imread(
-                    os.path.join(
-                        self.args.data_dir, "semantics", self.bgr_img_list[idx]
-                    )
-                )
+                bgr_sem_img = cv2.imread(os.path.join(self.args.data_dir, "semantics", self.bgr_img_list[idx]))
             elif train_config.rgb:
-                bgr_sem_img = cv2.imread(
-                    os.path.join(
-                        self.args.data_dir, "bgr", self.bgr_img_list[idx]
-                    )
-                )
-                raise NotImplementedError(
-                    "Before Progressing, check if bgr or rgb input"
-                )
+                bgr_sem_img = cv2.imread(os.path.join(self.args.data_dir, "bgr", self.bgr_img_list[idx]))
+                raise NotImplementedError("Before Progressing, check if bgr or rgb input")
             if train_config.sem or train_config.rgb:
-                bgr_sem_img = cv2.cvtColor(
-                    bgr_sem_img, cv2.COLOR_BGR2RGB
-                )  # since loaded as BGR with cv2
+                bgr_sem_img = cv2.cvtColor(bgr_sem_img, cv2.COLOR_BGR2RGB)  # since loaded as BGR with cv2
 
                 # warp rgb/sem image onto depth image
                 bgr_sem_img_warp = PlannerDataGenerator.compute_overlay(
@@ -271,8 +226,7 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
             # filter goals depending on their distance
             goal_filter = (
                 np.linalg.norm(
-                    self.odom_depth[goal_frames, :2]
-                    - self.odom_depth[idx, :2],
+                    self.odom_depth[goal_frames, :2] - self.odom_depth[idx, :2],
                     axis=1,
                 )
                 > self.args.tolerance
@@ -283,25 +237,17 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
             goals = goals.to("cuda")
 
             # transform input
-            depth_img = (
-                transform(depth_img).unsqueeze(0).repeat(len(goals), 1, 1, 1)
-            )
+            depth_img = transform(depth_img).unsqueeze(0).repeat(len(goals), 1, 1, 1)
             depth_img = depth_img.to("cuda")
 
             # get prediction
             if train_config.sem or train_config.rgb:
                 bgr_sem_img_warp = (
-                    transform(bgr_sem_img_warp)
-                    .unsqueeze(0)
-                    .repeat(len(goals), 1, 1, 1)
-                    .to(torch.float32)
-                    / 255.0
+                    transform(bgr_sem_img_warp).unsqueeze(0).repeat(len(goals), 1, 1, 1).to(torch.float32) / 255.0
                 )
                 bgr_sem_img_warp = bgr_sem_img_warp.to("cuda")
                 with torch.no_grad():
-                    preds, fear = trainer.net(
-                        depth_img, bgr_sem_img_warp, goals
-                    )
+                    preds, fear = trainer.net(depth_img, bgr_sem_img_warp, goals)
             else:
                 with torch.no_grad():
                     preds, fear = trainer.net(depth_img, goals)
@@ -309,38 +255,24 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
             # optimize
             waypoints = traj_opt.TrajGeneratorFromPFreeRot(preds, step=0.1)
             waypoints_world = (
-                TrajCost.TransformPoints(
-                    self.odom_depth[idx][None, :], waypoints.to("cpu")
-                )
-                .tensor()
-                .cpu()
-                .numpy()
+                TrajCost.TransformPoints(self.odom_depth[idx][None, :], waypoints.to("cpu")).tensor().cpu().numpy()
             )
 
             # evaluate
-            self.goal_distances[pred_counter : pred_counter + len(goals)] = (
-                np.linalg.norm(
-                    waypoints_world[:, -1, :2]
-                    - self.odom_depth[goal_frames[goal_filter], :2],
-                    axis=1,
-                )
+            self.goal_distances[pred_counter : pred_counter + len(goals)] = np.linalg.norm(
+                waypoints_world[:, -1, :2] - self.odom_depth[goal_frames[goal_filter], :2],
+                axis=1,
             )
-            self.length_path[pred_counter : pred_counter + len(goals)] = (
-                np.sum(
-                    np.linalg.norm(
-                        waypoints_world[:, 1:, :2]
-                        - waypoints_world[:, :-1, :2],
-                        axis=2,
-                    ),
-                    axis=1,
-                )
-            )
-            self.length_goal[pred_counter : pred_counter + len(goals)] = (
+            self.length_path[pred_counter : pred_counter + len(goals)] = np.sum(
                 np.linalg.norm(
-                    self.odom_depth[goal_frames[goal_filter], :2]
-                    - self.odom_depth[idx, :2],
-                    axis=1,
-                )
+                    waypoints_world[:, 1:, :2] - waypoints_world[:, :-1, :2],
+                    axis=2,
+                ),
+                axis=1,
+            )
+            self.length_goal[pred_counter : pred_counter + len(goals)] = np.linalg.norm(
+                self.odom_depth[goal_frames[goal_filter], :2] - self.odom_depth[idx, :2],
+                axis=1,
             )
             pred_counter += len(goals)
 
@@ -359,14 +291,10 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
                     images=depth_img,
                     is_shown=False,
                 )
-                raise NotImplementedError(
-                    "Before Progressing, check if bgr or rgb input"
-                )
+                raise NotImplementedError("Before Progressing, check if bgr or rgb input")
                 [
                     cv2.imwrite(
-                        os.path.join(
-                            self.args.data_dir, "viz", f"{idx}_{i}.png"
-                        ),
+                        os.path.join(self.args.data_dir, "viz", f"{idx}_{i}.png"),
                         cv_img,
                     )
                     for i, cv_img in enumerate(cv_img_list)
@@ -390,18 +318,14 @@ class RealWorldEvaluator(BaseEvaluator, RealWorldDataHandler):
 
         np.savetxt(os.path.join(eval_dir, "length_path.txt"), self.length_path)
         np.savetxt(os.path.join(eval_dir, "length_goal.txt"), self.length_goal)
-        np.savetxt(
-            os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances
-        )
+        np.savetxt(os.path.join(eval_dir, "goal_distances.txt"), self.goal_distances)
 
         # plot data
         self.plt_single_model(eval_dir)
 
         # get statistics
         self.eval_statistics()
-        self.save_eval_results(
-            model_dir, save_name=os.path.split(self.args.data_dir)[-1]
-        )
+        self.save_eval_results(model_dir, save_name=os.path.split(self.args.data_dir)[-1])
 
         return self.length_goal, self.length_path, self.goal_distances
 
@@ -429,9 +353,7 @@ if __name__ == "__main__":
         "-d",
         "--data_dir",
         type=str,
-        help=(
-            "Path to data directory (should contain bgr, depth and odom data)"
-        ),
+        help=("Path to data directory (should contain bgr, depth and odom data)"),
         default="/home/pascal/viplanner/env/anymal/2023_03_23_rsl",
     )
     parser.add_argument(

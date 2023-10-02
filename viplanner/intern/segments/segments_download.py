@@ -26,9 +26,7 @@ def main(cfg: SegmentsCfg) -> None:
     # Initialize a SegmentsDataset from the release file
     client = SegmentsClient(cfg.api_key)
     release = client.get_release(cfg.dataset_name, cfg.version)
-    dataset = SegmentsDataset(
-        release, labelset="ground-truth", filter_by=["labeled"]
-    )
+    dataset = SegmentsDataset(release, labelset="ground-truth", filter_by=["labeled"])
     # Export to COCO panoptic format
     export_dataset(
         dataset,
@@ -36,16 +34,12 @@ def main(cfg: SegmentsCfg) -> None:
         export_folder=cfg.export_dir_path,
     )
     if os.path.exists(os.path.join(cfg.export_dir_path, "segments")):
-        shutil.rmtree(
-            os.path.join(os.path.join(cfg.export_dir_path), "segments")
-        )
+        shutil.rmtree(os.path.join(cfg.export_dir_path, "segments"))
     shutil.move("./segments", os.path.join(cfg.export_dir_path))
     # check for expected structure
     json_file = os.path.join(
         cfg.export_dir_path,
-        (
-            f"export_{cfg.export_format}_{cfg.dataset_name.replace('/', '_')}_{cfg.version}.json"
-        ),
+        (f"export_{cfg.export_format}_{cfg.dataset_name.replace('/', '_')}_{cfg.version}.json"),
     )
     img_dir = os.path.join(
         cfg.export_dir_path,
@@ -68,11 +62,7 @@ def main(cfg: SegmentsCfg) -> None:
         annotation_file = json.load(f)
 
     img_names = os.listdir(img_dir)
-    img_list = [
-        single_image
-        for single_image in img_names
-        if cfg.export_format in single_image
-    ]
+    img_list = [single_image for single_image in img_names if cfg.export_format in single_image]
 
     map_coco_class_to_coco_color = {}
     map_coco_class_to_coco_id = {}
@@ -83,10 +73,7 @@ def main(cfg: SegmentsCfg) -> None:
     map_vip_id_to_coco_color = {}
     map_vip_id_to_coco_id = {}
     for category_dict in annotation_file["categories"]:
-        if (
-            category_dict["name"] == "static"
-            or category_dict["name"] == "unknown"
-        ):
+        if category_dict["name"] == "static" or category_dict["name"] == "unknown":
             map_vip_id_to_coco_id[category_dict["id"]] = 0
             map_vip_id_to_coco_color[category_dict["id"]] = [0, 0, 0]
             unknown_class_id = category_dict["id"]
@@ -94,33 +81,23 @@ def main(cfg: SegmentsCfg) -> None:
         map_vip_id_to_coco_id[category_dict["id"]] = map_coco_class_to_coco_id[
             _COCO_MAPPING_UNIQUE[category_dict["name"]]
         ]
-        map_vip_id_to_coco_color[category_dict["id"]] = (
-            map_coco_class_to_coco_color[
-                _COCO_MAPPING_UNIQUE[category_dict["name"]]
-            ]
-        )
+        map_vip_id_to_coco_color[category_dict["id"]] = map_coco_class_to_coco_color[
+            _COCO_MAPPING_UNIQUE[category_dict["name"]]
+        ]
 
     # modify annotations
     annotations = []
-    for idx, annotation_dict in enumerate(
-        tqdm(annotation_file["annotations"], desc="Converting Annotations")
-    ):
+    for idx, annotation_dict in enumerate(tqdm(annotation_file["annotations"], desc="Converting Annotations")):
         segments_new = annotation_dict.copy()
         rm_idx = []
         for idx, segment in enumerate(annotation_dict["segments_info"]):
             if (segment["category_id"]) == unknown_class_id:
                 rm_idx.append(idx)
             else:
-                segments_new["segments_info"][idx]["category_id"] = (
-                    map_vip_id_to_coco_id[segment["category_id"]]
-                )
-        segments_new["file_name"] = segments_new["file_name"].replace(
-            "_label_ground-truth_coco-panoptic", ""
-        )
+                segments_new["segments_info"][idx]["category_id"] = map_vip_id_to_coco_id[segment["category_id"]]
+        segments_new["file_name"] = segments_new["file_name"].replace("_label_ground-truth_coco-panoptic", "")
         segments_new["segments_info"] = [
-            single_segment
-            for idx, single_segment in enumerate(segments_new["segments_info"])
-            if idx not in rm_idx
+            single_segment for idx, single_segment in enumerate(segments_new["segments_info"]) if idx not in rm_idx
         ]
         annotations.append(segments_new)
     panoptic_file = {
@@ -129,7 +106,8 @@ def main(cfg: SegmentsCfg) -> None:
         "images": annotation_file["images"],
         "annotations": annotations,
     }
-    json.dump(panoptic_file, open(f"{target_dir}/panoptic_zurich.json", "w"))
+    with open(os.path.join(target_dir, "panoptic_zurich.json"), "w") as file:
+        json.dump(panoptic_file, file)
 
     # move images
     for single_img in tqdm(img_list, desc="Moving images"):

@@ -28,10 +28,7 @@ from viplanner.intern.m2f.m2f_utils import M2FWrapper
 def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):
     # init wrapper
     m2f_wrapper = M2FWrapper(m2f_cfg)
-    print(
-        f"[INFO] Loaded Mask2Former model from {m2f_cfg.model_file} with"
-        f" config {m2f_cfg.config_file}."
-    )
+    print(f"[INFO] Loaded Mask2Former model from {m2f_cfg.model_file} with" f" config {m2f_cfg.config_file}.")
     # init cv_bridge
     bridge = CvBridge()
 
@@ -42,9 +39,7 @@ def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):
 
     # Open the input rosbag file
     input_bag = rosbag.Bag(args.bag_file, "r")
-    rgb_msg_count = sum(
-        [input_bag.get_message_count(rgb_msg) for rgb_msg in args.topic_rgb]
-    )
+    rgb_msg_count = sum([input_bag.get_message_count(rgb_msg) for rgb_msg in args.topic_rgb])
     pbar = tqdm.tqdm(total=(rgb_msg_count))
     print(
         f"[INFO] Opened rosbag {args.bag_file} with total of"
@@ -57,15 +52,13 @@ def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):
     if os.path.exists(output_rosbag_file):
         os.remove(output_rosbag_file)
     output_bag = rosbag.Bag(output_rosbag_file, "w")
-    img_counter = 0
+    img_counter = 0  # noqa: SIM113
 
     # Iterate through each message in the input rosbag file
     for topic, msg, t in input_bag.read_messages(topics=args.topic_rgb):
         # get BGR image
         if msg._type == Image._type:
-            img = cv2.imdecode(
-                np.frombuffer(msg.data, np.uint8), cv2.IMREAD_COLOR
-            )
+            img = cv2.imdecode(np.frombuffer(msg.data, np.uint8), cv2.IMREAD_COLOR)
         elif msg._type == CompressedImage._type:
             img = bridge.compressed_imgmsg_to_cv2(msg)
             if "bayer_rggb8" in msg.format:
@@ -113,7 +106,7 @@ def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):
 
         # update progress bar
         pbar.update(1)
-        pbar.set_description(f"Processing messages")
+        pbar.set_description("Processing messages")
 
         img_counter += 1
 
@@ -143,9 +136,7 @@ def main(args: argparse.Namespace, m2f_cfg: Mask2FormerCfg):
 
 if __name__ == "__main__":
     # parse args
-    parser = argparse.ArgumentParser(
-        description="Predict Semantic Labels for RGB Images in Rosbag"
-    )
+    parser = argparse.ArgumentParser(description="Predict Semantic Labels for RGB Images in Rosbag")
     parser.add_argument(
         "-bf",
         "--bag_file",
@@ -176,10 +167,7 @@ if __name__ == "__main__":
         "-d",
         "--debug",
         action="store_false",
-        help=(
-            "Visualize semantic prediction and debug information (assumes img"
-            " of size 1080x1440)"
-        ),
+        help=("Visualize semantic prediction and debug information (assumes img" " of size 1080x1440)"),
         default=True,
     )
 

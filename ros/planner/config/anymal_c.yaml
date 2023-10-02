@@ -15,7 +15,7 @@ model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep
 # m2f_model_path:         models/coco_panoptic/swin/model_final_9fd0ae.pkl
 # mmdet
 m2f_model_path:         models/mask2former_r50_8xb2-lsj-50e_coco-panoptic_20230118_125535-54df384a.pth
-m2f_cfg_file:           /root/git/mmdetection/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
+# m2f_cfg_file:           /root/git/mmdetection/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
 m2f_cfg_file:           /home/pascal/anymal/git/mmdetection/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
 
 # ros topics

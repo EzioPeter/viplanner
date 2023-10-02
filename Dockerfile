@@ -56,7 +56,6 @@ RUN pip install wheel
 RUN pip install torch>=1.13.1
 RUN pip install torchvision>=0.14.1
 RUN pip install torchaudio>=0.13.1
-RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
 RUN pip install trimesh
 
 #==
@@ -65,7 +64,8 @@ RUN pip install trimesh
 COPY viplanner /viplanner
 COPY viplanner/viplanner/third_party/mask2former /mask2former
 
-# install mask2former
+# install mask2former  (for RGB support, not required)
+RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
 RUN pip install -r /mask2former/requirements.txt
 RUN chmod 777 '/usr/local/lib/python3.8/dist-packages'
 ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH

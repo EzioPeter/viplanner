@@ -1,4 +1,4 @@
-# VIPlanner ROS Node
+# ViPlanner ROS Node
 
 ## Overview
 

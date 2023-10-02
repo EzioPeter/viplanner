@@ -24,7 +24,7 @@ import yaml
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
-from viplanner.dataset import PlannerData, PlannerDataGenerator
+from .dataset import PlannerData, PlannerDataGenerator
 from viplanner.plannernet import (
     PRE_TRAIN_POSSIBLE,
     AutoEncoder,

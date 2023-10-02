@@ -19,7 +19,7 @@ from detectron2.modeling import build_model
 from detectron2.projects.deeplab import add_deeplab_config
 
 # viplanner-ros
-from viplanner.config.coco_meta import get_class_for_id
+from viplanner.config.coco_sem_meta import get_class_for_id
 from viplanner.config.viplanner_sem_meta import VIPlannerSemMetaHandler
 from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
 

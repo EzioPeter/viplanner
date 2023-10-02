@@ -5,9 +5,9 @@ Here an overview of the steps involved in training the policy is provided.
 ## Cost-Map Building
 
 Cost-Map building is an essential step in guiding optimization and representing the environment.
-Cost-Maps can be built from either depth and semantic images (i.e. data generated in simulation) or colored point clouds (i.e. real-world data).
+Cost-Maps can be built from either depth and semantic images (i.e., data generated in simulation) or (semantically annotated) point clouds (i.e., real-world data).
 
-If depth and semantic images, then first 3d reconstruction has to be performed, following the steps described in Point 1. If colored pointclouds, then the cost-map can be build directly from the pointcloud, following the steps described in Point 2.
+If depth and semantic images of the simulation are available, then first 3D reconstruction has to be performed, following the steps described in Point 1. If the (semantically annotated) pointclouds are generated, then the cost-map can be build directly from the pointcloud, following the steps described in Point 2.
 
 1. **Simulation: Depth Reconstruction** <br>
 
@@ -54,7 +54,7 @@ If depth and semantic images, then first 3d reconstruction has to be performed, 
 
 2. **Real-World: Open3D-Slam**
 
-    TODO: Detailed description will be created when development fully tested.
+    To create an annotated 3D Point-Cloud from real-world data, i.e., LiDAR scans and semantics generated from the RGB camera stream, use tools such as [Open3D Slam](https://github.com/leggedrobotics/open3d_slam).
 
 
 3. **Cost-Building** <br>

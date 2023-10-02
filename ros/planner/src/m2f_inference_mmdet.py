@@ -14,7 +14,7 @@ from mmdet.apis import inference_detector, init_detector
 from mmdet.evaluation import INSTANCE_OFFSET
 
 # viplanner-ros
-from viplanner.config.coco_meta import get_class_for_id_mmdet
+from viplanner.config.coco_sem_meta import get_class_for_id_mmdet
 from viplanner.config.viplanner_sem_meta import VIPlannerSemMetaHandler
 
 

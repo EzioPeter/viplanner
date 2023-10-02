@@ -20,25 +20,15 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
-    "torch>=1.11",
+    "torch",
     "PyYAML==6.0",
     "tqdm",
     "matplotlib",
     "networkx",
     "scipy",
-    # 'detectron2 @ git+https://github.com/facebookresearch/detectron2.git',  # FIXME: install not working automatically
     "open3d==0.17.0",
     # training only
     "wandb==0.14.0",
-    # m2f
-    'cython',
-    'shapely',
-    'timm',  # ==3.2
-    'h5py',
-    'submitit',
-    'scikit-image',
-    'pillow==9.4.0',
-    'panopticapi @ git+https://github.com/cocodataset/panopticapi.git',
 ]
 
 [project.optional-dependencies]

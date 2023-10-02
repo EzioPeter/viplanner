@@ -165,18 +165,26 @@ class TrajViz:
             images: torch.Tensor, 
             visual_offset=0.35, 
             mesh_size=0.3, 
-            is_shown=True
+            is_shown=True,
+            iplanner: bool = False,
+            transform: bool = True,
         ):
         batch_size = len(waypoints)
-        preds_ws = TrajCost.TransformPoints(odom, preds).tensor().cpu().detach().numpy()
-        wp_ws = TrajCost.TransformPoints(odom, waypoints).tensor().cpu().detach().numpy()
-        if goal.shape[-1] != 7:
-            pp_goal = pp.identity_SE3(batch_size, device=goal.device)
-            pp_goal.tensor()[:, 0:3] = goal
-            goal = pp_goal.tensor()
-        goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
-        # convert to positions
-        goal_ws  = goal_ws.tensor()[:, 0:3].cpu().detach().numpy()
+        if transform:
+            preds_ws = TrajCost.TransformPoints(odom, preds).tensor().cpu().detach().numpy()
+            wp_ws = TrajCost.TransformPoints(odom, waypoints).tensor().cpu().detach().numpy()
+            if goal.shape[-1] != 7:
+                pp_goal = pp.identity_SE3(batch_size, device=goal.device)
+                pp_goal.tensor()[:, 0:3] = goal
+                goal = pp_goal.tensor()
+            goal_ws  = pp.SE3(odom) @ pp.SE3(goal)
+            # convert to positions
+            goal_ws  = goal_ws.tensor()[:, 0:3].cpu().detach().numpy()
+        else:
+            preds_ws = preds.cpu().detach().numpy()
+            wp_ws = waypoints.cpu().detach().numpy()
+            goal_ws = goal.cpu().detach().numpy()
+
         # adjust height
         goal_ws[:, 2] = goal_ws[:, 2] - visual_offset
 
@@ -186,13 +194,21 @@ class TrajViz:
         mtl.shader = "defaultUnlit"
         # set meshes
         small_sphere = o3d.geometry.TriangleMesh.create_sphere(mesh_size/10.0) # trajectory points
+        small_sphere_fear = o3d.geometry.TriangleMesh.create_sphere(mesh_size/10.0) # trajectory points
         mesh_sphere       = o3d.geometry.TriangleMesh.create_sphere(mesh_size/2.0) # successful predict points
         mesh_sphere_fear  = o3d.geometry.TriangleMesh.create_sphere(mesh_size/2.0) # unsuccessful predict points
         mesh_box     = o3d.geometry.TriangleMesh.create_box(mesh_size, mesh_size, mesh_size*2) # end points
         # set colors
-        small_sphere.paint_uniform_color([0.99, 0.2, 0.1]) # green
-        mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])
-        mesh_sphere_fear.paint_uniform_color([1.0, 0.64, 0.0])
+        if iplanner:
+            small_sphere.paint_uniform_color([0.0, 0.0, 1.0]) # blue
+            mesh_sphere.paint_uniform_color([1.0, 1.0, 0.0]) 
+        else:
+            small_sphere.paint_uniform_color([0.99, 0.2, 0.1]) # green
+            mesh_sphere.paint_uniform_color([0.4, 1.0, 0.1])
+        
+        small_sphere_fear.paint_uniform_color([1.0, 0.4, 0.2])
+        mesh_sphere_fear.paint_uniform_color([1.0, 0.2, 0.1])
+        
         mesh_box.paint_uniform_color([1.0, 0.64, 0.1])
 
         # init open3D render
@@ -223,7 +239,10 @@ class TrajViz:
             for k, wp in enumerate(wp_ws[i]):
                 if k < wp_start_idx:
                     continue
-                wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2] - visual_offset))
+                if fear[i, :] > 0.5:
+                    wp_mesh = copy.deepcopy(small_sphere_fear).translate((wp[0], wp[1], wp[2] - visual_offset))
+                else:
+                    wp_mesh = copy.deepcopy(small_sphere).translate((wp[0], wp[1], wp[2] - visual_offset))
                 render.scene.add_geometry("waypoint"+str(k), wp_mesh, mtl)
             # set cameras
             self.CameraLookAtPose(odom[i, :], render)

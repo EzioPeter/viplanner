@@ -97,8 +97,9 @@ class RealWorldDataHandler:
         self.odom_bgr = odom_bgr
         self.odom_depth_pp = odom_depth_pp
         return
-        
-    def synchronize_data(self, measurement_1, measurement_2, threshold=0.1):
+    
+    @staticmethod
+    def synchronize_data(measurement_1, measurement_2, threshold=0.1):
         """
         Synchronize two measurements with different timestamps. 
         """

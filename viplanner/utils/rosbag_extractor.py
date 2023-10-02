@@ -14,6 +14,7 @@ import numpy as np
 import argparse
 from typing import List
 import tqdm
+from copy import deepcopy
 
 # ROS
 import rospy
@@ -155,6 +156,8 @@ def main(args):
     depth_goal  = np.ndarray((bag.get_message_count(args.topic_goal), 5))       # x, y, z, t_sec, t_nsec
     path        = np.ndarray((bag.get_message_count(args.topic_path), 50, 5))   # x, y, z, t_sec, t_nsec
     path_depth  = np.ndarray((bag.get_message_count(args.topic_path), 50, 5))   # x, y, z, t_sec, t_nsec
+    goal_rgb    = np.zeros((bag.get_message_count(args.topic_bgr), 3))        # x, y, z
+    goal_depth  = np.zeros((bag.get_message_count(args.topic_depth), 3))      # x, y, z
 
     # get intrinsics
     K_depth, height_depth, width_depth = get_intrinsics(bag, topics, args.topic_depth)
@@ -181,6 +184,9 @@ def main(args):
     check_roscore()  # roscore needs to run to use tf_buffer
     tf_buffer = setup_tf_buffer(bag)
     
+    # current goal message
+    curr_goal = None
+
     # configure process bar
     pbar = tqdm.tqdm(total=(bag.get_message_count(args.topic_depth) + bag.get_message_count(args.topic_bgr) + bag.get_message_count(args.topic_state) + bag.get_message_count(args.topic_goal) + bag.get_message_count(args.topic_path) + bag.get_message_count(args.topic_sem)))
     
@@ -201,7 +207,7 @@ def main(args):
                 depth_image_frame = msg.header.frame_id
             
             try:
-                transform_stamp = tf_buffer.lookup_transform("odom", depth_image_frame, t)
+                transform_stamp = tf_buffer.lookup_transform("odom", depth_image_frame, msg.header.stamp)
             except tf2.ExtrapolationException:
                 continue
             
@@ -217,17 +223,32 @@ def main(args):
                 transform_stamp.transform.rotation.y,
                 transform_stamp.transform.rotation.z,
                 transform_stamp.transform.rotation.w,
-                t.secs,
-                t.nsecs
+                msg.header.stamp.secs,
+                msg.header.stamp.nsecs
             ])
+
+            if curr_goal is not None:
+                try:
+                    transform = tf_buffer.lookup_transform("odom", "map", msg.header.stamp)
+                except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                    rospy.loginfo("Transform failed. Trying again...")
+                    continue 
+                            
+                transformed_point = tf2_geometry_msgs.do_transform_point(curr_goal, transform)
+                goal_depth[depth_counter, :] = np.array([
+                    transformed_point.point.x,
+                    transformed_point.point.y,
+                    transformed_point.point.z,
+                ])
+            
             depth_counter += 1
             
         elif topic == args.topic_bgr and topic_type == CompressedImage._type: # BGR
             try:
                 if args.mount:
-                    transform_stamp = tf_buffer.lookup_transform("odom", args.mount, t)
+                    transform_stamp = tf_buffer.lookup_transform("odom", args.mount, msg.header.stamp)
                 else:
-                    transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+                    transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, msg.header.stamp)
             except tf2.ExtrapolationException:
                 continue
             
@@ -243,17 +264,32 @@ def main(args):
                 transform_stamp.transform.rotation.y,
                 transform_stamp.transform.rotation.z,
                 transform_stamp.transform.rotation.w,
-                t.secs,
-                t.nsecs
+                msg.header.stamp.secs,
+                msg.header.stamp.nsecs
             ])
+
+            if curr_goal is not None:
+                try:
+                    transform = tf_buffer.lookup_transform("odom", 'map', msg.header.stamp)
+                except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                    rospy.loginfo("Transform failed. Trying again...")
+                    continue 
+                            
+                transformed_point = tf2_geometry_msgs.do_transform_point(curr_goal, transform)
+                goal_rgb[bgr_counter, :] = np.array([
+                    transformed_point.point.x,
+                    transformed_point.point.y,
+                    transformed_point.point.z,
+                ])
+            
             bgr_counter += 1
-        
+            
         elif topic == args.topic_sem and topic_type == CompressedImage._type: # SEMANTICS
             try:
                 if args.mount:
-                    transform_stamp = tf_buffer.lookup_transform("odom", args.mount, t)
+                    transform_stamp = tf_buffer.lookup_transform("odom", args.mount, msg.header.stamp)
                 else:
-                    transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+                    transform_stamp = tf_buffer.lookup_transform("odom", msg.header.frame_id, msg.header.stamp)
             except tf2.ExtrapolationException:
                 continue
 
@@ -269,8 +305,8 @@ def main(args):
                 transform_stamp.transform.rotation.y,
                 transform_stamp.transform.rotation.z,
                 transform_stamp.transform.rotation.w,
-                t.secs,
-                t.nsecs
+                msg.header.stamp.secs,
+                msg.header.stamp.nsecs
             ])
             sem_counter += 1
 
@@ -283,15 +319,14 @@ def main(args):
                 msg.pose.pose.orientation.y,
                 msg.pose.pose.orientation.z,
                 msg.pose.pose.orientation.w,
-                t.secs,
-                t.nsecs
+                msg.header.stamp.secs,
+                msg.header.stamp.nsecs
             ])
             state_counter += 1
         
         elif topic_type == PointStamped._type:  # GOAL / WAYPOINT        
-           
             try:
-                transform = tf_buffer.lookup_transform("odom", msg.header.frame_id, t)
+                transform = tf_buffer.lookup_transform("odom", msg.header.frame_id, msg.header.stamp)
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 rospy.loginfo("Transform failed. Trying again...")
                 continue 
@@ -301,12 +336,12 @@ def main(args):
                 transformed_point.point.x,
                 transformed_point.point.y,
                 transformed_point.point.z,
-                t.secs,
-                t.nsecs
+                msg.header.stamp.secs,
+                msg.header.stamp.nsecs
             ])
 
             try:
-                transform = tf_buffer.lookup_transform(depth_image_frame, msg.header.frame_id, t)
+                transform = tf_buffer.lookup_transform(depth_image_frame, msg.header.frame_id, msg.header.stamp)
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 rospy.loginfo("Transform failed. Trying again...")
                 continue 
@@ -316,15 +351,24 @@ def main(args):
                 transformed_point.point.x,
                 transformed_point.point.y,
                 transformed_point.point.z,
-                t.secs,
-                t.nsecs
+                msg.header.stamp.secs,
+                msg.header.stamp.nsecs
             ])
+
+            try:
+                transform = tf_buffer.lookup_transform("map", msg.header.frame_id, msg.header.stamp)
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+                rospy.loginfo("Transform failed. Trying again...")
+                continue 
+
+            transformed_point = tf2_geometry_msgs.do_transform_point(msg, transform)
+            curr_goal = deepcopy(transformed_point)           
 
             goal_counter += 1
 
         elif topic_type == Path._type:  # PATH
             try:
-                transform = tf_buffer.lookup_transform(depth_image_frame, msg.header.frame_id, t)
+                transform = tf_buffer.lookup_transform(depth_image_frame, msg.header.frame_id, msg.header.stamp)
             except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
                 rospy.loginfo("Transform failed. Trying again...")
                 continue
@@ -365,6 +409,8 @@ def main(args):
     np.savetxt(os.path.join(args.output_dir, "odom_base.txt"), odom_base[:state_counter])
     np.savetxt(os.path.join(args.output_dir, "odom_goal.txt"), odom_goal[:goal_counter])
     np.savetxt(os.path.join(args.output_dir, "odom_sem.txt"), odom_sem[:sem_counter])
+    np.savetxt(os.path.join(args.output_dir, "goal_rgb.txt"), goal_rgb[:bgr_counter])
+    np.savetxt(os.path.join(args.output_dir, "goal_depth.txt"), goal_depth[:depth_counter])
     # np.savetxt(os.path.join(args.output_dir, "depth_goal.txt"), depth_goal[:goal_counter])
     np.save(os.path.join(args.output_dir, "path.npy"), path[:path_counter])  # as npy because 3D array
     # np.save(os.path.join(args.output_dir, "path_depth.npy"), path_depth[:path_counter])  # as npy because 3D array
@@ -375,9 +421,9 @@ def main(args):
 if __name__ == '__main__':
     # parse args
     parser = argparse.ArgumentParser(description="Extract msgs from a ROS bag.")
-    parser.add_argument("-bf", "--bag_file", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_door.bag", #   '/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
+    parser.add_argument("-bf", "--bag_file", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_crosswalk_sidewalk_wet_success.bag",   #2023_09_07_stairs_both_door.bag", #    '/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04.bag.active',
                         help="Input ROS bag.")
-    parser.add_argument("-o", "--output_dir", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_door",  #'/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
+    parser.add_argument("-o", "--output_dir", default="/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_crosswalk_sidewalk_wet_success",   #2023_09_07_stairs_both_door",  # '/home/pascal/viplanner/env/anymal/2023_05_21_terrace_stairs/_2023-05-21-19-22-04_stairs_sem',
                         help="Output directory.")
     parser.add_argument("-td", "--topic_depth", default="/depth_cam_mounted_front/depth/image_rect_raw",  # '/depth_camera_front_upper/depth/image_rect_raw',  # '/depth_camera_front/depth/image_rect_raw'
                         help="Image topic.")

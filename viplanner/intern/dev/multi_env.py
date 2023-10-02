@@ -1,16 +1,14 @@
-#!/usr/bin/env python3
-
 # python
 import torch
+
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
-from viplanner.config import TrainCfg, DataCfg
+from viplanner.config import DataCfg, TrainCfg
 from viplanner.utils.trainer import Trainer
 
-
 if __name__ == "__main__":
-    # Arguements  
+    # Arguments
     matterport_depth_noise: TrainCfg = TrainCfg(
         sem=False,
         rgb=False,
@@ -26,7 +24,7 @@ if __name__ == "__main__":
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,
             sem_rgb_black_img=0.05,
-        )
+        ),
     )
     # trainer = Trainer(matterport_depth_noise)
     # trainer.train()
@@ -49,7 +47,7 @@ if __name__ == "__main__":
             noise_edges=True,
             sem_rgb_random_polygons_nb=10,
             depth_random_polygons_nb=10,
-        )
+        ),
     )
     # trainer = Trainer(matterport_overfit)
     # trainer.train()
@@ -65,8 +63,8 @@ if __name__ == "__main__":
             ratio_fov_samples=1.0,
             ratio_back_samples=0.0,
             ratio_front_samples=0.0,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
@@ -83,8 +81,8 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
             depth_salt_pepper=0.05,
             depth_gaussian=None,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
@@ -101,8 +99,8 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
             depth_salt_pepper=None,
             depth_gaussian=0.05,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
@@ -119,8 +117,8 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
@@ -136,7 +134,7 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
             sem_rgb_black_img=0.05,
-        )
+        ),
     )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
@@ -155,8 +153,8 @@ if __name__ == "__main__":
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,
             sem_rgb_black_img=0.05,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
@@ -172,14 +170,14 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
             noise_edges=True,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
- 
+
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
@@ -190,8 +188,8 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
             depth_random_polygons_nb=10,
             sem_rgb_random_polygons_nb=10,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
@@ -212,14 +210,14 @@ if __name__ == "__main__":
             depth_salt_pepper=0.05,
             depth_gaussian=0.05,
             sem_rgb_black_img=0.05,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
-           
+
     matterport_sem: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem_neg05",
@@ -228,8 +226,8 @@ if __name__ == "__main__":
             ratio_fov_samples=0.96,
             ratio_back_samples=0.01,
             ratio_front_samples=0.03,
-        )
-    )  
+        ),
+    )
     trainer = Trainer(matterport_sem)
     # trainer.train()
     trainer.test()
@@ -245,14 +243,14 @@ if __name__ == "__main__":
             ratio_fov_samples=0.80,
             ratio_back_samples=0.07,
             ratio_front_samples=0.13,
-        )
-    )  
+        ),
+    )
     # trainer = Trainer(matterport_sem_harder)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
-               
+
     carla: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem_neg05",
@@ -263,13 +261,13 @@ if __name__ == "__main__":
             max_goal_distance=10.0,
         ),
         n_visualize=128,
-        wb_project="SemNav-Carla"
-    )  
+        wb_project="SemNav-Carla",
+    )
     # trainer = Trainer(carla)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
-    # torch.cuda.empty_cache() 
+    # torch.cuda.empty_cache()
 
     """ COMBINED TRAINING """
     env_list_combi = [
@@ -279,7 +277,7 @@ if __name__ == "__main__":
         "Vvot9Ly1tCj",
         "E9uDoFAP3SH",
         "ur6pFq6Qu1A",
-        "B6ByNegPMKs",        
+        "B6ByNegPMKs",
         "8WUmhLawc2A",
         "town01_more_data_train",
         "QUCTc6BB5sX",
@@ -316,16 +314,16 @@ if __name__ == "__main__":
         file_name="combi_more_data_neg05",
         data_cfg=data_cfg_list,
         n_visualize=16,
-        wb_project="SemNav-Carla"
-    )  
+        wb_project="SemNav-Carla",
+    )
     trainer = Trainer(combi)
     # trainer.train()
     trainer.test()
     trainer.save_config()
-    torch.cuda.empty_cache() 
-        
+    torch.cuda.empty_cache()
+
     """ RGB TRAINING """
-    
+
     env_list_rgb = [
         "2azQ1b91cZZ",
         "JeFG25nYj2p",
@@ -336,9 +334,9 @@ if __name__ == "__main__":
         "E9uDoFAP3SH",
         "QUCTc6BB5sX",
         "YFuZgdQ5vWj",
-        "2n8kARJN3HM"
+        "2n8kARJN3HM",
     ]
-    
+
     matterport_rgb: TrainCfg = TrainCfg(
         sem=False,
         rgb=True,
@@ -350,12 +348,12 @@ if __name__ == "__main__":
             ratio_front_samples=0.0,
         ),
         env_list=env_list_rgb,
-    )  
+    )
     # trainer = Trainer(matterport_rgb)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
-    
-       
+
+
 # EoF

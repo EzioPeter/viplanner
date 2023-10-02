@@ -1,18 +1,14 @@
-import open3d as o3d
-import PIL
-import numpy as np
-import os
-
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import open3d as o3d
 import open3d.visualization.rendering as rendering
-from matplotlib.colors import Colormap
+import PIL
 
 from viplanner.cost_maps import CostMapPCD
 
 
 def save_img_as_pdf(pcd, pc_path, img_name):
-
     # init open3D render
     mtl = rendering.MaterialRecord()
     mtl.base_color = [1.0, 1.0, 1.0, 1.0]
@@ -41,8 +37,7 @@ def assign_color_to_pcd(pcd):
 
     # Define a custom colormap from blue to yellow to red
     n_bins = 100  # Number of bins in the colormap
-    # cm = Colormap("jet", N=n_bins).res
-    cm = mpl.colormaps['jet'].resampled(n_bins)
+    cm = mpl.colormaps["jet"].resampled(n_bins)
     # Assign colors based on height
     min_height = np.min(points[:, 2])
     max_height = np.max(points[:, 2])
@@ -74,4 +69,3 @@ map = CostMapPCD.ReadTSDFMap(pc_path, "tsdf")
 pcd = assign_color_to_pcd(map.pcd_tsdf)
 save_img_as_pdf(pcd, pc_path, "town01_depth")
 map = pcd = None
-

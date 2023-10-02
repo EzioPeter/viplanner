@@ -24,7 +24,7 @@ import yaml
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
-from viplanner.dataset import MultiEpochsDataLoader, PlannerData, PlannerDataGenerator
+from viplanner.dataset import PlannerData, PlannerDataGenerator
 from viplanner.plannernet import (
     PRE_TRAIN_POSSIBLE,
     AutoEncoder,
@@ -428,38 +428,21 @@ class Trainer:
                     train_data.load_data_in_memory()
                 val_data.load_data_in_memory()
 
-            if self._cfg.multi_epoch_dataloader:
-                if train:
-                    train_loader = MultiEpochsDataLoader(
-                        train_data,
-                        batch_size=self._cfg.batch_size,
-                        shuffle=True,
-                        pin_memory=True,
-                        num_workers=self._cfg.num_workers,
-                    )
-                val_loader = MultiEpochsDataLoader(
-                    val_data,
+            if train:
+                train_loader = Data.DataLoader(
+                    dataset=train_data,
                     batch_size=self._cfg.batch_size,
                     shuffle=True,
                     pin_memory=True,
                     num_workers=self._cfg.num_workers,
                 )
-            else:
-                if train:
-                    train_loader = Data.DataLoader(
-                        dataset=train_data,
-                        batch_size=self._cfg.batch_size,
-                        shuffle=True,
-                        pin_memory=True,
-                        num_workers=self._cfg.num_workers,
-                    )
-                val_loader = Data.DataLoader(
-                    dataset=val_data,
-                    batch_size=self._cfg.batch_size,
-                    shuffle=True,
-                    pin_memory=True,
-                    num_workers=self._cfg.num_workers,
-                )
+            val_loader = Data.DataLoader(
+                dataset=val_data,
+                batch_size=self._cfg.batch_size,
+                shuffle=True,
+                pin_memory=True,
+                num_workers=self._cfg.num_workers,
+            )
 
             if train:
                 train_loader_list.append(train_loader)

@@ -1,5 +1,3 @@
-#!/usr/bin python3
-
 """
 @author     Pascal Roth
 @email      roth.pascal@outlook.de
@@ -15,13 +13,14 @@ import numpy as np
 import scipy.spatial.transform as tf
 import torch
 
-# viplanner
-from viplanner.traj_cost_opt import TrajViz
-from viplanner.traj_cost_opt.traj_opt import TrajOpt
 from viplanner.intern.rosbag.rosbag_base_handler import (
     ROS_TO_ROBOTICS_MAT,
     RealWorldDataHandler,
 )
+
+# viplanner
+from viplanner.traj_cost_opt import TrajViz
+from viplanner.traj_cost_opt.traj_opt import TrajOpt
 
 
 class EvalVideo:
@@ -72,9 +71,7 @@ class EvalVideo:
 
     def plot(self):
         depth_time = self.odom_depth[:, 7] + self.odom_depth[:, 8] / 1e9
-        goal_time = self.odom_goal[:, 3] + self.odom_goal[:, 4] / 1e9
         rgb_time = self.odom_rgb[:, 7] + self.odom_rgb[:, 8] / 1e9
-        sem_time = self.odom_sem[:, 7] + self.odom_sem[:, 8] / 1e9
         path_time = self.path[:, 0, 3] + self.path[:, 0, 4] / 1e9
 
         os.makedirs(os.path.join(self.dir, "video_depth_projected"), exist_ok=True)

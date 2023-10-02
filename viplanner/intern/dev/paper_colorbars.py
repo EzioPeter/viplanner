@@ -1,41 +1,40 @@
+import os
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import os
+
+n = 500
 
 
-n=500
-
-def colorFader(c1,c2,mix=0): #fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
-    return mpl.colors.to_hex(((1-mix)*np.array(c1) + mix*np.array(c2)) / 255.001)
+def colorFader(c1, c2, mix=0):  # fade (linear interpolate) from color c1 (at mix=0) to c2 (mix=1)
+    return mpl.colors.to_hex(((1 - mix) * np.array(c1) + mix * np.array(c2)) / 255.001)
 
 
 def get_spectrum_plot(colors, colors_name):
-    
-    bin_length = np.ceil((n / (len(colors)-1)))
+    bin_length = np.ceil(n / (len(colors) - 1))
     fig, ax = plt.subplots(figsize=(8, 1))
 
     for x in range(n):
         if x % bin_length == 0:
             c1 = colors[int(x / bin_length)]
-            c2 = colors[int(x / bin_length)+1]
-        
-        ax.axvline(x, color=colorFader(c1,c2,(x-np.floor(x/bin_length)*bin_length)/bin_length), linewidth=4) 
+            c2 = colors[int(x / bin_length) + 1]
+
+        ax.axvline(x, color=colorFader(c1, c2, (x - np.floor(x / bin_length) * bin_length) / bin_length), linewidth=4)
 
     ax.set_xticks([])
     ax.set_yticks([])
 
     # Remove the x and y axis lines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.spines["left"].set_visible(False)
 
     print("DONE")
 
     os.makedirs(os.path.join(os.getcwd(), "paper_colors"), exist_ok=True)
-    fig.savefig(os.path.join(os.getcwd(), "paper_colors", colors_name), bbox_inches='tight', pad_inches=0)
+    fig.savefig(os.path.join(os.getcwd(), "paper_colors", colors_name), bbox_inches="tight", pad_inches=0)
     plt.show()
 
 

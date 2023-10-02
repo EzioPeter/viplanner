@@ -1,16 +1,14 @@
-#!/usr/bin/env python3
-
 # python
 import torch
+
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
-from viplanner.config import TrainCfg, DataCfg
+from viplanner.config import DataCfg, TrainCfg
 from viplanner.utils.trainer import Trainer
 
-
 if __name__ == "__main__":
-    """ ANYMAL-C Training """
+    """ANYMAL-C Training"""
     env_list_anymal_c = [
         "2azQ1b91cZZ_anymal_c",
         "JeFG25nYj2p_anymal_c",
@@ -21,9 +19,9 @@ if __name__ == "__main__":
         "E9uDoFAP3SH_anymal_c",
         "QUCTc6BB5sX_anymal_c",
         "YFuZgdQ5vWj_anymal_c",
-        "2n8kARJN3HM_anymal_c"
+        "2n8kARJN3HM_anymal_c",
     ]
-    
+
     matterport_anymal_c: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
@@ -34,7 +32,7 @@ if __name__ == "__main__":
             ratio_front_samples=0.0,
         ),
         env_list=env_list_anymal_c,
-    )  
+    )
     # trainer = Trainer(matterport_anymal_c)
     # trainer.train()
     # trainer.test()
@@ -51,7 +49,7 @@ if __name__ == "__main__":
             ratio_front_samples=0.0,
         ),
         env_list=env_list_anymal_c,
-    )  
+    )
     # trainer = Trainer(matterport_anymal_c_neg05)
     # trainer.train()
     # trainer.test()
@@ -68,13 +66,13 @@ if __name__ == "__main__":
             ratio_front_samples=0.0,
         ),
         env_list=env_list_anymal_c,
-    )  
+    )
     # trainer = Trainer(matterport_anymal_c_neg10)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
-        
+
     matterport_anymal_c: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
@@ -85,13 +83,13 @@ if __name__ == "__main__":
             ratio_front_samples=0.0,
         ),
         env_list=env_list_anymal_c,
-    )  
+    )
     # trainer = Trainer(matterport_anymal_c)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
-    
+
     matterport_anymal_c: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem",
@@ -102,7 +100,7 @@ if __name__ == "__main__":
             ratio_front_samples=0.06,
         ),
         env_list=env_list_anymal_c,
-    )  
+    )
     # trainer = Trainer(matterport_anymal_c)
     # trainer.train()
     # trainer.test()
@@ -125,15 +123,15 @@ if __name__ == "__main__":
             sem_rgb_black_img=0.05,
         ),
         env_list=env_list_anymal_c,
-    )  
+    )
     # trainer = Trainer(matterport_anymal_c_noise)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
     # torch.cuda.empty_cache()
 
-    ### CARLA 
-    
+    # CARLA
+
     carla_anymal_c: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem_neg05",
@@ -142,12 +140,12 @@ if __name__ == "__main__":
         file_name="neg05",
         n_visualize=128,
         wb_project="SemNav-Carla",
-    )  
+    )
     # trainer = Trainer(carla_anymal_c)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
-    # torch.cuda.empty_cache() 
+    # torch.cuda.empty_cache()
 
     carla_anymal_c_out_fov: TrainCfg = TrainCfg(
         sem=True,
@@ -162,13 +160,13 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
         ),
-    )  
+    )
     # trainer = Trainer(carla_anymal_c_out_fov)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
-    # torch.cuda.empty_cache() 
-        
+    # torch.cuda.empty_cache()
+
     carla_anymal_c_neg10: TrainCfg = TrainCfg(
         sem=True,
         cost_map_name="cost_map_sem_neg10",
@@ -177,8 +175,7 @@ if __name__ == "__main__":
         file_name="neg10",
         n_visualize=128,
         wb_project="SemNav-Carla",
-
-    )  
+    )
     # trainer = Trainer(carla_anymal_c_neg10)
     # trainer.train()
     # trainer.test()
@@ -198,13 +195,13 @@ if __name__ == "__main__":
             ratio_back_samples=0.03,
             ratio_front_samples=0.06,
         ),
-    )  
+    )
     # trainer = Trainer(carla_anymal_c_out_fov_neg05)
     # trainer.train()
     # trainer.test()
     # trainer.save_config()
-    # torch.cuda.empty_cache() 
-    
+    # torch.cuda.empty_cache()
+
     """ COMBINED TRAINING """
     env_list_combi = [
         "2azQ1b91cZZ_anymal_c",
@@ -212,7 +209,7 @@ if __name__ == "__main__":
         "Vvot9Ly1tCj_anymal_c",
         "town01_anymal_c_new",
         "ur6pFq6Qu1A_anymal_c",
-        "B6ByNegPMKs_anymal_c",        
+        "B6ByNegPMKs_anymal_c",
         "8WUmhLawc2A_anymal_c",
         "town01_anymal_c_new",
     ]
@@ -227,10 +224,10 @@ if __name__ == "__main__":
             ratio_front_samples=0.0,
         ),
         env_list=env_list_combi,
-    )  
-    
-    # trainer = Trainer(matterport_anymal_c_neg05_combi)
-    # trainer.train()
-    # trainer.test()
-    # trainer.save_config()
-    # torch.cuda.empty_cache()  
+    )
+
+    trainer = Trainer(matterport_anymal_c_neg05_combi)
+    trainer.train()
+    trainer.test()
+    trainer.save_config()
+    torch.cuda.empty_cache()

@@ -1,11 +1,15 @@
 # python
-import os
-import shutil
+
+from viplanner.config import (
+    CostMapConfig,
+    GeneralCostMapConfig,
+    ReconstructionCfg,
+    SemCostMapConfig,
+)
+from viplanner.cost_builder import main
 
 # viplanner
 from viplanner.depth_reconstruct import DepthReconstruction
-from viplanner.cost_builder import main
-from viplanner.config import ReconstructionCfg, CostMapConfig, GeneralCostMapConfig, SemCostMapConfig
 
 if __name__ == "__main__":
     config_reconstruct_warehouse = ReconstructionCfg(
@@ -15,10 +19,10 @@ if __name__ == "__main__":
         point_cloud_batch_size=200,
         max_images=200,
     )
-    # depth_constructor = DepthReconstruction(config_reconstruct_warehouse)
-    # depth_constructor.depth_reconstruction()
-    # depth_constructor.save_pcd()
-    # depth_constructor.show_pcd()
+    depth_constructor = DepthReconstruction(config_reconstruct_warehouse)
+    depth_constructor.depth_reconstruction()
+    depth_constructor.save_pcd()
+    depth_constructor.show_pcd()
 
     config_cost_warehouse = CostMapConfig(
         visualize=False,
@@ -33,7 +37,7 @@ if __name__ == "__main__":
             ground_height=-0.1,
             obstacle_threshold=0.7,
             robot_height=1.0,
-        )
+        ),
     )
 
     # build cost

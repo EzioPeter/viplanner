@@ -17,13 +17,10 @@ from segments import SegmentsClient, SegmentsDataset
 from segments.utils import bitmap2file
 
 # viplanner
-from viplanner.config import (
-    VIPlannerSemMetaHandler,
-    get_class_for_id,
-)
+from viplanner.config import VIPlannerSemMetaHandler, get_class_for_id
+from viplanner.intern.m2f.config import Mask2FormerCfg
 from viplanner.intern.m2f.m2f_utils import M2FWrapper
 from viplanner.intern.segments.config import SegmentsCfg
-from viplanner.intern.m2f.config import Mask2FormerCfg
 
 
 def main(segments_cfg: SegmentsCfg, m2f_cfg: Mask2FormerCfg):

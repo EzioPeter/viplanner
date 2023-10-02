@@ -20,7 +20,7 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
 
 ## Install
 
-- Install `pyproject.toml` with pip by running: 
+- Install `pyproject.toml` with pip by running:
   ```bash
   pip install .
   ```
@@ -100,14 +100,14 @@ The latest model is available to download: [[checkpoint](https://drive.google.co
 
 ## <a name="CitingViPlanner"></a>Citing ViPlanner
 ```
-@misc{roth2023viplanner, 
-    author={Pascal Roth, Julian Nubert, Fan Yang, Mayank Mittal, and Marco Hutter}, 
-    title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation}, 
+@misc{roth2023viplanner,
+    author={Pascal Roth, Julian Nubert, Fan Yang, Mayank Mittal, and Marco Hutter},
+    title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation},
     year={2023},
     eprint={2302.11434}, # TODO: update when published
     archivePrefix={arXiv},
     primaryClass={cs.RO}
-} 
+}
 ```
 
 ### License

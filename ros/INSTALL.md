@@ -5,7 +5,7 @@
 ## Models
 
 For the models, place them in the `ros/planner/models` folder, both the viplanner and mask2former model.
-For the semantics, we use the Mask2Former implementation of [mmdetection](https://github.com/open-mmlab/mmdetection/tree/master/configs/mask2former), as it improves inference speed on the jetson compared to the code version publish by the autors. For inference reason, we use the smallest network with ResNet 50 backbone pre-trained on the COCO dataset.
+For the semantics, we use the Mask2Former implementation of [mmdetection](https://github.com/open-mmlab/mmdetection/tree/master/configs/mask2former), as it improves inference speed on the jetson compared to the code version publish by the authors. For inference reason, we use the smallest network with ResNet 50 backbone pre-trained on the COCO dataset that can be downloaded [here](https://download.openmmlab.com/mmdetection/v2.0/mask2former/mask2former_r50_lsj_8x2_50e_coco-panoptic/mask2former_r50_lsj_8x2_50e_coco-panoptic_20220326_224516-11a44721.pth).
 
 
 ## Docker Images
@@ -62,9 +62,8 @@ TODO: currently still in https://github.com/pascal-roth/viplanner_jetson  - tran
   sudo apt install libusb-dev
   ```
 
-
 - Installation of VIPlanner
-    follow instructions in [README.md](../README.md) and install with inference flag. This installs mmdetection for Mask2Former, detailed intructions of the installation are given i the official documentation, [here](https://mmdetection.readthedocs.io/en/latest/).
+    follow instructions in [README.md](../README.md) and install with inference flag. This installs mmdetection for Mask2Former, detailed instructions of the installation are given i the official documentation, [here](https://mmdetection.readthedocs.io/en/latest/).
 
 - Build all ros packages
     ```bash

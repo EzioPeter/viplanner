@@ -50,35 +50,16 @@ RUN /home/ros_1.sh && rm /home/ros_1.sh
 RUN apt install libusb-dev
 
 #==
-# VIPlanner DEPENDENCIES
-#==
-RUN pip install wheel
-RUN pip install torch>=1.13.1
-RUN pip install torchvision>=0.14.1
-RUN pip install torchaudio>=0.13.1
-RUN pip install trimesh
-
-#==
 # VIPlanner
 #==
-COPY viplanner /viplanner
-COPY viplanner/viplanner/third_party/mask2former /mask2former
-
-# install mask2former  (for RGB support, not required)
-RUN pip install 'git+https://github.com/facebookresearch/detectron2.git'
-RUN pip install -r /mask2former/requirements.txt
-RUN chmod 777 '/usr/local/lib/python3.8/dist-packages'
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs/:$LD_LIBRARY_PATH
-ENV FORCE_CUDA="1"
-RUN pip install ninja
-RUN python3 /mask2former/mask2former/modeling/pixel_decoder/ops/setup.py build install
-
 # install viplanner in edible mode (needed update of pip and setuptools) --> update viplanner without rebuilding the image
+COPY viplanner /viplanner
 RUN pip install --upgrade pip
 RUN pip install setuptools==66.0.0
 # FIX for PyYAML 6.0.0 install error (see README.md)
 RUN pip install --ignore-installed PyYAML==6.0.0
-RUN pip install -e /viplanner/.[sim]
+RUN pip install mmcv==2.0.0 -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html
+RUN pip install -e /viplanner/.[inference]
 
 #==
 # Cleanup

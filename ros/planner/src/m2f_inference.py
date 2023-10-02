@@ -5,70 +5,17 @@
 @brief      Mask2Former optimized inference script to be used in the ROS node
 """
 
-
-import detectron2.data.transforms as T
-
 # python
 import numpy as np
+
+# ROS
 import rospy
-import torch
-from detectron2.checkpoint import DetectionCheckpointer
-from detectron2.config import CfgNode, get_cfg
-from detectron2.engine.defaults import DefaultPredictor
-from detectron2.modeling import build_model
-from detectron2.projects.deeplab import add_deeplab_config
+from mmdet.apis import inference_detector, init_detector
+from mmdet.evaluation import INSTANCE_OFFSET
 
 # viplanner-ros
-from viplanner.config.coco_sem_meta import get_class_for_id
+from viplanner.config.coco_sem_meta import get_class_for_id_mmdet
 from viplanner.config.viplanner_sem_meta import VIPlannerSemMetaHandler
-from viplanner.third_party.mask2former.mask2former import add_maskformer2_config
-
-
-class Predictor:
-    """
-    Create a simple end-to-end predictor with the given config that runs
-    on single device for a single input image.
-    """
-
-    def __init__(self, cfg):
-        self.cfg = cfg.clone()  # cfg can be modified by model
-        self.model = build_model(self.cfg)
-        self.model.eval()
-
-        checkpointer = DetectionCheckpointer(self.model)
-        print("Model weights loaded from: ", cfg.MODEL.WEIGHTS)
-        checkpointer.load(cfg.MODEL.WEIGHTS)
-
-        # init augmentation --> for the large wide angle camera of Anymal will
-        # result in cropping
-        self.aug = T.ResizeShortestEdge(
-            [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST],
-            cfg.INPUT.MAX_SIZE_TEST,
-        )
-        self.input_format = cfg.INPUT.FORMAT
-        assert self.input_format in ["RGB", "BGR"], self.input_format
-
-    def __call__(self, image):
-        """
-        Args:
-            image (np.ndarray): an image of shape (H, W, C) (in BGR order).
-
-        Returns:
-            predictions (dict):
-                the output of the model for one image only.
-                See :doc:`/tutorials/models` for details about the format.
-        """
-        with torch.no_grad():
-            if self.input_format == "RGB":
-                # whether the model expects BGR inputs or RGB
-                image = image[:, :, ::-1]
-            height, width = image.shape[:2]
-            image = self.aug.get_transform(image).apply_image(image)
-            image = torch.as_tensor(image.astype("float32").transpose(2, 0, 1))
-
-            inputs = {"image": image, "height": height, "width": width}
-            with torch.cuda.amp.autocast():  # 16 bit precision to speed up
-                return self.model([inputs])[0]
 
 
 class Mask2FormerInference:
@@ -78,31 +25,15 @@ class Mask2FormerInference:
 
     def __init__(
         self,
-        config_file: str,
-        model_weights: str,
-        default_predictor: bool = False,
+        config_file="configs/coco/panoptic-segmentation/maskformer2_R50_bs16_50ep.yaml",
+        checkpoint_file="model_final.pth",
     ) -> None:
-        # set arguments
-        self._config_file = config_file
-        self._model_weights = ["MODEL.WEIGHTS", model_weights]
+        # Build the model from a config file and a checkpoint file
+        self.model = init_detector(config_file, checkpoint_file, device="cuda:0")
 
-        # setup config
-        self._cfg = self._setup_cfg()
-
-        # load model and weights
-        if default_predictor:
-            rospy.logwarn(
-                "Using default predictor. Make sure to have changed detectron2"
-                " to 16bit precision for improved inference speed."
-            )
-            self.predictor = DefaultPredictor(self._cfg)
-        else:
-            self.predictor = Predictor(self._cfg)
-
-        # mapping from coco class id to viplanner class id and corresponding
-        # color
+        # mapping from coco class id to viplanner class id and color
         viplanner_meta = VIPlannerSemMetaHandler()
-        coco_viplanner_cls_mapping = get_class_for_id()
+        coco_viplanner_cls_mapping = get_class_for_id_mmdet(self.model.dataset_meta["classes"])
         self.viplanner_sem_class_color_map = viplanner_meta.class_color
         self.coco_viplanner_color_mapping = {}
         for coco_id, viplanner_cls_name in coco_viplanner_cls_mapping.items():
@@ -116,19 +47,19 @@ class Mask2FormerInference:
         Args:
             image (np.ndarray): image to be processed in BGR format
         """
-        # get predictions
-        predictions = self.predictor(image)
-        panoptic_seg, seg_infos = predictions["panoptic_seg"]
+
+        result = inference_detector(self.model, image)
+        result = result.pred_panoptic_seg.sem_seg.detach().cpu().numpy()[0]
         # create output
-        panoptic_mask = np.zeros((panoptic_seg.shape[0], panoptic_seg.shape[1], 3), dtype=np.uint8)
-        for sinfo in seg_infos:
+        panoptic_mask = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
+        for curr_sem_class in np.unique(result):
+            curr_label = curr_sem_class % INSTANCE_OFFSET
             try:
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = self.coco_viplanner_color_mapping[
-                    sinfo["category_id"]
-                ]
+                panoptic_mask[result == curr_sem_class] = self.coco_viplanner_color_mapping[curr_label]
             except KeyError:
-                rospy.logwarn(f"Category {sinfo['category_id']+1} not found in" " coco_viplanner_cls_mapping.")
-                panoptic_mask[panoptic_seg.cpu().numpy() == sinfo["id"]] = self.viplanner_sem_class_color_map["static"]
+                if curr_sem_class != len(self.model.dataset_meta["classes"]):
+                    rospy.logwarn(f"Category {curr_label} not found in" " coco_viplanner_cls_mapping.")
+                panoptic_mask[result == curr_sem_class] = self.viplanner_sem_class_color_map["static"]
 
         if self.debug:
             import matplotlib.pyplot as plt
@@ -137,18 +68,6 @@ class Mask2FormerInference:
             plt.show()
 
         return panoptic_mask
-
-    """Helper functions"""
-
-    def _setup_cfg(self) -> CfgNode:
-        # load config from file and command-line arguments
-        cfg = get_cfg()
-        add_deeplab_config(cfg)
-        add_maskformer2_config(cfg)
-        cfg.merge_from_file(self._config_file)
-        cfg.merge_from_list(self._model_weights)
-        cfg.freeze()
-        return cfg
 
 
 # EoF

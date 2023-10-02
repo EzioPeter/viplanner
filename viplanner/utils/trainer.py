@@ -24,7 +24,6 @@ import yaml
 
 # imperative-planning-learning
 from viplanner.config import TrainCfg
-from .dataset import PlannerData, PlannerDataGenerator
 from viplanner.plannernet import (
     PRE_TRAIN_POSSIBLE,
     AutoEncoder,
@@ -33,6 +32,8 @@ from viplanner.plannernet import (
 )
 from viplanner.traj_cost_opt import TrajCost, TrajViz
 from viplanner.utils.torchutil import EarlyStopScheduler, count_parameters
+
+from .dataset import PlannerData, PlannerDataGenerator
 
 torch.set_default_dtype(torch.float32)
 

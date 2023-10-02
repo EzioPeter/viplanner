@@ -31,21 +31,20 @@ import torch
 from geometry_msgs.msg import Point, PointStamped, PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import CameraInfo, CompressedImage, Image, Joy
-
-# VIPlanner
-# from src.m2f_inference import Mask2FormerInference
-from src.m2f_inference_mmdet import Mask2FormerInference as Mask2FormerInferenceMMDet
-from src.vip_inference import VIPlannerInference
 from std_msgs.msg import Float32, Header, Int16
-from utils.rosutil import ROSArgparse
 from visualization_msgs.msg import Marker
-
-warnings.filterwarnings("ignore")
 
 # init ros node
 rospack = rospkg.RosPack()
 pack_path = rospack.get_path("viplanner_node")
 sys.path.append(pack_path)
+
+# VIPlanner
+from src.m2f_inference import Mask2FormerInference
+from src.vip_inference import VIPlannerInference
+from utils.rosutil import ROSArgparse
+
+warnings.filterwarnings("ignore")
 
 # conversion matrix from ROS camera convention (z-forward, y-down, x-right)
 # to robotics convention (x-forward, y-left, z-up)
@@ -67,7 +66,7 @@ class VIPlannerNode:
 
         if self.vip_algo.train_cfg.sem:
             # init semantic network
-            self.m2f_inference = Mask2FormerInferenceMMDet(
+            self.m2f_inference = Mask2FormerInference(
                 config_file=args.m2f_config_path,
                 checkpoint_file=args.m2f_model_path,
             )

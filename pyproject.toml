@@ -29,12 +29,15 @@ dependencies = [
     "open3d==0.17.0",
     # training only
     "wandb==0.14.0",
+    "opencv-python-headless",
+    "pypose",
 ]
 
 [project.optional-dependencies]
-sim = [
-    "opencv-python-headless",
-    "pypose",  # will increase the torch version to 2.0
+inference = [
+    "mmcv==2.0.0",
+    "mmengine",
+    "mmdet",
 ]
 
 [project.urls]

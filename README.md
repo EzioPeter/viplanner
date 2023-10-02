@@ -7,7 +7,7 @@
 
   Click on image for demo video!
   [![Demo Video](./assets/crosswalk.jpg)](https://drive.google.com/file/d/1yp500O5tlA1fLLQs0z8a-WxCDsnKwDCl/view?usp=sharing)
-  
+
 </p>
 
 ViPlanner is a robust learning-based local path planner based on semantic and depth images.
@@ -21,12 +21,28 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
 ## Install
 
 - Install `pyproject.toml` with pip by running: 
-  > pip install .
-  
+  ```bash
+  pip install .
+  ```
   or
-  > pip install -e .
+  ```bash
+  pip install -e .
+  ```
+  if you want to edit the code. To apply the planner in the ROS-Node, install it with the inference setting:
+  ```bash
+  pip install -e .[inference]
+  ```
+  Make sure the CUDA toolkit is of the same version as used to compile torch. We assume 11.7. If you are using a different version, adjust the string for the mmcv install as given . If the toolkit is not found, set the `CUDA_HOME` environment variable, as follows:
+  ```
+  export CUDA_HOME=/usr/local/cuda
+  ```
 
-   if you want to edit the code
+**Known Issue**
+- mmcv build wheel does not finish:
+  - fix by installing with defined CUDA version, as detailed [here](https://mmcv.readthedocs.io/en/latest/get_started/installation.html#install-with-pip). For CUDA Version 11.7 and torch==2.0.x use
+  ```
+  pip install mmcv==2.0.0 -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html
+  ```
 
 **Extension** This work includes the switch from semantic to direct RGB input for the training pipeline, to facilitate further research. For RGB input, an option exist to employ a backbone with mask2former pre-trained weights. For this option, include the github submodule, install the requirements included there and build the necessary cuda operators. All of that is not necessary for publish planner!
 
@@ -43,9 +59,13 @@ sh make.sh
 **Remark**
 Note that for an editable install for packages without setup.py, PEP660 has to be fulfilled. This requires the following versions (as described [here](https://stackoverflow.com/questions/69711606/how-to-install-a-package-using-pip-in-editable-mode-with-pyproject-toml) in detail)
 - [pip >= 21.3](https://pip.pypa.io/en/stable/news/#v21-3)
-	> python3 -m pip install --upgrade pip
+	```
+  python3 -m pip install --upgrade pip
+  ```
 - [setuptools >= 64.0.0](https://github.com/pypa/setuptools/blob/main/CHANGES.rst#v6400)
-	> python3 -m pip install --upgrade setuptools
+	```
+  python3 -m pip install --upgrade setuptools
+  ```
 
 ## Training
 
@@ -95,7 +115,7 @@ The latest model is available to download: [[checkpoint](https://drive.google.co
 This code belongs to Robotic Systems Lab, ETH Zurich.
 All right reserved
 
-**Author: [Pascal Roth](https://github.com/pascal-roth), [Julian Nubert](https://juliannubert.com/), [Fan Yang](https://github.com/MichaelFYang), [Mayank Mittal](https://mayankm96.github.io/), and [Marco Hutter](https://rsl.ethz.ch/the-lab/people/person-detail.MTIxOTEx.TGlzdC8yNDQxLC0xNDI1MTk1NzM1.html)<br />
+**Authors: [Pascal Roth](https://github.com/pascal-roth), [Julian Nubert](https://juliannubert.com/), [Fan Yang](https://github.com/MichaelFYang), [Mayank Mittal](https://mayankm96.github.io/), and [Marco Hutter](https://rsl.ethz.ch/the-lab/people/person-detail.MTIxOTEx.TGlzdC8yNDQxLC0xNDI1MTk1NzM1.html)<br />
 Maintainer: Pascal Roth, rothpa@ethz.ch**
 
 The ViPlanner package has been tested under ROS Noetic on Ubuntu 20.04.

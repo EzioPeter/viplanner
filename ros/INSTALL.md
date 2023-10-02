@@ -2,6 +2,12 @@
 
 - strongly recommend using the provided docker images for either Ubuntu 20.04 or NVIDIA Jetson Orion (L4T r35.1.0)
 
+## Models
+
+For the models, place them in the `ros/planner/models` folder, both the viplanner and mask2former model.
+For the semantics, we use the Mask2Former implementation of [mmdetection](https://github.com/open-mmlab/mmdetection/tree/master/configs/mask2former), as it improves inference speed on the jetson compared to the code version publish by the autors. For inference reason, we use the smallest network with ResNet 50 backbone pre-trained on the COCO dataset.
+
+
 ## Docker Images
 
 Before building the docker images, enabling of Docker Default Runtime is necessary in otder to allow access to the CUDA compiler (nvcc) during `docker build` operations. Therefore, add `"default-runtime": "nvidia"` to your `/etc/docker/daemon.json` configuration file before attempting to build the containers:
@@ -25,10 +31,14 @@ You will then want to restart the Docker service or reboot your system before pr
 ### Docker for Ubuntu 20.04
 
 - Building image by running:
-    > sh bin/build.sh
+  ```bash
+  sh bin/build.sh
+  ```
 
 - Executing image by running:
-    > sh bin/run.sh
+  ```bash
+  sh bin/run.sh
+  ```
 
 ### Docker for NVIDIA Jetson Orion (L4T r35.1.0)
 
@@ -45,16 +55,21 @@ TODO: currently still in https://github.com/pascal-roth/viplanner_jetson  - tran
 ## Manual Installation
 
 - require ROS Noetic Installation (http://wiki.ros.org/noetic/Installation/Ubuntu)
+- require CUDA Toolkit (same version as the one used to compile torch! This is crucial otherwise the segmentation network cannot run!)
 
 - Dependency for JoyStick Planner:
-    > sudo apt install libusb-dev
+  ```bash
+  sudo apt install libusb-dev
+  ```
+
 
 - Installation of VIPlanner
-    follow instructions in [README.md](../README.md)
+    follow instructions in [README.md](../README.md) and install with inference flag. This installs mmdetection for Mask2Former, detailed intructions of the installation are given i the official documentation, [here](https://mmdetection.readthedocs.io/en/latest/).
 
 - Build all ros packages
-    > catkin build viplanner_pkgs
-
+    ```bash
+    catkin build viplanner_pkgs
+    ```
 
 ## Known Issues
 

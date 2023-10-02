@@ -7,6 +7,7 @@ from .costmap_cfg import (
 )
 from .learning_cfg import DataCfg, TrainCfg
 from .viplanner_sem_meta import OBSTACLE_LOSS, VIPlannerSemMetaHandler
+from .coco_sem_meta import _COCO_MAPPING, get_class_for_id
 
 __all__ = [
     # configs
@@ -20,14 +21,8 @@ __all__ = [
     # mapping
     "VIPlannerSemMetaHandler",
     "OBSTACLE_LOSS",
+    "get_class_for_id",
+    "_COCO_MAPPING"
 ]
-
-
-try:
-    from .coco_sem_meta import _COCO_MAPPING, get_class_for_id
-
-    __all__ += ["get_class_for_id", "_COCO_MAPPING"]
-except ModuleNotFoundError:
-    print("[WARNING] COCO meta cannot be used due to missing detectron2," " skipping")
 
 # EoF

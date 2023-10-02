@@ -2,11 +2,11 @@
 
 ## Overview
 
-ROS Node to run VIPlanner on the LeggedRobot Platform ANYmal.
+ROS Node to run ViPlanner on the LeggedRobot Platform ANYmal.
 The implementation consists of
-- the planner itself, running a semantic segmentation network and VIPlanner in parallel
-- a visualization node to project the path in the RGB and depth camera stream of the ANYmal
-- a pathFollower to translate the path into twist commands that can be executed by the robot
+- the `planner` itself, running a semantic segmentation network and ViPlanner in parallel
+- a `visualizer` to project the path in the RGB and depth camera stream of the robot
+- a `pathFollower` to translate the path into twist commands that can be executed by the robot
 - an RViz plugin to set the waypoints for the planner
 
 
@@ -18,7 +18,9 @@ Please refer to [Installation Instructions](./INSTALL.md) where details about th
 
 Run the VIPlanner with visualization:
 
-	roslaunch viplanner_node viplanner.launch
+```bash
+roslaunch viplanner_node viplanner.launch
+```
 
 ## SmartJoystick
 

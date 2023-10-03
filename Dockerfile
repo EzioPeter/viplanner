@@ -58,6 +58,7 @@ RUN pip install --upgrade pip
 RUN pip install setuptools==66.0.0
 # FIX for PyYAML 6.0.0 install error (see README.md)
 RUN pip install --ignore-installed PyYAML==6.0.0
+RUN pip install torch torchvision torchaudio
 RUN pip install mmcv==2.0.0 -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html
 RUN pip install -e /viplanner/.[inference]
 

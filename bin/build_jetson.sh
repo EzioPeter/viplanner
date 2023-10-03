@@ -20,11 +20,11 @@ set -e
 source $PKGROOT/bin/scripts/jetson_l4t_version.sh
 source $PKGROOT/bin/scripts/jetson_docker_base.sh
 
-CONTAINER="rslethz/jetpack-5:r$L4T_VERSION-viplanner"
+CONTAINER="rslethz/jetpack-5:r$L4T_VERSION-viplanner_test"
 DOCKERFILE="$PKGROOT/Dockerfile.Jetson"
 
 # build container
-echo "\e[1;32m[build.sh]: Building container '$CONTAINER'.\e[0m"
-echo "\e[1;32m[build.sh]: BASE_IMAGE='$BASE_IMAGE_L4T'.\e[0m"
+echo -e "\e[1;32m[build.sh]: Building container '$CONTAINER'.\e[0m"
+echo -e "\e[1;32m[build.sh]: BASE_IMAGE='$BASE_IMAGE_L4T'.\e[0m"
 
-sudo docker build --network=host -t $CONTAINER -f $DOCKERFILE --build-arg BASE_IMAGE=$BASE_IMAGE_L4T .
+sudo docker build --network=host -t $CONTAINER -f $DOCKERFILE --build-arg BASE_IMAGE=$BASE_IMAGE_L4T ./..

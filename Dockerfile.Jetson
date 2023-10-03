@@ -53,8 +53,8 @@ RUN apt-get update && \
 #
 # configure nvidia apt repo
 #
-COPY packages/nvidia-l4t-apt-source.list /tmp/apt/nvidia-l4t-apt-source.list
-COPY packages/nvidia-l4t-apt-source.clean.list /tmp/apt/nvidia-l4t-apt-source.clean.list
+COPY viplanner/bin/packages/nvidia-l4t-apt-source.list /tmp/apt/nvidia-l4t-apt-source.list
+COPY viplanner/bin/packages/nvidia-l4t-apt-source.clean.list /tmp/apt/nvidia-l4t-apt-source.clean.list
     
 #
 # install CUDA Toolkit
@@ -138,6 +138,7 @@ RUN apt-get update && apt-get upgrade -y &&\
         lsb-release \
         gnupg2 \
         ca-certificates \
+        figlet \
         ## Python
         python-dev \
         python-numpy \
@@ -286,7 +287,7 @@ RUN apt-get update && \
 # 
 # setup entrypoint
 #
-COPY ./packages/ros_entrypoint.sh /ros_entrypoint.sh
+COPY viplanner/bin/packages/ros_entrypoint.sh /ros_entrypoint.sh
 RUN echo 'source /opt/ros/${ROS_DISTRO}/setup.bash' >> /root/.bashrc
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]
@@ -543,24 +544,20 @@ RUN pip3 install --no-cache-dir --verbose opencv-python==4.5.5.64
 # VIPlanner specific files
 # 
 # Detectron2 (has to match Pytorch version)
-RUN pip3 install --no-cache-dir --verbose 'git+https://github.com/facebookresearch/detectron2.git'
+# RUN pip3 install --no-cache-dir --verbose 'git+https://github.com/facebookresearch/detectron2.git'
 
 # install mask2former
 COPY viplanner /viplanner
-COPY viplanner/viplanner/third_party/mask2former /mask2former
-
-# mask2former
-RUN pip3 install -r /mask2former/requirements.txt
-RUN chmod 777 '/usr/local/lib/python3.8/dist-packages'
-RUN python3 /mask2former/mask2former/modeling/pixel_decoder/ops/setup.py build install
 
 # install viplanner in edible mode (needed update of pip and setuptools) --> update viplanner without rebuilding the image
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools==66.0.0
 # FIX for PyYAML 6.0.0 install error (see README.md)
 RUN pip3 install --ignore-installed PyYAML==6.0.0
-RUN pip3 install --user -e /viplanner/.
+RUN pip3 install --user -e /viplanner/.[inference]
 RUN pip3 install pillow==9.4.0
+
+ENV PATH="$PATH:/root/.local/bin"
 
 # ros-numpy
 RUN apt-get update

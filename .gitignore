@@ -1,6 +1,9 @@
 # model files
 ros/planner/models/*
 
+# nvidia jetson apt list files
+bin/packages/nvidia*
+
 # wandb
 wandb/
 

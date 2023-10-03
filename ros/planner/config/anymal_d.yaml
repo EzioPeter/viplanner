@@ -22,12 +22,12 @@ m2f_timer_topic:        /viplanner/m2f_timer
 depth_uint_type:        True
 compressed:             True
 # frame ids
-robot_id:               base
+robot_id:               base  # also adjust in path_follower.launch
 world_id:               odom
 # fear reaction
 is_fear_act:            False
 buffer_size:            3
-angular_thread:          0.3
+angular_thread:         0.3
 track_dist:             0.5
 # smart joystick
 joyGoal_scale:          2.5

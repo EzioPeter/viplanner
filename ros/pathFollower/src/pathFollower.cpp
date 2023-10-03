@@ -95,6 +95,7 @@ double switchTime = 0;
 
 std::string odomTopic = "/state_estimation";
 std::string commandTopic = "/cmd_vel";
+std::string robot_id = "base";
 
 nav_msgs::Path path;
 
@@ -216,6 +217,7 @@ int main(int argc, char** argv)
   nhPrivate.getParam("joyToSpeedDelay", joyToSpeedDelay);
   nhPrivate.getParam("odomTopic", odomTopic);
   nhPrivate.getParam("commandTopic", commandTopic);
+  nhPrivate.getParam("robot_id", robot_id);
 
   ros::Subscriber subOdom = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped> (odomTopic, 5, odomHandler);
 
@@ -229,7 +231,7 @@ int main(int argc, char** argv)
 
   ros::Publisher pubSpeed = nh.advertise<geometry_msgs::TwistStamped> (commandTopic, 5);
   geometry_msgs::TwistStamped cmd_vel;
-  cmd_vel.header.frame_id = "base_inverted";
+  cmd_vel.header.frame_id = robot_id;
 
   if (autonomyMode) {
     joySpeed = autonomySpeed / maxSpeed;
@@ -351,6 +353,9 @@ int main(int argc, char** argv)
       if (pubSkipCount < 0) {
         cmd_vel.header.stamp = ros::Time().fromSec(odomTime);
         if (fabs(vehicleSpeed) <= maxAccel / 100.0) cmd_vel.twist.linear.x = 0;
+        // forward direction with LiDAR in front
+        else if (robot_id == "base") cmd_vel.twist.linear.x = vehicleSpeed;
+        // forward direction with LiDAR in back
         else cmd_vel.twist.linear.x = vehicleSpeed * (-1);
         cmd_vel.twist.angular.z = vehicleYawRate;
         pubSpeed.publish(cmd_vel);

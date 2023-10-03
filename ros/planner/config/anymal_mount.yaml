@@ -7,16 +7,15 @@ overlap_ratio_thres:    0.80
 depth_zero_ratio_thres: 0.6
 # network model
 model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_cam_mount_combi_lossWidthMod_wgoal4.0_warehouse
-# model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor_lossWidthMod_wgoal4.0_warehouse
-# model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_colorspace_sharpend_indoor_movlossCorr_wgoal4.0
-m2f_cfg_file:           models/m2f_model/coco/panoptic/swin/maskformer2_swin_tiny_bs16_50ep.yaml
-# m2f_model_path:         models/m2f_model/m2f_overfit/model_zurich_70_0049999.pth
-m2f_model_path:         models/m2f_model/coco/panoptic/swin/model_final_9fd0ae.pkl
+m2f_model_path:         models/mask2former_r50_8xb2-lsj-50e_coco-panoptic_20230118_125535-54df384a.pth
+# m2f_cfg_file:           ${HOME}/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
+m2f_cfg_file:           /home/pascal/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
 # ros topics
 depth_topic:            /depth_cam_mounted_front/depth/image_rect_raw
 depth_info_topic:       /depth_cam_mounted_front/depth/camera_info
 rgb_topic:              /depth_cam_mounted_front/color/image_raw/compressed
 rgb_info_topic:         /depth_cam_mounted_front/color/camera_info
+mount_cam_frame:        wide_angle_camera_rear_camera_parent  # mounted camera is not part of the TF tree, specify its frame here
 goal_topic:             /mp_waypoint
 path_topic:             /viplanner/path
 m2f_timer_topic:        /viplanner/m2f_timer

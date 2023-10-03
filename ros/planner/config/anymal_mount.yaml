@@ -22,7 +22,7 @@ m2f_timer_topic:        /viplanner/m2f_timer
 depth_uint_type:        True
 compressed:             True
 # frame ids
-robot_id:               base_inverted
+robot_id:               base_inverted  # also adjust in path_follower.launch
 world_id:               odom
 # fear reaction
 is_fear_act:            False

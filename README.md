@@ -26,16 +26,21 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   ```
   or
   ```bash
-  pip install -e .
+  pip install -e .[standard]
   ```
   if you want to edit the code. To apply the planner in the ROS-Node, install it with the inference setting:
   ```bash
-  pip install -e .[inference]
+  pip install -e .[standard,inference]
   ```
   Make sure the CUDA toolkit is of the same version as used to compile torch. We assume 11.7. If you are using a different version, adjust the string for the mmcv install as given . If the toolkit is not found, set the `CUDA_HOME` environment variable, as follows:
   ```
   export CUDA_HOME=/usr/local/cuda
   ```
+  On the Jetson, only use 
+  ```bash
+  pip install -e .[inference]
+  ```
+  as `mmdet` requires torch.distrubted which is only build until version 1.11 which is not compatible with pypose. See the `Dockerfile` for a workaround.  
 
 **Known Issue**
 - mmcv build wheel does not finish:
@@ -53,8 +58,6 @@ pip install -r third_party/mask2former/requirements.txt
 cd third_party/mask2former/mask2former/modeling/pixel_decoder/ops \
 sh make.sh
 ```
-
-
 
 **Remark**
 Note that for an editable install for packages without setup.py, PEP660 has to be fulfilled. This requires the following versions (as described [here](https://stackoverflow.com/questions/69711606/how-to-install-a-package-using-pip-in-editable-mode-with-pyproject-toml) in detail)

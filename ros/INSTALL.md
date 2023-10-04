@@ -1,6 +1,6 @@
 # INSTALL
 
-- strongly recommend using the provided docker images for either Ubuntu 20.04 or NVIDIA Jetson Orion (L4T r35.1.0)
+It is strongly recommend to use the provided docker images for NVIDIA Jetson Orion (L4T r35.1.0) due to special version requirements on the Jetson!
 
 ## Models
 
@@ -8,7 +8,7 @@ For the models, place them in the `ros/planner/models` folder, both the viplanne
 For the semantics, we use the Mask2Former implementation of [mmdetection](https://github.com/open-mmlab/mmdetection/tree/master/configs/mask2former), as it improves inference speed on the jetson compared to the code version publish by the authors. For inference reason, we use the smallest network with ResNet 50 backbone pre-trained on the COCO dataset that can be downloaded [here](https://download.openmmlab.com/mmdetection/v2.0/mask2former/mask2former_r50_lsj_8x2_50e_coco-panoptic/mask2former_r50_lsj_8x2_50e_coco-panoptic_20220326_224516-11a44721.pth).
 
 
-## Docker Images
+## Nvidia Jetson Docker
 
 Before building the docker images, enabling of Docker Default Runtime is necessary in otder to allow access to the CUDA compiler (nvcc) during `docker build` operations. Therefore, add `"default-runtime": "nvidia"` to your `/etc/docker/daemon.json` configuration file before attempting to build the containers:
 
@@ -27,22 +27,6 @@ Before building the docker images, enabling of Docker Default Runtime is necessa
 
 You will then want to restart the Docker service or reboot your system before proceeding. This can be done by running:
 > service docker restart
-
-### Docker for Ubuntu 20.04
-
-TODO: conduct tests and update INSTALL.md
-
-- Building image by running:
-  ```bash
-  ./bin/build.sh
-  ```
-
-- Executing image by running:
-  ```bash
-  ./bin/run.sh
-  ```
-
-### Docker for NVIDIA Jetson Orion (L4T r35.1.0)
 
 In order to build the docker container on a NVIDIA Jetson Orin, execute the following steps:
 
@@ -89,10 +73,9 @@ In order to build the docker container on a NVIDIA Jetson Orin, execute the foll
 
 ### ROS numpy
 
-- 
-
-- FIX:
-  in '/opt/ros/noetic/lib/python3/dist-packages/ros_numpy/point_cloud2.py' change all occurances of 'np.float' to 'float'
+- In ROS numpy, there still exists `np.float` of previous numpy versions.
+  - FIX:
+    in '/opt/ros/noetic/lib/python3/dist-packages/ros_numpy/point_cloud2.py' change all occurances of 'np.float' to 'float'
 
 ### General
 

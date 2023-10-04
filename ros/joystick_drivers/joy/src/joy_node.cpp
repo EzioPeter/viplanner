@@ -267,7 +267,7 @@ public:
   {
     if (ff_fd_ == -1)
     {
-      return;  // we arent ready yet
+      return;  // we aren't ready yet
     }
 
     size_t size = msg->array.size();
@@ -276,7 +276,7 @@ public:
       // process each feedback
       if (msg->array[i].type == 1 && ff_fd_ != -1)  // TYPE_RUMBLE
       {
-        // if id is zero, thats low freq, 1 is high
+        // if id is zero, that's low freq, 1 is high
         joy_effect_.direction = 0;  // down
         joy_effect_.type = FF_RUMBLE;
         if (msg->array[i].id == 0)

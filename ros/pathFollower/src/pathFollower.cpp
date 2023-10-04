@@ -95,6 +95,7 @@ double switchTime = 0;
 
 std::string odomTopic = "/state_estimation";
 std::string commandTopic = "/cmd_vel";
+std::string robot_id = "base";
 
 nav_msgs::Path path;
 
@@ -216,6 +217,7 @@ int main(int argc, char** argv)
   nhPrivate.getParam("joyToSpeedDelay", joyToSpeedDelay);
   nhPrivate.getParam("odomTopic", odomTopic);
   nhPrivate.getParam("commandTopic", commandTopic);
+  nhPrivate.getParam("robot_id", robot_id);
 
   ros::Subscriber subOdom = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped> (odomTopic, 5, odomHandler);
 
@@ -229,7 +231,7 @@ int main(int argc, char** argv)
 
   ros::Publisher pubSpeed = nh.advertise<geometry_msgs::TwistStamped> (commandTopic, 5);
   geometry_msgs::TwistStamped cmd_vel;
-  cmd_vel.header.frame_id = "base";
+  cmd_vel.header.frame_id = robot_id;
 
   if (autonomyMode) {
     joySpeed = autonomySpeed / maxSpeed;
@@ -244,9 +246,9 @@ int main(int argc, char** argv)
     ros::spinOnce();
 
     if (pathInit) {
-      float vehicleXRel = cos(vehicleYawRec) * (vehicleX - vehicleXRec) 
+      float vehicleXRel = cos(vehicleYawRec) * (vehicleX - vehicleXRec)
                         + sin(vehicleYawRec) * (vehicleY - vehicleYRec);
-      float vehicleYRel = -sin(vehicleYawRec) * (vehicleX - vehicleXRec) 
+      float vehicleYRel = -sin(vehicleYawRec) * (vehicleX - vehicleXRec)
                         + cos(vehicleYawRec) * (vehicleY - vehicleYRec);
 
       int pathSize = path.poses.size();
@@ -279,10 +281,10 @@ int main(int argc, char** argv)
       disX = path.poses[pathPointIDSpeedLookahead].pose.position.x - vehicleXRel;
       disY = path.poses[pathPointIDSpeedLookahead].pose.position.y - vehicleYRel;
       dis = sqrt(disX * disX + disY * disY);
-      
+
       // Direction to Turn Lookahead point
       disX = path.poses[pathPointIDTurnLookahead].pose.position.x - vehicleXRel;
-      disY = path.poses[pathPointIDTurnLookahead].pose.position.y - vehicleYRel;      
+      disY = path.poses[pathPointIDTurnLookahead].pose.position.y - vehicleYRel;
       float pathDir = atan2(disY, disX);
 
       float dirDiff = vehicleYaw - vehicleYawRec - pathDir;
@@ -351,7 +353,10 @@ int main(int argc, char** argv)
       if (pubSkipCount < 0) {
         cmd_vel.header.stamp = ros::Time().fromSec(odomTime);
         if (fabs(vehicleSpeed) <= maxAccel / 100.0) cmd_vel.twist.linear.x = 0;
-        else cmd_vel.twist.linear.x = vehicleSpeed;
+        // forward direction with LiDAR in front
+        else if (robot_id == "base") cmd_vel.twist.linear.x = vehicleSpeed;
+        // forward direction with LiDAR in back
+        else cmd_vel.twist.linear.x = vehicleSpeed * (-1);
         cmd_vel.twist.angular.z = vehicleYawRate;
         pubSpeed.publish(cmd_vel);
 

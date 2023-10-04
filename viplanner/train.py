@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 @author     Pascal Roth
 @email      rothpa@student.ethz.ch
@@ -9,25 +8,24 @@
 
 # python
 import torch
+
 torch.set_default_dtype(torch.float32)
 
 # imperative-planning-learning
-from viplanner.config import TrainCfg, DataCfg
+from viplanner.config import DataCfg, TrainCfg
 from viplanner.utils.trainer import Trainer
 
-
 if __name__ == "__main__":
-    
     env_list_combi = [
         "2azQ1b91cZZ",
         "JeFG25nYj2p",
         "Vvot9Ly1tCj",
         "town01_more_data_train",
         "ur6pFq6Qu1A",
-        "B6ByNegPMKs",        
+        "B6ByNegPMKs",
         "8WUmhLawc2A",
         "town01_more_data_train",
-        "2n8kARJN3HM"
+        "2n8kARJN3HM",
     ]
     carla: TrainCfg = TrainCfg(
         sem=True,
@@ -39,10 +37,10 @@ if __name__ == "__main__":
             max_goal_distance=10.0,
         ),
         n_visualize=128,
-        wb_project="SemNav-Carla"
-    )  
+        wb_project="viplanner-Carla",
+    )
     trainer = Trainer(carla)
-    # trainer.train()
+    trainer.train()
     trainer.test()
     trainer.save_config()
-    torch.cuda.empty_cache() 
+    torch.cuda.empty_cache()

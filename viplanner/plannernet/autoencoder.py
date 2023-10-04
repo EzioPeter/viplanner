@@ -1,12 +1,13 @@
-#!/usr/bin/env python3
+from typing import Optional
+
 import torch
 import torch.nn as nn
-from typing import Optional
+
+from viplanner.config import TrainCfg
 
 # visual-imperative-planner
 from .PlannerNet import PlannerNet
-from .rgb_encoder import RGBEncoder, PRE_TRAIN_POSSIBLE
-from viplanner.config import TrainCfg
+from .rgb_encoder import PRE_TRAIN_POSSIBLE, RGBEncoder
 
 
 class AutoEncoder(nn.Module):
@@ -23,14 +24,19 @@ class AutoEncoder(nn.Module):
 
 
 class DualAutoEncoder(nn.Module):
-    def __init__(self, train_cfg: TrainCfg, m2f_cfg = None, weight_path: Optional[str] = None):
+    def __init__(
+        self,
+        train_cfg: TrainCfg,
+        m2f_cfg=None,
+        weight_path: Optional[str] = None,
+    ):
         super().__init__()
         self.encoder_depth = PlannerNet(layers=[2, 2, 2, 2])
         if train_cfg.rgb and train_cfg.pre_train_sem and PRE_TRAIN_POSSIBLE:
             self.encoder_sem = RGBEncoder(m2f_cfg, weight_path, freeze=train_cfg.pre_train_freeze)
         else:
             self.encoder_sem = PlannerNet(layers=[2, 2, 2, 2])
-        
+
         if train_cfg.decoder_small:
             self.decoder = DecoderS(1024, train_cfg.in_channel, train_cfg.knodes)
         else:
@@ -54,17 +60,23 @@ class Decoder(nn.Module):
     def __init__(self, in_channels, goal_channels, k=5):
         super().__init__()
         self.k = k
-        self.relu    = nn.ReLU(inplace=True)
-        self.fg      = nn.Linear(3, goal_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.fg = nn.Linear(3, goal_channels)
         self.sigmoid = nn.Sigmoid()
 
-        self.conv1 = nn.Conv2d((in_channels + goal_channels), 512, kernel_size=5, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0);
+        self.conv1 = nn.Conv2d(
+            (in_channels + goal_channels),
+            512,
+            kernel_size=5,
+            stride=1,
+            padding=1,
+        )
+        self.conv2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0)
 
-        self.fc1   = nn.Linear(256 * 128, 1024) 
-        self.fc2   = nn.Linear(1024, 512)
-        self.fc3   = nn.Linear(512,  k*3)
-        
+        self.fc1 = nn.Linear(256 * 128, 1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc3 = nn.Linear(512, k * 3)
+
         self.frc1 = nn.Linear(1024, 128)
         self.frc2 = nn.Linear(128, 1)
 
@@ -75,8 +87,8 @@ class Decoder(nn.Module):
         # cat x with goal in channel dim
         x = torch.cat((x, goal), dim=1)
         # compute x
-        x = self.relu(self.conv1(x))   # size = (N, 512, x.H/32, x.W/32)
-        x = self.relu(self.conv2(x))   # size = (N, 512, x.H/60, x.W/60)
+        x = self.relu(self.conv1(x))  # size = (N, 512, x.H/32, x.W/32)
+        x = self.relu(self.conv2(x))  # size = (N, 512, x.H/60, x.W/60)
         x = torch.flatten(x, 1)
 
         f = self.relu(self.fc1(x))
@@ -90,22 +102,29 @@ class Decoder(nn.Module):
 
         return x, c
 
+
 class DecoderS(nn.Module):
     def __init__(self, in_channels, goal_channels, k=5):
         super().__init__()
         self.k = k
-        self.relu    = nn.ReLU(inplace=True)
-        self.fg      = nn.Linear(3, goal_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.fg = nn.Linear(3, goal_channels)
         self.sigmoid = nn.Sigmoid()
 
-        self.conv1 = nn.Conv2d((in_channels + goal_channels), 512, kernel_size=5, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0);
-        self.conv3 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=0);
-        self.conv4 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0);
+        self.conv1 = nn.Conv2d(
+            (in_channels + goal_channels),
+            512,
+            kernel_size=5,
+            stride=1,
+            padding=1,
+        )
+        self.conv2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=0)
+        self.conv3 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=0)
+        self.conv4 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=0)
 
-        self.fc1   = nn.Linear(64 * 48, 256) # --> in that setting 33 million parameters
-        self.fc2   = nn.Linear(256, k*3)
-        
+        self.fc1 = nn.Linear(64 * 48, 256)  # --> in that setting 33 million parameters
+        self.fc2 = nn.Linear(256, k * 3)
+
         self.frc1 = nn.Linear(256, 1)
 
     def forward(self, x, goal):
@@ -115,10 +134,10 @@ class DecoderS(nn.Module):
         # cat x with goal in channel dim
         x = torch.cat((x, goal), dim=1)  # x.size = (N, 1024+16, 12, 20)
         # compute x
-        x = self.relu(self.conv1(x))   # size = (N, 512, x.H/32, x.W/32)  --> (N, 512, 10, 18), 
-        x = self.relu(self.conv2(x))   # size = (N, 512, x.H/60, x.W/60)  --> (N, 256, 8, 16)
-        x = self.relu(self.conv3(x))   # size = (N, 512, x.H/90, x.W/90)  --> (N, 128, 6, 14)
-        x = self.relu(self.conv4(x))   # size = (N, 512, x.H/120, x.W/120) --> (N, 64, 4, 12)
+        x = self.relu(self.conv1(x))  # size = (N, 512, x.H/32, x.W/32)  --> (N, 512, 10, 18),
+        x = self.relu(self.conv2(x))  # size = (N, 512, x.H/60, x.W/60)  --> (N, 256, 8, 16)
+        x = self.relu(self.conv3(x))  # size = (N, 512, x.H/90, x.W/90)  --> (N, 128, 6, 14)
+        x = self.relu(self.conv4(x))  # size = (N, 512, x.H/120, x.W/120) --> (N, 64, 4, 12)
         x = torch.flatten(x, 1)
 
         f = self.relu(self.fc1(x))
@@ -129,4 +148,6 @@ class DecoderS(nn.Module):
         c = self.sigmoid(self.frc1(f))
 
         return x, c
+
+
 # EoF

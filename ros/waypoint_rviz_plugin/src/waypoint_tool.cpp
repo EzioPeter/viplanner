@@ -82,7 +82,7 @@ void WaypointTool::onPoseSet(double x, double y, double theta)
       // Print out the transformed point coordinates
       ROS_INFO("Point in map frame: (%.2f, %.2f, %.2f)",
                 waypoint_map.point.x, waypoint_map.point.y, waypoint_map.point.z);
-      
+
       pub_.publish(waypoint_map);
       // usleep(10000);
       // pub_.publish(waypoint);

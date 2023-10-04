@@ -1,4 +1,3 @@
-#!/usr/bin/python
 """
 @author     Pascal Roth
 @email      rothpa@student.ethz.ch
@@ -6,248 +5,252 @@
 @brief      VIPlanner Semantic Meta Data
 """
 
-OBSTACLE_LOSS = 1
-TRAVERSABLE_LOSS = 0
-ROAD_LOSS = 0.6
-TERRAIN_LOSS = 0.3
+OBSTACLE_LOSS = 2.0
+TRAVERSABLE_INTENDED_LOSS = 0
+TRAVERSABLE_UNINTENDED_LOSS = 0.5
+ROAD_LOSS = 1.5
+TERRAIN_LOSS = 1.0
 # NOTE: only obstacle loss should be over obscale_loss defined in costmap_cfg.py
 
 # original coco meta
 VIPLANNER_SEM_META = [
-    # ground
+    # TRAVERSABLE SPACE ###
+    # traversable intended
     {
-        'name': 'road',
-        'loss': ROAD_LOSS,
-        'color': [204, 204, 0],
-        'ground': True,
-    }, 
-    {
-        'name': 'sidewalk',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 255, 0],
-        'ground': True,
+        "name": "sidewalk",
+        "loss": TRAVERSABLE_INTENDED_LOSS,
+        "color": [0, 255, 0],
+        "ground": True,
     },
     {
-        'name': 'crosswalk',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 204, 0],
-        'ground': True,
+        "name": "crosswalk",
+        "loss": TRAVERSABLE_INTENDED_LOSS,
+        "color": [0, 102, 0],
+        "ground": True,
     },
     {
-        'name': 'floor',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 102, 0],
-        'ground': True,
+        "name": "floor",
+        "loss": TRAVERSABLE_INTENDED_LOSS,
+        "color": [0, 204, 0],
+        "ground": True,
     },
     {
-        'name': 'gravel',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 51, 0],
-        'ground': True,
+        "name": "stairs",
+        "loss": TRAVERSABLE_INTENDED_LOSS,
+        "color": [0, 153, 0],
+        "ground": True,
+    },
+    # traversable not intended
+    {
+        "name": "gravel",
+        "loss": TRAVERSABLE_UNINTENDED_LOSS,
+        "color": [204, 255, 0],
+        "ground": True,
     },
     {
-        'name': 'sand',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [153, 255, 153],
-        'ground': True,
+        "name": "sand",
+        "loss": TRAVERSABLE_UNINTENDED_LOSS,
+        "color": [153, 204, 0],
+        "ground": True,
     },
     {
-        'name': 'snow',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [107, 142, 35],
-        'ground': True,
+        "name": "snow",
+        "loss": TRAVERSABLE_UNINTENDED_LOSS,
+        "color": [204, 102, 0],
+        "ground": True,
     },
     {
-        'name': 'stairs',
-        'loss': TRAVERSABLE_LOSS,
-        'color': [0, 153, 0],
-        'ground': True,
+        "name": "indoor_soft",  # human made thing, can be walked on
+        "color": [102, 153, 0],
+        "loss": TERRAIN_LOSS,
+        "ground": False,
     },
+    {
+        "name": "terrain",
+        "color": [255, 255, 0],
+        "loss": TERRAIN_LOSS,
+        "ground": True,
+    },
+    {
+        "name": "road",
+        "loss": ROAD_LOSS,
+        "color": [255, 128, 0],
+        "ground": True,
+    },
+    # OBSTACLES ###
     # human
     {
-        'name': 'person',
-        'color': [255, 0, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "person",
+        "color": [255, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'anymal',
-        'color': [102, 0, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "anymal",
+        "color": [204, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     # vehicle
     {
-        'name': 'vehicle',
-        'color': [153, 76, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "vehicle",
+        "color": [153, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'on_rails',
-        'color': [51, 25, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "on_rails",
+        "color": [51, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'motorcycle',
-        'color': [204, 102, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "motorcycle",
+        "color": [102, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'bicycle',
-        'color': [102, 51, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "bicycle",
+        "color": [102, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     # construction
     {
-        'name': 'building',
-        'loss': OBSTACLE_LOSS,
-        'color': [127, 0, 255],
-        'ground': False,
+        "name": "building",
+        "loss": OBSTACLE_LOSS,
+        "color": [127, 0, 255],
+        "ground": False,
     },
     {
-        'name': 'wall',
-        'color': [102, 0, 204],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "wall",
+        "color": [102, 0, 204],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'fence',
-        'color': [76, 0, 153],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "fence",
+        "color": [76, 0, 153],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'bridge',
-        'color': [51, 0, 102],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "bridge",
+        "color": [51, 0, 102],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'tunnel',
-        'color': [51, 0, 102],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "tunnel",
+        "color": [51, 0, 102],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     # object
     {
-        'name': 'pole',
-        'color': [0, 0, 255],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "pole",
+        "color": [0, 0, 255],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'traffic_sign',
-        'color': [0, 0, 153],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "traffic_sign",
+        "color": [0, 0, 153],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'traffic_light',
-        'color': [0, 0, 204],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "traffic_light",
+        "color": [0, 0, 204],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'bench',
-        'color': [0, 0, 102],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "bench",
+        "color": [0, 0, 102],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     # nature
     {
-        'name': 'vegetation',
-        'color': [153, 0, 153],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "vegetation",
+        "color": [153, 0, 153],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'terrain',
-        'color': [51, 255, 51],
-        'loss': TERRAIN_LOSS,
-        'ground': True,
-    },
-    {
-        'name': 'water_surface',
-        'color': [204, 0, 204],
-        'loss': OBSTACLE_LOSS,
-        'ground': True,
+        "name": "water_surface",
+        "color": [204, 0, 204],
+        "loss": OBSTACLE_LOSS,
+        "ground": True,
     },
     # sky
     {
-        'name': 'sky',
-        'color': [102, 0, 51],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "sky",
+        "color": [102, 0, 51],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'background',
-        'color': [102, 0, 51],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "background",
+        "color": [102, 0, 51],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     # void outdoor
     {
-        'name': 'dynamic',
-        'color': [32, 32, 32],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "dynamic",
+        "color": [32, 0, 32],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'static',  # also everything unknown
-        'color': [0, 0, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "static",  # also everything unknown
+        "color": [0, 0, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     # indoor
     {
-        'name': 'furniture',
-        'color': [0, 0, 51],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "furniture",
+        "color": [0, 0, 51],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'door',
-        'color': [153, 153, 0],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "door",
+        "color": [153, 153, 0],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
     {
-        'name': 'ceiling',
-        'color': [25, 0, 51],
-        'loss': OBSTACLE_LOSS,
-        'ground': False,
+        "name": "ceiling",
+        "color": [25, 0, 51],
+        "loss": OBSTACLE_LOSS,
+        "ground": False,
     },
-    {
-        'name': 'indoor_soft',  # human made thing, can be walked on
-        'color': [178, 255, 102],
-        'loss': ROAD_LOSS,
-        'ground': False,
-    }
 ]
 
+
 class VIPlannerSemMetaHandler:
-    """Useful functions for handling VIPlanner semantic meta data.
-    """
-    
+    """Useful functions for handling VIPlanner semantic meta data."""
+
     def __init__(self) -> None:
         # meta config
         self.meta = VIPLANNER_SEM_META
-        
+
         # class loss dict
         self.class_loss: dict = self._get_class_loss_dict()
         self.class_color: dict = self._get_class_color_dict()
         self.class_ground: dict = self._get_class_ground_dict()
         self.class_id: dict = self._get_class_id_dict()
         return
-    
+
     def get_colors_for_names(self, name_list: list) -> list:
         """Get list of colors for a list of names."""
         colors = []
-        name_to_color = {nc['name']: nc['color'] for nc in self.meta}
+        name_to_color = {nc["name"]: nc["color"] for nc in self.meta}
         for name in name_list:
             if name in name_to_color:
                 colors.append(name_to_color[name])
@@ -255,30 +258,30 @@ class VIPlannerSemMetaHandler:
 
     def _get_class_loss_dict(self) -> dict:
         """Get class loss dict."""
-        return {nc['name']: nc['loss'] for nc in self.meta}
-    
+        return {nc["name"]: nc["loss"] for nc in self.meta}
+
     def _get_class_color_dict(self) -> dict:
         """Get class color dict."""
-        return {nc['name']: nc['color'] for nc in self.meta}
+        return {nc["name"]: nc["color"] for nc in self.meta}
 
     def _get_class_ground_dict(self) -> dict:
         """Get class ground dict."""
-        return {nc['name']: nc['ground'] for nc in self.meta}
-    
+        return {nc["name"]: nc["ground"] for nc in self.meta}
+
     def _get_class_id_dict(self) -> dict:
         """Get class id dict."""
-        return {nc['name']: i for i, nc in enumerate(self.meta)}
-    
+        return {nc["name"]: i for i, nc in enumerate(self.meta)}
+
     @property
     def colors(self) -> list:
         """Get list of colors."""
         return list(self.class_color.values())
-    
+
     @property
     def losses(self) -> list:
         """Get list of losses."""
         return list(self.class_loss.values())
-    
+
     @property
     def names(self) -> list:
         """Get list of names."""
@@ -292,56 +295,66 @@ class VIPlannerSemMetaHandler:
 
 """CLASS COLOR VISUALIZATION"""
 
-if __name__ == '__main__':
-    import numpy as np
+if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     # init meta handler
     meta_handler = VIPlannerSemMetaHandler()
-    
+
     # class ordering array
     cls_order = [
-        ['sky', 'background', 'dynamic', 'static'],
-        ['building', 'wall', 'fence', 'ceiling', 'vegetation', 'water_surface'],  # 'bridge', 
-        ['pole', 'traffic_light', 'traffic_sign', 'bench', 'furniture'],
-        ['terrain', 'indoor_soft', 'sand', 'snow'],
-        ['sidewalk', 'crosswalk', 'stairs', 'floor', 'gravel'],
-        ['road', 'door'],
-        ['motorcycle', 'vehicle', 'bicycle', 'on_rails'],
-        ['anymal', 'person']
+        ["sky", "background", "ceiling", "dynamic", "static"],
+        [
+            "building",
+            "wall",
+            "fence",
+            "vegetation",
+            "water_surface",
+        ],  # 'bridge',
+        [
+            "pole",
+            "traffic_light",
+            "traffic_sign",
+            "bench",
+            "furniture",
+            "door",
+        ],
+        ["gravel", "sand", "indoor_soft", "terrain", "snow", "road"],
+        ["sidewalk", "floor", "stairs", "crosswalk"],
+        ["person", "anymal", "vehicle", "motorcycle", "bicycle", "on_rails"],
     ]
-    
+
     # Create the 8x8 grid of subplots
-    fig, axs = plt.subplots(nrows=8, ncols=7, figsize=(10, 10))
+    fig, axs = plt.subplots(nrows=6, ncols=6, figsize=(10, 10))
 
     # Loop over each subplot and plot the data
-    for i in range(8):
-        for j in range(7):
-            ax = axs[i][j] 
-            
+    for i in range(6):
+        for j in range(6):
+            ax = axs[i][j]
+
             # Remove the axis, axis ticks, border, ...
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['bottom'].set_visible(False)
-            ax.spines['left'].set_visible(False)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            ax.spines["bottom"].set_visible(False)
+            ax.spines["left"].set_visible(False)
             ax.set_xticks([])
-            ax.set_yticks([])            
-            
+            ax.set_yticks([])
+
             # plot color
             if j >= len(cls_order[i]):
-                continue       
+                continue
             ax.imshow([[tuple(meta_handler.class_color[cls_order[i][j]])]])
             ax.set_title(cls_order[i][j], fontsize=16)
             ax.set_xlabel(meta_handler.class_color[cls_order[i][j]], fontsize=12)
-            
+
     # Set the overall title of the plot
-    fig.suptitle('VIPlanner Semantic Classes Color Scheme', fontsize=22)
+    fig.suptitle("VIPlanner Semantic Classes Color Scheme", fontsize=22)
 
     # Adjust the spacing between subplots
     plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
     plt.tight_layout()
-    plt.savefig('/home/pascal/viplanner_semantic_classes_color_scheme.png', dpi=300)
+    plt.savefig("/home/pascal/viplanner_semantic_classes_color_scheme.png", dpi=300)
     # Show the plot
     plt.show()
 

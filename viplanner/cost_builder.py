@@ -1,5 +1,3 @@
-#!/usr/bin python3
-
 """
 @author     Pascal Roth
 @email      rothpa@student.ethz.ch
@@ -8,13 +6,12 @@
 """
 # imperative-cost-map
 from viplanner.config import CostMapConfig
-from viplanner.cost_maps import SemCostMap, TsdfCostMap, CostMapPCD
+from viplanner.cost_maps import CostMapPCD, SemCostMap, TsdfCostMap
 
 
 def main(cfg: CostMapConfig, final_viz: bool = True):
-    
     assert any([cfg.semantics, cfg.geometry]), "no cost map type selected"
-    
+
     # create semantic cost map
     if cfg.semantics:
         print("============ Creating Semantic Map from cloud ===============")
@@ -27,10 +24,10 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
         tsdf_cost_map = TsdfCostMap(cfg.general, cfg.tsdf_cost_map)
         tsdf_cost_map.ReadPointFromFile()
         data, coord = tsdf_cost_map.CreateTSDFMap()
-        tsdf_cost_map.VizCloud(tsdf_cost_map.obs_pcd) if cfg.visualize else None
+        (tsdf_cost_map.VizCloud(tsdf_cost_map.obs_pcd) if cfg.visualize else None)
     else:
         raise ValueError("no cost map type selected")
-    
+
     # set coords in costmap config
     cfg.x_start, cfg.y_start = coord
 
@@ -52,5 +49,5 @@ def main(cfg: CostMapConfig, final_viz: bool = True):
 if __name__ == "__main__":
     cfg = CostMapConfig()
     main(cfg)
-    
+
 # EoF

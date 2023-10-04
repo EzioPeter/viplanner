@@ -5,9 +5,9 @@ Here an overview of the steps involved in training the policy is provided.
 ## Cost-Map Building
 
 Cost-Map building is an essential step in guiding optimization and representing the environment.
-Cost-Maps can be built from either depth and semantic images (i.e. data generated in simulation) or colored point clouds (i.e. real-world data).
+Cost-Maps can be built from either depth and semantic images (i.e., data generated in simulation) or (semantically annotated) point clouds (i.e., real-world data).
 
-If depth and semantic images, then first 3d reconstruction has to be performed, following the steps described in Point 1. If colored pointclouds, then the cost-map can be build directly from the pointcloud, following the steps described in Point 2.
+If depth and semantic images of the simulation are available, then first 3D reconstruction has to be performed, following the steps described in Point 1. If the (semantically annotated) pointclouds are generated, then the cost-map can be build directly from the pointcloud, following the steps described in Point 2.
 
 1. **Simulation: Depth Reconstruction** <br>
 
@@ -18,7 +18,7 @@ If depth and semantic images, then first 3d reconstruction has to be performed, 
     The process expects following datastructure:
 
     ``` graphql
-    env_name 
+    env_name
     ├── camera_extrinsic.txt                    # format: x y z qx qy qz qw
     ├── intrinsics.txt                          # expects ROS CameraInfo format --> P-Matrix
     ├── depth                                   # either png and/ or npy, if both npy is used
@@ -29,7 +29,7 @@ If depth and semantic images, then first 3d reconstruction has to be performed, 
     ```
 
     when both depth and semantic images are available, then define sem_suffic and depth_suffix in ReconstructionCfg to differentiate between the two with the following structure:
-    
+
     ``` graphql
     env_name
     ├── camera_extrinsic{depth_suffix}.txt      # format: x y z qx qy qz qw
@@ -43,7 +43,7 @@ If depth and semantic images, then first 3d reconstruction has to be performed, 
     ```
 
     The [Orbit](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip) extensions for Matterport and Carla datasets allow for "high resolution depth images".
-    These are recorded in the same frame as the semantic images to maximize overlay. 
+    These are recorded in the same frame as the semantic images to maximize overlay.
     To use these images for reconstruction, the following additional directory is expected and the config parameter `high_res` has to be `True`:
 
     ``` graphql
@@ -54,7 +54,7 @@ If depth and semantic images, then first 3d reconstruction has to be performed, 
 
 2. **Real-World: Open3D-Slam**
 
-    TODO: Detailed description will be created when development fully tested. 
+    To create an annotated 3D Point-Cloud from real-world data, i.e., LiDAR scans and semantics generated from the RGB camera stream, use tools such as [Open3D Slam](https://github.com/leggedrobotics/open3d_slam).
 
 
 3. **Cost-Building** <br>
@@ -85,7 +85,7 @@ If depth and semantic images, then first 3d reconstruction has to be performed, 
 
 ## Training
 
-Configurations of the training given in [TrainCfg](viplanner/config/learning_cfg.py). Training can be started using the example trainig script [train.py](viplanner/train.py).
+Configurations of the training given in [TrainCfg](viplanner/config/learning_cfg.py). Training can be started using the example training script [train.py](viplanner/train.py).
 
 ``` bash
 python viplanner/train.py
@@ -106,7 +106,7 @@ file_path                                       # TrainCfg.file_path or env vari
 ```
 
 It is important that the model name is unique, otherwise the previous training will be overwritten.
-Also always copy the `model.pt` and `model.yaml` because the configs are necessary to reload the model. 
+Also always copy the `model.pt` and `model.yaml` because the configs are necessary to reload the model.
 
 ## Evaluation
 
@@ -121,4 +121,3 @@ Evaluation of the trained model can be performed in two manners:
    - [simulation within Nvidia Isaac Sim](https://github.com/leggedrobotics/orbit/blob/dev/pascal/anymal-vip/source/extensions/omni.isaac.anymal/omni/isaac/anymal/viplanner/evaluator.py)
 
 REMARK: for both real-world evaluation, the data has first to be extracted from the rosbag using the script `viplanner/utils/rosbag_extractor.py`
-

@@ -20,32 +20,26 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
-    "torch>=1.13",
-    "torchvision>=0.14",
-    "torchaudio>=0.13",
+    "torch",
+    "torchvision",
     "PyYAML==6.0",
     "tqdm",
     "matplotlib",
     "networkx",
     "scipy",
-    # 'detectron2 @ git+https://github.com/facebookresearch/detectron2.git',  # FIXME: install not working automatically
-    "open3d==0.13.0",
-    # training only
-    "pypose",
+    "open3d==0.17.0",
     "wandb==0.14.0",
-    # m2f
-    'cython',
-    'shapely',
-    'timm',  # ==3.2
-    'h5py',
-    'submitit',
-    'scikit-image',
-    'panopticapi @ git+https://github.com/cocodataset/panopticapi.git',
+    "opencv-python-headless",
 ]
 
 [project.optional-dependencies]
-sim = [
-    "opencv-python-headless",
+inference = [
+    "mmcv==2.0.0",
+    "mmengine",
+    "mmdet",
+]
+standard = [
+    "pypose",
 ]
 
 [project.urls]

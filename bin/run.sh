@@ -1,54 +1,30 @@
-# Parse arguments
-VERSION=0.1.0
-ENTRYPOINT="/entrypoint.sh"
 PKGROOT="$( realpath "$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && pwd )"/../ )"
+echo -e "\e[1;32m[run.sh]: Package root is '$PKGROOT'.\e[0m"
 
-# Define environment variables for enabling graphical output for the container.
-XSOCK=/tmp/.X11-unix
-XAUTH=/tmp/.docker.xauth
-if [ ! -f $XAUTH ]
-then
-    touch $XAUTH
-    xauth_list=$(xauth nlist :0 | sed -e 's/^..../ffff/')
-    xauth nlist $DISPLAY | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
-    chmod a+r $XAUTH
-fi
+set -e
 
-#==
-# Launch container
-#==
+source $PKGROOT/bin/scripts/jetson_l4t_version.sh
+IMAGE="rslethz/jetpack-5:r$L4T_VERSION-viplanner_test_new"
 
-# Create symlinks to user configs within the build context.
-mkdir -p .etc && cd .etc
-ln -sf /etc/passwd .
-ln -sf /etc/shadow .
-ln -sf /etc/group .
-cd ..
+echo -e "[run.sh]: \e[1;32mSetting max fan speed to increase performance.\e[0m"
+sudo /usr/bin/jetson_clocks --fan
 
-# Launch a container from the prebuilt image.
-echo -e "[run.sh]: \e[1;32mRunning docker image 'rslethz/viplanner:$VERSION' with entrypoint '$ENTRYPOINT'.\e[0m"
-echo "---------------------"
+echo -e "[run.sh]: \e[1;32mRunning docker image '$IMAGE'.\e[0m"
+
 RUN_COMMAND="docker run \
-  --volume=$XSOCK:$XSOCK:rw \
-  --volume=$XAUTH:$XAUTH:rw \
-  --env="QT_X11_NO_MITSHM=1" \
-  --env="XAUTHORITY=$XAUTH" \
-  --env="DISPLAY=$DISPLAY" \
-  --ulimit rtprio=99 \
-  --cap-add=sys_nice \
-  --privileged \
+  -it \
   --net=host \
-  --entrypoint="/bin/bash" \
-  -eHOST_USERNAME=$(whoami) \
-  -v$(pwd)/planner/model_src/viplanner:/viplanner \
-  -v/dev/input/js0:/dev/input/js0 \
-  -v$HOME:$HOME \
-  -v$(pwd)/.etc/shadow:/etc/shadow \
-  -v$(pwd)/.etc/passwd:/etc/passwd \
-  -v$(pwd)/.etc/group:/etc/group \
-  -it rslethz/viplanner:$VERSION"
+  --runtime nvidia \
+  --dns 8.8.8.8 \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix/:/tmp/.X11-unix \
+  -v $HOME/git/:/root/git \
+  -v $HOME/catkin_ws/:/root/catkin_ws/ \
+  -v /etc/timezone:/etc/timezone \
+  -v /etc/localtime:/etc/localtime \
+  $IMAGE
+"
 echo -e "[run.sh]: \e[1;32mThe final run command is\n\e[0;35m$RUN_COMMAND\e[0m."
 $RUN_COMMAND
 echo -e "[run.sh]: \e[1;32mDocker terminal closed.\e[0m"
 
-rm -rf .etc

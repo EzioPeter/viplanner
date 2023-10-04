@@ -1,8 +1,8 @@
 # ViPlanner: Visual Semantic Imperative Learning for Local Navigation
 
 <p align="center">
-  <a href="https://arxiv.org/">arXiv</a> •
-  <a href="https://bowenc0221.github.io/mask2former">Video</a> •
+  <a href="https://arxiv.org/abs/2310.00982">arXiv</a> •
+  <a href="https://drive.google.com/file/d/1yp500O5tlA1fLLQs0z8a-WxCDsnKwDCl/view?usp=sharing">Demo Video</a> •
   <a href="#CitingViPlanner">BibTeX</a>
 
   Click on image for demo video!
@@ -12,7 +12,7 @@
 
 ViPlanner is a robust learning-based local path planner based on semantic and depth images.
 Fully trained in simulation, the planner can be applied in dynamic indoor as well outdoor environments.
-We provide it as an extension for [NVIDIA Isaac-Sim](https://developer.nvidia.com/isaac-sim) within the [Orbit](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip) project.
+We provide it as an extension for [NVIDIA Isaac-Sim](https://developer.nvidia.com/isaac-sim) within the [Orbit](https://isaac-orbit.github.io/) project, the extension can be found [here] (LINK coming soon, updating to new Orbit Version).
 Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is available within this repo for direct integration on any robot (tested and developed on ANYmal C and D).
 
 **Keywords:** Visual Navigation, Local Planning, Imperative Learning
@@ -85,7 +85,7 @@ The first step in training the policy is to build a cost-map from the available 
 Once the cost-map is constructed, the next step is to train the policy. The policy is a machine learning model that learns to make decisions based on the depth and semantic measurements. An example training script can be found [here](viplanner/train.py) with configs [here](viplanner/config/learning_cfg.py)
 
 3. Evaluation <br>
-Performance assessment can be performed on simulation and real-world data. The policy will be evaluated regarding multiple metrics such as distance to goal, average and maximum cost, path length. In order to let the policy be executed on anymal in simulation, please refer to the implementation as part of the [Orbit Framework](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip)
+Performance assessment can be performed on simulation and real-world data. The policy will be evaluated regarding multiple metrics such as distance to goal, average and maximum cost, path length. In order to let the policy be executed on anymal in simulation, please refer to the implementation as part of the Orbit Framework [here] (LINK coming soon, updating to new Orbit Version)
 
 
 ## Inference
@@ -96,7 +96,7 @@ Performance assessment can be performed on simulation and real-world data. The p
 
 2. NVIDIA Isaac-Sim <br>
 
-	The planner can be executed within Nvidia Isaac Sim. It is implemented as part of the [Orbit Framework](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip/source/extensions/omni.isaac.anymal/omni/isaac/anymal/viplanner) incl. a new ANYmal extension, as available [here](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip/source/extensions/omni.isaac.anymal). For details on how to employ it, please refer to the Orbit Documentation.
+	The planner can be executed within Nvidia Isaac Sim. It is implemented as part of the [Orbit Framework](https://isaac-orbit.github.io/), as available [here] (LINK coming soon, updating to new Orbit Version). For details on how to employ it, please refer to the Orbit Documentation.
 
 ### Model Download
 The latest model is available to download: [[checkpoint](https://drive.google.com/file/d/1PY7XBkyIGESjdh1cMSiJgwwaIT0WaxIc/view?usp=sharing)] [[config](https://drive.google.com/file/d/1r1yhNQAJnjpn9-xpAQWGaQedwma5zokr/view?usp=sharing)]
@@ -104,12 +104,12 @@ The latest model is available to download: [[checkpoint](https://drive.google.co
 ## <a name="CitingViPlanner"></a>Citing ViPlanner
 ```
 @misc{roth2023viplanner,
-    author={Pascal Roth, Julian Nubert, Fan Yang, Mayank Mittal, and Marco Hutter},
-    title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation},
-    year={2023},
-    eprint={2302.11434}, # TODO: update when published
-    archivePrefix={arXiv},
-    primaryClass={cs.RO}
+      title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation}, 
+      author={Pascal Roth and Julian Nubert and Fan Yang and Mayank Mittal and Marco Hutter},
+      year={2023},
+      eprint={2310.00982},
+      archivePrefix={arXiv},
+      primaryClass={cs.RO}
 }
 ```
 

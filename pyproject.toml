@@ -21,16 +21,15 @@ classifiers = [
 ]
 dependencies = [
     "torch",
+    "torchvision",
     "PyYAML==6.0",
     "tqdm",
     "matplotlib",
     "networkx",
     "scipy",
     "open3d==0.17.0",
-    # training only
     "wandb==0.14.0",
     "opencv-python-headless",
-    "pypose",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +37,10 @@ inference = [
     "mmcv==2.0.0",
     "mmengine",
     "mmdet",
+    "torch==1.11",
+]
+standard = [
+    "pypose",
 ]
 
 [project.urls]

@@ -7,9 +7,9 @@ overlap_ratio_thres:    0.80
 depth_zero_ratio_thres: 0.6
 # network model
 model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_cam_mount_combi_lossWidthMod_wgoal4.0_warehouse
-m2f_model_path:         models/mask2former_r50_8xb2-lsj-50e_coco-panoptic_20230118_125535-54df384a.pth
+m2f_model_path:         models/m2f_model/mask2former_r50_8xb2-lsj-50e_coco-panoptic_20230118_125535-54df384a.pth
 # m2f_cfg_file:           ${HOME}/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
-m2f_cfg_file:           /home/pascal/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
+m2f_cfg_file:           /root/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
 # ros topics
 depth_topic:            /depth_cam_mounted_front/depth/image_rect_raw
 depth_info_topic:       /depth_cam_mounted_front/depth/camera_info

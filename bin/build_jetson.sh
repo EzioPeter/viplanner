@@ -20,7 +20,7 @@ set -e
 source $PKGROOT/bin/scripts/jetson_l4t_version.sh
 source $PKGROOT/bin/scripts/jetson_docker_base.sh
 
-CONTAINER="rslethz/jetpack-5:r$L4T_VERSION-viplanner_test"
+CONTAINER="rslethz/jetpack-5:r$L4T_VERSION-viplanner_test_new"
 DOCKERFILE="$PKGROOT/Dockerfile.Jetson"
 
 # build container

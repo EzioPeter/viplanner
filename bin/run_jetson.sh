@@ -4,7 +4,7 @@ echo -e "\e[1;32m[run.sh]: Package root is '$PKGROOT'.\e[0m"
 set -e
 
 source $PKGROOT/bin/scripts/jetson_l4t_version.sh
-IMAGE="rslethz/jetpack-5:r$L4T_VERSION-viplanner_test"
+IMAGE="rslethz/jetpack-5:r$L4T_VERSION-viplanner_test_new"
 
 echo -e "[run.sh]: \e[1;32mSetting max fan speed to increase performance.\e[0m"
 sudo /usr/bin/jetson_clocks --fan

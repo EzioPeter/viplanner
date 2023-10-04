@@ -87,6 +87,13 @@ In order to build the docker container on a NVIDIA Jetson Orin, execute the foll
 
 ## Known Issues
 
+### ROS numpy
+
+- 
+
+- FIX:
+  in '/opt/ros/noetic/lib/python3/dist-packages/ros_numpy/point_cloud2.py' change all occurances of 'np.float' to 'float'
+
 ### General
 
 - Setuptools version during install. VIPlanner requires are rather recent version of setuptools (>64.0.0) which can lead to problems with the mask2former install. It is recommended to always install mask2former first and then upgrade setuptools to the version needed for the VIPlanner. Otherwise following errors can be observed:

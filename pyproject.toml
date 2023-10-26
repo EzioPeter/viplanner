@@ -41,6 +41,9 @@ inference = [
 standard = [
     "pypose",
 ]
+jetson = [
+    "torch==1.11",
+]
 
 [project.urls]
 homepage = "https://github.com/pascal-roth/viplanner"

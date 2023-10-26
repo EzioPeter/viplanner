@@ -234,6 +234,7 @@ RUN apt-get update && \
 		libffi-dev \
 		libsndfile1 \
         vim \
+        libusb-dev \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -263,7 +264,7 @@ RUN pip3 install --ignore-installed PyYAML==6.0.0
 # FIX pypose requires version 0.3.6 for torch < 2.0.x and work with toch 1.11
 RUN pip3 install --no-dependencies pypose==0.3.6
 ENV PATH="$PATH:/root/.local/bin"
-RUN pip3 install --user -e /viplanner/.[inference]
+RUN pip3 install --user -e /viplanner/.[inference,jetson]
 RUN pip3 install pillow==9.4.0
 
 

@@ -36,9 +36,9 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   ```
   export CUDA_HOME=/usr/local/cuda
   ```
-  On the Jetson, only use 
+  On the Jetson, please use 
   ```bash
-  pip install -e .[inference]
+  pip install -e .[inference,jetson]
   ```
   as `mmdet` requires torch.distrubted which is only build until version 1.11 which is not compatible with pypose. See the `Dockerfile` for a workaround.  
 

@@ -22,6 +22,7 @@ RUN_COMMAND="docker run \
   -v $HOME/catkin_ws/:/root/catkin_ws/ \
   -v /etc/timezone:/etc/timezone \
   -v /etc/localtime:/etc/localtime \
+  -v $HOME/git/viplanner:/viplanner \
   $IMAGE
 "
 echo -e "[run.sh]: \e[1;32mThe final run command is\n\e[0;35m$RUN_COMMAND\e[0m."

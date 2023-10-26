@@ -244,11 +244,11 @@ int main(int argc, char** argv)
 
   lookAheadDis += std::hypot(sensorOffsetX, sensorOffsetY);
 
-  // ros::Subscriber subOdom = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped> (odomTopic, 5, odomHandler);
+  ros::Subscriber subOdom = nh.subscribe<geometry_msgs::PoseWithCovarianceStamped> (odomTopic, 5, odomHandler);
 
-  ros::Subscriber subOdom = nh.subscribe<nav_msgs::Odometry> (odomTopic, 5, odomHandler);
+  // ros::Subscriber subOdom = nh.subscribe<nav_msgs::Odometry> (odomTopic, 5, odomHandler);
 
-  ros::Subscriber subPath = nh.subscribe<nav_msgs::Path> ("/path", 5, pathHandler);
+  ros::Subscriber subPath = nh.subscribe<nav_msgs::Path> ("/viplanner/path", 5, pathHandler);
 
   ros::Subscriber subJoystick = nh.subscribe<sensor_msgs::Joy> ("/joy", 5, joystickHandler);
 

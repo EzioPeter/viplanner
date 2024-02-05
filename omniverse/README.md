@@ -4,6 +4,7 @@ The ViPlanner Omniverse Extension offers a sophisticated testing environment for
 Within NVIDIA Isaac Sim as a photorealistic simulator, this extension provides an assessment tool for ViPlanner's performance across diverse environments. 
 The extension is developed using the [Orbit Framework](https://isaac-orbit.github.io/).
 
+
 ## Installation
 
 To install the ViPlanner extension for Isaac Sim, follow these steps:
@@ -17,12 +18,22 @@ cd orbit/source/extension
 ln -s {VIPLANNER_DIR}/omniverse/extension/omni.viplanner .
 ```
 
-3. Then run the orbit installer script and additionally install ViPlanner in the Isaac Sim virtual environment. 
+3. TEMPORARY: To use Matterport and Unreal Engine Meshes with semantic information within Isaac Sim, a new extension has been developed as part of this work. Currently, all parts are getting updated to the latest Orbit version. A temporary solution that is sufficient for the demo script is available [here](https://github.com/pascal-roth/orbit_envs). Please also clone and link it into orbit.
+
+```
+git clone git@github.com:pascal-roth/orbit_envs.git
+cd orbit/source/extension
+ln -s {ORBIT_ENVS}/extensions/omni.isaac.matterport .
+ln -s {ORBIT_ENVS}/extensions/omni.isaac.carla .
+```
+
+4. Then run the orbit installer script and additionally install ViPlanner in the Isaac Sim virtual environment. 
 
 ```
 ./orbit.sh -i -e
 ./orbit.sh -p -m pip install -e {VIPLANNER_DIR}
 ```
+
 
 ## Usage
 

@@ -20,7 +20,7 @@ def rename_files_with_numbering(directory):
             continue
 
         # Construct the new file name
-        new_name = f"{count:04d}_depth.png"  # Use leading zeros for consistent naming
+        new_name = f"{count:04d}_rgb.png"  # Use leading zeros for consistent naming
         new_path = os.path.join(directory, new_name)
 
         # Construct the current file's path
@@ -34,8 +34,6 @@ def rename_files_with_numbering(directory):
 
 
 if __name__ == "__main__":
-    target_directory = (
-        "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_both_door/video_depth_projected"
-    )
+    target_directory = "/home/pascal/Downloads/SRD_data/video_sem_after_projected"
     # target_directory = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_crosswalk_sidewalk_wet_success/video_sem_after_projected"
     rename_files_with_numbering(target_directory)

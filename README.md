@@ -36,11 +36,11 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   ```
   export CUDA_HOME=/usr/local/cuda
   ```
-  On the Jetson, please use 
+  On the Jetson, please use
   ```bash
   pip install -e .[inference,jetson]
   ```
-  as `mmdet` requires torch.distrubted which is only build until version 1.11 which is not compatible with pypose. See the `Dockerfile` for a workaround.  
+  as `mmdet` requires torch.distrubted which is only build until version 1.11 which is not compatible with pypose. See the `Dockerfile` for a workaround.
 
 **Known Issue**
 - mmcv build wheel does not finish:
@@ -96,7 +96,7 @@ Performance assessment can be performed on simulation and real-world data. The p
 
 2. NVIDIA Isaac-Sim <br>
 
-	The planner can be executed within Nvidia Isaac Sim. It is implemented as part of the [Orbit Framework](https://isaac-orbit.github.io/), as available [here] (LINK coming soon, updating to new Orbit Version). For details on how to employ it, please refer to the Orbit Documentation.
+	The planner can be executed within Nvidia Isaac Sim. It is implemented as part of the [Orbit Framework](https://isaac-orbit.github.io/). For details on how to employ it, please refer to [ViPlanner Omniverse Extension](omniverse/README.md).
 
 ### Model Download
 The latest model is available to download: [[checkpoint](https://drive.google.com/file/d/1PY7XBkyIGESjdh1cMSiJgwwaIT0WaxIc/view?usp=sharing)] [[config](https://drive.google.com/file/d/1r1yhNQAJnjpn9-xpAQWGaQedwma5zokr/view?usp=sharing)]
@@ -104,7 +104,7 @@ The latest model is available to download: [[checkpoint](https://drive.google.co
 ## <a name="CitingViPlanner"></a>Citing ViPlanner
 ```
 @misc{roth2023viplanner,
-      title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation}, 
+      title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation},
       author={Pascal Roth and Julian Nubert and Fan Yang and Mayank Mittal and Marco Hutter},
       year={2023},
       eprint={2310.00982},

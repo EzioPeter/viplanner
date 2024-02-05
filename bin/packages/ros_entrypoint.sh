@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Adapted from 
+# Adapted from
 # https://github.com/dusty-nv/jetson-containers/blob/eb2307d40f0884d66310e9ac34633a4c5ef2e083/packages/ros_entrypoint.sh
 
 figlet VIPlanner

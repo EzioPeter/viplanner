@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # get source directory
 export VIPLANNER_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 

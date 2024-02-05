@@ -283,7 +283,7 @@ class EvalVideo:
 
 
 if __name__ == "__main__":
-    dir = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_both_door"
+    dir = "/home/pascal/Downloads/SRD_data"
     # dir = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_crosswalk_sidewalk_success"
     # dir = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_crosswalk_sidewalk_wet_success"
     eval_plotter = EvalVideo(dir)

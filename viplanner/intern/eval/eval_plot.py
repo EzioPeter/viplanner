@@ -208,7 +208,7 @@ class EvalPlotter(RealWorldDataHandler):
 
 
 if __name__ == "__main__":
-    dir = "/media/pascal/NavigationData/PascalRothData/bag/2023_09_07_stairs_both_door"
+    dir = "/home/pascal/Downloads/SRD_data"
     eval_plotter = EvalPlotter(dir, rotate=True)
     eval_plotter.plot()
 

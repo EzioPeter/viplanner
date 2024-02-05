@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Builds the self-contained JetPack Docker container, including development 
+# Builds the self-contained JetPack Docker container, including development
 # headers/libraries/samples for CUDA Toolkit.
-# This container differs from original jetpack for the OpenCV version which is not 
+# This container differs from original jetpack for the OpenCV version which is not
 # 4.5 but 4.2.0 for better compatibility with ROS Noetic packages.
-# It also has already pre-installed ROS Noetic distro. 
-# 
+# It also has already pre-installed ROS Noetic distro.
+#
 # Run this script as follows:
 #
 #   $ cd jetson-containers-rsl

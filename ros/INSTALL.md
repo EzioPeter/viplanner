@@ -30,23 +30,23 @@ You will then want to restart the Docker service or reboot your system before pr
 
 In order to build the docker container on a NVIDIA Jetson Orin, execute the following steps:
 
-1. On the jetson, local the files: `nvidia-l4t-apt-source.list` (usually at location `./etc/apt/sources.list.d/nvidia-l4t-apt-source.list`) and `nvidia-l4t-apt-source.clean.list` (if not on device, just creat an empty file). Then, copy both into `bin/packages`. 
+1. On the jetson, local the files: `nvidia-l4t-apt-source.list` (usually at location `/etc/apt/sources.list.d/nvidia-l4t-apt-source.list`) and `nvidia-l4t-apt-source.clean.list` (if not on device, just creat an empty file). Then, copy both into `bin/packages`.
 
 2. The DockerContext of the image is the parent directory of viplanner, thus, make sure you put the repo under a folder, e.g., git and not under your home as otherwise all files under home are copied to the context. The container can then be build as follows:
     ```bash
-    ./bin/build_jetson.sh
+    ./bin/build.sh
     ```
 
 3. To run the container, we assume that there exists `$HOME/catkin_ws` and `$HOME\git`. In the former, the catkin workspace with the `src` directory is located (don't build the packages yet) and in the second are any kind of git repositories that should be included. If both are there, the docker container can be started with:
     ```bash
-    ./bin/run_jetson.sh
+    ./bin/run.sh
     ```
 
 4. The viplanner repo should be linked into `$HOME/catkin_ws/src`. Then the planner's ROS Node can be build as follows:
     ```bash
     catkin build viplanner_pkgs
     ```
-    Similary add all other robot specific repositories and build the corresponidng packages. 
+    Similary add all other robot specific repositories and build the corresponidng packages.
 
 **Remark**: If additional development environments such as TensorRT are required, you can add them in the docker file following the examples given in the [jetson-container repo](https://github.com/dusty-nv/jetson-containers).
 

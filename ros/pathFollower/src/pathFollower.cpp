@@ -259,7 +259,7 @@ int main(int argc, char** argv)
   ros::Publisher pubSpeed = nh.advertise<geometry_msgs::TwistStamped> (commandTopic, 5);
 
   geometry_msgs::TwistStamped cmd_vel;
-  
+
   cmd_vel.header.frame_id = baseFrame;
 
   if (autonomyMode) {
@@ -275,9 +275,9 @@ int main(int argc, char** argv)
     ros::spinOnce();
 
     if (pathInit) {
-      float vehicleXRel = cos(vehicleYawRec) * (vehicleX - vehicleXRec) 
+      float vehicleXRel = cos(vehicleYawRec) * (vehicleX - vehicleXRec)
                         + sin(vehicleYawRec) * (vehicleY - vehicleYRec);
-      float vehicleYRel = -sin(vehicleYawRec) * (vehicleX - vehicleXRec) 
+      float vehicleYRel = -sin(vehicleYawRec) * (vehicleX - vehicleXRec)
                         + cos(vehicleYawRec) * (vehicleY - vehicleYRec);
 
       int pathSize = path.poses.size();

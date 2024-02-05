@@ -1,3 +1,5 @@
+#!/bin/bash
+
 PKGROOT="$( realpath "$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null 2>&1 && pwd )"/../ )"
 echo -e "\e[1;32m[run.sh]: Package root is '$PKGROOT'.\e[0m"
 
@@ -27,4 +29,3 @@ RUN_COMMAND="docker run \
 echo -e "[run.sh]: \e[1;32mThe final run command is\n\e[0;35m$RUN_COMMAND\e[0m."
 $RUN_COMMAND
 echo -e "[run.sh]: \e[1;32mDocker terminal closed.\e[0m"
-

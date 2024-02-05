@@ -25,10 +25,10 @@ RUN apt-get update && \
 #
 COPY viplanner/bin/packages/nvidia-l4t-apt-source.list /tmp/apt/nvidia-l4t-apt-source.list
 COPY viplanner/bin/packages/nvidia-l4t-apt-source.clean.list /tmp/apt/nvidia-l4t-apt-source.clean.list
-    
+
 #
 # install CUDA Toolkit
-#    
+#
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
 		  cuda-toolkit-* \
@@ -37,14 +37,14 @@ RUN apt-get update && \
 
 #
 # install cuDNN
-#    
+#
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
 		  libcudnn*-dev \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# 
+#
 # Install build tools, build dependencies and python
 #
 RUN apt-get update && apt-get upgrade -y &&\
@@ -99,7 +99,7 @@ RUN pip3 install --no-cache-dir --verbose numpy
 #
 # Install OpenCV
 #
-ENV DEBIAN_FRONTEND=noninteractive    
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libopencv-dev=4.2.0+dfsg-5 \
@@ -150,7 +150,7 @@ RUN echo 'source /opt/ros/${ROS_DISTRO}/setup.bash' >> /root/.bashrc
 ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]
 WORKDIR /
- 
+
 WORKDIR /root
 
 
@@ -196,8 +196,8 @@ RUN apt-get update && \
 		  lsb-release \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
-    
-# note:  cmake is currently pinned to 3.22.3 because of https://github.com/pytorch/pytorch/issues/74955	 
+
+# note:  cmake is currently pinned to 3.22.3 because of https://github.com/pytorch/pytorch/issues/74955
 RUN pip3 install --upgrade --no-cache-dir --verbose cmake==3.22.3
 RUN cmake --version
 
@@ -209,7 +209,7 @@ RUN PYTHON_ROOT=`pip3 show torch | grep Location: | cut -d' ' -f2` && \
 
 ENV LLVM_CONFIG="/usr/bin/llvm-config-9"
 
-ARG MAKEFLAGS=-j$(nproc) 
+ARG MAKEFLAGS=-j$(nproc)
 ARG PYTHON3_VERSION=3.8
 
 RUN printenv
@@ -242,13 +242,13 @@ RUN apt-get update && \
 #
 # python pip packages
 #
-RUN pip3 install --no-cache-dir --ignore-installed pybind11 
+RUN pip3 install --no-cache-dir --ignore-installed pybind11
 RUN pip3 install --no-cache-dir --verbose ipython
 RUN pip3 install --no-cache-dir --verbose opencv-python==4.5.5.64
 
 #
 # VIPlanner specific files
-# 
+#
 
 ENV CUDA_HOME='/usr/local/cuda'
 RUN pip3 install --no-cache-dir --verbose mmcv==2.0.0 -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html

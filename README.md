@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://arxiv.org/abs/2310.00982">arXiv</a> •
   <a href="https://drive.google.com/file/d/1yp500O5tlA1fLLQs0z8a-WxCDsnKwDCl/view?usp=sharing">Demo Video</a> •
-  <a href="#CitingViPlanner">BibTeX</a>
+  <a href="#citing-viplanner">BibTeX</a>
 
   Click on image for demo video!
   [![Demo Video](./assets/crosswalk.jpg)](https://drive.google.com/file/d/1yp500O5tlA1fLLQs0z8a-WxCDsnKwDCl/view?usp=sharing)
@@ -106,13 +106,12 @@ The latest model is available to download: [[checkpoint](https://drive.google.co
 
 ## <a name="CitingViPlanner"></a>Citing ViPlanner
 ```
-@misc{roth2023viplanner,
-      title={ViPlanner: Visual Semantic Imperative Learning for Local Navigation},
-      author={Pascal Roth and Julian Nubert and Fan Yang and Mayank Mittal and Marco Hutter},
-      year={2023},
-      eprint={2310.00982},
-      archivePrefix={arXiv},
-      primaryClass={cs.RO}
+@article{roth2023viplanner,
+  title     ={ViPlanner: Visual Semantic Imperative Learning for Local Navigation},
+  author    ={Pascal Roth and Julian Nubert and Fan Yang and Mayank Mittal and Marco Hutter},
+  journal   = {2024 IEEE International Conference on Robotics and Automation (ICRA)},
+  year      = {2023},
+  month     = {May},
 }
 ```
 

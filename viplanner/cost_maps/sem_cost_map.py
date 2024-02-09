@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      semantic cost map for imperative learning
 """
@@ -498,7 +498,7 @@ class SemCostMap:
                 loss_level_idx, loss_levels[i], loss_levels[i + 1], False
             )
 
-        assert (grid_loss == -10).any() is False, "There are still grid cells without a loss value."
+        assert not (grid_loss == -10).any(), "There are still grid cells without a loss value."
 
         # elevate grid_loss to avoid negative values due to negative reward in area with smallest loss level
         if np.min(grid_loss) < 0:

@@ -46,7 +46,7 @@ In order to build the docker container on a NVIDIA Jetson Orin, execute the foll
     ```bash
     catkin build viplanner_pkgs
     ```
-    Similary add all other robot specific repositories and build the corresponidng packages.
+    Similarly add all other robot specific repositories and build the corresponidng packages.
 
 **Remark**: If additional development environments such as TensorRT are required, you can add them in the docker file following the examples given in the [jetson-container repo](https://github.com/dusty-nv/jetson-containers).
 
@@ -75,7 +75,7 @@ In order to build the docker container on a NVIDIA Jetson Orin, execute the foll
 
 - In ROS numpy, there still exists `np.float` of previous numpy versions.
   - FIX:
-    in '/opt/ros/noetic/lib/python3/dist-packages/ros_numpy/point_cloud2.py' change all occurances of 'np.float' to 'float'
+    in '/opt/ros/noetic/lib/python3/dist-packages/ros_numpy/point_cloud2.py' change all occurrences of 'np.float' to 'float'
 
 ### General
 

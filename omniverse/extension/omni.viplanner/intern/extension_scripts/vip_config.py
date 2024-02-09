@@ -69,7 +69,7 @@ class VIPlannerCfg:
     num_points_network_return: int = 51
     """Number of points the network returns."""
     conv_dist: float = 0.5
-    """Distance to the goal to save that it has been reached succesfully"""
+    """Distance to the goal to save that it has been reached successfully"""
     obs_loss_threshold: float = 0.3
     """Obstacle threshold to consider a path as successful"""
     path_topic: str = "/path"

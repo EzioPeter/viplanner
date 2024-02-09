@@ -2,7 +2,7 @@
 @author     Fan Yang
 @email      fanyang1@ethz.ch
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      geometric cost map for imperative learning
 """

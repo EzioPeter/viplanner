@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      Config for mask2former as semantic segmentation model
 """

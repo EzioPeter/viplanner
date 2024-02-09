@@ -1,13 +1,13 @@
 """
 @author     Pascal Roth
-@email      roth.pascal@outlook.de
+@email      rothpa@ethz.ch
 
 @brief      config class for reconstruction and cost maps
 """
 
 # python
 import os
-from dataclasses import dataclass
+from dataclasses import MISSING, dataclass
 from typing import Optional
 
 import yaml
@@ -64,7 +64,7 @@ class ReconstructionCfg:
     """
 
     # directory where the environment with the depth (and semantic) images is located
-    data_dir: str = "/home/pascal/viplanner/imperative_learning/data"
+    data_dir: str = MISSING
     # environment name
     env: str = "town01"  # ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
     # image suffix
@@ -100,7 +100,7 @@ class SemCostMapConfig:
     """Configuration for the semantic cost map"""
 
     # point-cloud filter parameters
-    ground_height: Optional[float] = -0.2  # None for matterport  -0.5 for carla  -1.0 for nomoko
+    ground_height: Optional[float] = -0.5  # None for matterport  -0.5 for carla  -1.0 for nomoko
     robot_height: float = 0.70
     robot_height_factor: float = 3.0
     nb_neighbors: int = 100
@@ -116,7 +116,7 @@ class SemCostMapConfig:
     sigma_smooth: float = 2.5
     max_iterations: int = 1
     # obstacle threshold  (multiplied with highest loss value defined for a semantic class)
-    obstacle_threshold: float = 0.8  # 0.5/ 0.6 for matterport, 0.7 for carla
+    obstacle_threshold: float = 0.8  # 0.5/ 0.6 for matterport, 0.8 for carla
     # negative reward for space with smallest cost (introduces a gradient in area with smallest loss value, steering towards center)
     # NOTE: at the end cost map is elevated by that amount to ensure that the smallest cost is 0
     negative_reward: float = 0.5
@@ -150,19 +150,23 @@ class GeneralCostMapConfig:
     """General Cost Map Configuration"""
 
     # path to point cloud
-    root_path: str = "/home/pascal/viplanner/imperative_learning/data/town01_more_data_reconstruct"  # JeFG25nYj2p Vvot9Ly1tCj ur6pFq6Qu1A 2n8kARJN3HM town01 2azQ1b91cZZ B6ByNegPMKs nomoko_zurich
+    root_path: str = "town01"
     ply_file: str = "cloud.ply"
     # resolution of the cost map
-    resolution: float = 0.04  # [m]  (0.04 for matterport, 0.1 for carla)
+    resolution: float = 0.1  # [m]  (0.04 for matterport, 0.1 for carla)
     # map parameters
     clear_dist: float = 1.0  # cost map expansion over the point cloud space (prevent paths to go out of the map)
     # smoothing parameters
     sigma_smooth: float = 3.0
     # cost map expansion
-    x_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    y_min: Optional[float] = None  # -8.05  # [m] if None, the minimum of the point cloud is used
-    x_max: Optional[float] = None  # 346.22 # [m] if None, the maximum of the point cloud is used
-    y_max: Optional[float] = None  # 336.65 # [m] if None, the maximum of the point cloud is used
+    x_min: Optional[float] = -8.05
+    # [m] if None, the minimum of the point cloud is used None (carla town01:  -8.05   matterport: None)
+    y_min: Optional[float] = -8.05
+    # [m] if None, the minimum of the point cloud is used None (carla town01:  -8.05   matterport: None)
+    x_max: Optional[float] = 346.22
+    # [m] if None, the maximum of the point cloud is used None (carla town01:  346.22  matterport: None)
+    y_max: Optional[float] = 336.65
+    # [m] if None, the maximum of the point cloud is used None (carla town01:  336.65  matterport: None)
 
 
 @dataclass

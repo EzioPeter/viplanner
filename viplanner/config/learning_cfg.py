@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      Load Semantics from Matterport3D and make them available to Isaac Sim
 """
@@ -8,7 +8,7 @@
 import os
 
 # python
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field
 from typing import List, Optional, Tuple, Union
 
 import yaml
@@ -109,7 +109,7 @@ class TrainCfg:
     "random seed"
     gpu_id: int = 0
     "GPU id"
-    file_path: str = "/home/pascal/viplanner/imperative_learning"
+    file_path: str = MISSING
     "file path to models and data directory, can be overwritten by environment variable EXPERIMENT_DIRECTORY (e.g. for cluster)"
     # NOTE: since the environment variable is intended for cluster usage, some visualizations will be automatically switched off
 
@@ -206,7 +206,7 @@ class TrainCfg:
     # logging configurations
     wb_project: str = "Matterport"
     wb_entity: str = "viplanner"
-    wb_api_key: str = "8d9b2277691e6b27dc2861ce2bc7c0148113c3ce"
+    wb_api_key: str = "enter_your_key_here"
 
     # functions
     def get_model_save(self, epoch: Optional[int] = None):

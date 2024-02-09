@@ -3,7 +3,7 @@ M2F Overfit with own training dataset
 (Trainer modified from https://github.com/facebookresearch/Mask2Former/blob/main/train_net.py)
 
 @author: Pascal Roth
-@email:  rothpa@student.ethz.ch
+@email:  rothpa@ethz.ch
 
 @brief:  M2F overfit with own training dataset
 """

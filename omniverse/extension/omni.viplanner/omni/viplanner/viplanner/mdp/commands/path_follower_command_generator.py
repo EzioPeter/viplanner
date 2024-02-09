@@ -7,16 +7,19 @@
 from __future__ import annotations
 
 import math
-import torch
-from typing import Optional, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
+import omni.isaac.orbit.utils.math as math_utils
+import torch
 from omni.isaac.orbit.assets.articulation import Articulation
+from omni.isaac.orbit.envs import RLTaskEnv
 from omni.isaac.orbit.managers import CommandTerm
 from omni.isaac.orbit.markers import VisualizationMarkers
-from omni.isaac.orbit.markers.config import BLUE_ARROW_X_MARKER_CFG, GREEN_ARROW_X_MARKER_CFG
+from omni.isaac.orbit.markers.config import (
+    BLUE_ARROW_X_MARKER_CFG,
+    GREEN_ARROW_X_MARKER_CFG,
+)
 from omni.isaac.orbit.sim import SimulationContext
-from omni.isaac.orbit.envs import RLTaskEnv
-import omni.isaac.orbit.utils.math as math_utils
 
 if TYPE_CHECKING:
     from .path_follower_command_generator_cfg import PathFollowerCommandGeneratorCfg
@@ -79,7 +82,7 @@ class PathFollowerCommandGenerator(CommandTerm):
     Operations.
     """
 
-    def reset(self, env_ids: Optional[Sequence[int]] = None) -> dict:
+    def reset(self, env_ids: Sequence[int] | None = None) -> dict:
         """Reset the command generator.
 
         This function resets the command generator. It should be called whenever the environment is reset.
@@ -98,7 +101,7 @@ class PathFollowerCommandGenerator(CommandTerm):
         self.goal_reached = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
 
         return {}
-    
+
     def compute(self, dt: float):
         """Compute the command.
 

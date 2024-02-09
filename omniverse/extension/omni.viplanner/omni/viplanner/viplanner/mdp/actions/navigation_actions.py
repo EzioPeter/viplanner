@@ -18,7 +18,7 @@ class NavigationAction(ActionTerm):
 
     def __init__(self, cfg: NavigationActionCfg, env: RLTaskEnv):
         super().__init__(cfg, env)
-    
+
         # check if policy file exists
         if not check_file_path(self.cfg.low_level_policy_file):
             raise FileNotFoundError(f"Policy file '{self.cfg.low_level_policy_file}' does not exist.")

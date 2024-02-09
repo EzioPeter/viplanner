@@ -1,5 +1,6 @@
 import os
 
+import omni.viplanner.viplanner.mdp as mdp
 from omni.isaac.orbit.envs import RLTaskEnvCfg
 from omni.isaac.orbit.managers import ObservationGroupCfg as ObsGroup
 from omni.isaac.orbit.managers import ObservationTermCfg as ObsTerm
@@ -8,9 +9,6 @@ from omni.isaac.orbit.managers import SceneEntityCfg
 from omni.isaac.orbit.managers import TerminationTermCfg as DoneTerm
 from omni.isaac.orbit.utils import configclass
 from omni.isaac.orbit.utils.assets import ISAAC_ORBIT_NUCLEUS_DIR
-
-import omni.viplanner.viplanner.mdp as mdp
-
 
 ##
 # MDP settings
@@ -150,6 +148,7 @@ class CommandsCfg:
         lookAheadDistance=1.0,
         debug_vis=True,
     )
+
 
 ##
 # Environment configuration

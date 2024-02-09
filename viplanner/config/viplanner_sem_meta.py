@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      VIPlanner Semantic Meta Data
 """
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
     plt.tight_layout()
-    plt.savefig("/home/pascal/viplanner_semantic_classes_color_scheme.png", dpi=300)
+    plt.savefig("/home/{$USER}/viplanner_semantic_classes_color_scheme.png", dpi=300)
     # Show the plot
     plt.show()
 

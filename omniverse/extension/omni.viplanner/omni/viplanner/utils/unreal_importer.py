@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      World for Matterport3D Extension in Omniverse-Isaac Sim
 """
@@ -9,24 +9,19 @@ from __future__ import annotations
 
 import os
 from typing import TYPE_CHECKING
-import trimesh
-import yaml
+
 import carb
 import numpy as np
-
 import omni
 import omni.isaac.core.utils.prims as prim_utils
-from omni.isaac.core.utils.semantics import add_update_semantics, remove_all_semantics
-from omni.isaac.core.materials import PhysicsMaterial
-from omni.isaac.core.prims import GeometryPrim
-
-from pxr import Gf, Usd, UsdGeom
-
-
 import omni.isaac.orbit.sim as sim_utils
+import trimesh
+import yaml
+from omni.isaac.core.utils.semantics import add_update_semantics, remove_all_semantics
 from omni.isaac.orbit.terrains import TerrainImporter
 from omni.isaac.orbit.utils.assets import ISAAC_NUCLEUS_DIR
 from omni.isaac.orbit.utils.warp import convert_to_warp_mesh
+from pxr import Gf, Usd, UsdGeom
 
 if TYPE_CHECKING:
     from .unreal_importer_cfg import UnRealImporterCfg
@@ -91,7 +86,7 @@ class UnRealImporter(TerrainImporter):
             cfg.func(self.cfg.prim_path + f"/{key}", cfg)
 
         # assign each submesh it's own geometry prim --> important for raytracing to be able to identify the submesh
-        submeshes = self.get_mesh_prims(self.cfg.prim_path + f"/{key}")   
+        submeshes = self.get_mesh_prims(self.cfg.prim_path + f"/{key}")
 
         # get material
         # physics material
@@ -99,14 +94,14 @@ class UnRealImporter(TerrainImporter):
         #     "/World/PhysicsMaterial", static_friction=0.7, dynamic_friction=0.7, restitution=0
         # )
         for submesh, submesh_name in zip(submeshes[0], submeshes[1]):
-        #     # create geometry prim
-        #     GeometryPrim(
-        #         prim_path=submesh.GetPath().pathString,
-        #         name="collision",
-        #         position=None,
-        #         orientation=None,
-        #         collision=True,
-        #     ).apply_physics_material(material)
+            #     # create geometry prim
+            #     GeometryPrim(
+            #         prim_path=submesh.GetPath().pathString,
+            #         name="collision",
+            #         position=None,
+            #         orientation=None,
+            #         collision=True,
+            #     ).apply_physics_material(material)
             # physx_utils.setCollider(submesh, approximationShape="None")
             # "None" will use the base triangle mesh if available
 
@@ -143,7 +138,8 @@ class UnRealImporter(TerrainImporter):
         carb.log_info(f"Total of {len(mesh_prims)} meshes in the scene, start assigning semantic class ...")
 
         # mapping from prim name to class
-        class_keywords = yaml.safe_load(open(self.cfg.sem_mesh_to_class_map))
+        with open(self.cfg.sem_mesh_to_class_map) as stream:
+            class_keywords = yaml.safe_load(stream)
 
         # make all the string lower case
         mesh_prims_name = [mesh_prim_single.lower() for mesh_prim_single in mesh_prims_name]
@@ -154,7 +150,6 @@ class UnRealImporter(TerrainImporter):
         # assign class to mesh in ISAAC
         def recursive_semUpdate(prim, sem_class_name: str, update_submesh: bool) -> bool:
             # Necessary for Park Mesh
-            # FIXME: inclue all meshes leads to OgnSdStageInstanceMapping does not support more than 65535 semantic entities (2718824 requested) error since entities are restricted to int16
             if (
                 prim.GetName() == "HierarchicalInstancedStaticMesh"
             ):  # or "FoliageInstancedStaticMeshComponent" in prim.GetName():
@@ -262,7 +257,8 @@ class UnRealImporter(TerrainImporter):
 
     def _insert_vehicles(self):
         # load vehicle config file
-        vehicle_cfg: dict = yaml.safe_load(open(self.cfg.vehicle_config_file))
+        with open(self.cfg.vehicle_config_file) as stream:
+            vehicle_cfg: dict = yaml.safe_load(stream)
 
         # get the stage
         stage = omni.usd.get_context().get_stage()
@@ -297,7 +293,7 @@ class UnRealImporter(TerrainImporter):
                     assert success, f"Failed to duplicate vehicle '{key}'"
 
                     prim = prim_utils.get_prim_at_path(
-                        os.path.join(self.cfg.prim_path + f"/terrain", town_prim, single_mesh + key + f"_cp{idx}")
+                        os.path.join(self.cfg.prim_path + "/terrain", town_prim, single_mesh + key + f"_cp{idx}")
                     )
                     xform = UsdGeom.Mesh(prim).AddTranslateOp()
                     xform.Set(Gf.Vec3d(translation[0], translation[1], translation[2]))
@@ -311,7 +307,8 @@ class UnRealImporter(TerrainImporter):
 
     def _insert_people(self):
         # load people config file
-        people_cfg: dict = yaml.safe_load(open(self.cfg.people_config_file))
+        with open(self.cfg.people_config_file) as stream:
+            people_cfg: dict = yaml.safe_load(stream)
 
         # if self.cfg.scale == 1.0:
         #     scale_people = 100
@@ -358,7 +355,7 @@ class UnRealImporter(TerrainImporter):
         # add collision body
         UsdGeom.Mesh(person_prim)
 
-        return 
+        return
 
     @staticmethod
     def get_mesh_prims(env_prim: str) -> tuple[list[Usd.Prim], list[str]]:

@@ -1,5 +1,5 @@
 // @author     Pascal Roth
-// @email      rothpa@student.ethz.ch
+// @email      rothpa@ethz.ch
 // @brief      Visual Imperative Planner (VIPlanner) Visualizer
 
 

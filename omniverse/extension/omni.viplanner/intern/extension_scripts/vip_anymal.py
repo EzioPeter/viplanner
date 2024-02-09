@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      Visual Imperative Planner (VIP) included in anymal extension
 """
@@ -126,7 +126,7 @@ class VIPlanner:
         if self.planner.train_config.sem or self.planner.train_config.rgb:
             self._compute_pixel_tensor()
 
-        # get transfroms for images
+        # get transforms for images
         self.transform = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -197,14 +197,14 @@ class VIPlanner:
     ##
 
     def _check_camera(self) -> None:
-        assert self._camera_sensors[self.cam_path["depth"]]._is_spawned, "Front Depth Camera not spawed!"
+        assert self._camera_sensors[self.cam_path["depth"]]._is_spawned, "Front Depth Camera not spawned!"
 
         assert (
             "distance_to_image_plane" in self._camera_sensors[self.cam_path["depth"]].cfg.data_types
         ), "Missing data_type 'distance_to_image_plane' for front depth camera"
 
         if self.planner.train_config.sem or self.planner.train_config.rgb:
-            assert self._camera_sensors[self.cam_path["rgb"]]._is_spawned, "Front RGB Camera not spawed!"
+            assert self._camera_sensors[self.cam_path["rgb"]]._is_spawned, "Front RGB Camera not spawned!"
             assert (
                 "semantic_segmentation" in self._camera_sensors[self.cam_path["rgb"]].cfg.data_types
             ), "Missing data_type 'semantic_segmentation' for front camera"

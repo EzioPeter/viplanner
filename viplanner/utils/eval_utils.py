@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      roth.pascal@outlook.de
+@email      rothpa@ethz.ch
 
 @brief      Evaluator Base Class
 """

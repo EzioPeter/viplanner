@@ -6,11 +6,11 @@
 """Sub-module containing command generators for the velocity-based locomotion task."""
 
 import math
-from typing_extensions import Literal
 from dataclasses import MISSING
 
 from omni.isaac.orbit.managers import CommandTermCfg
 from omni.isaac.orbit.utils.configclass import configclass
+from typing_extensions import Literal
 
 from .path_follower_command_generator import PathFollowerCommandGenerator
 

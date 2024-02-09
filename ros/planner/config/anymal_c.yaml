@@ -11,7 +11,7 @@ model_save:             models/vip_models/plannernet_env2azQ1b91cZZ_cam_mount_ep
 # m2f_model_path:         models/mask2former_r50_8xb2-lsj-50e_coco-panoptic_20230118_125535-54df384a.pth
 m2f_model_path:         models/mask2former_r50_lsj_8x2_50e_coco-panoptic_20220326_224516-11a44721.pth
 # m2f_cfg_file:           ${HOME}/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
-m2f_cfg_file:           /home/pascal/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
+m2f_cfg_file:           /home/${USER}/.local/lib/python3.8/site-packages/mmdet/.mim/configs/mask2former/mask2former_r50_8xb2-lsj-50e_coco-panoptic.py
 
 # ros topics
 depth_topic:            /depth_camera_front/depth/image_rect_raw

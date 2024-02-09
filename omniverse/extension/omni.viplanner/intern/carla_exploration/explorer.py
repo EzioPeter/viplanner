@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      Explore Carla Datasets
 """
@@ -115,7 +115,7 @@ class CarlaExplorer:
         # get offset
         offset = np.array([0.0, 0.0, self._cfg.robot_height])
 
-        # get semantic class for each points and the corresponing cost
+        # get semantic class for each points and the corresponding cost
         hit_class_name = np.zeros(len(hit_pt_obj), dtype=str)
         hit_loss = np.zeros(len(hit_pt_obj))
         hit_position = np.zeros((len(hit_pt_obj), 3))
@@ -177,7 +177,7 @@ class CarlaExplorer:
 
         # init sampler as qmc
         sampler = qmc.Halton(d=2, scramble=False)
-        # determine numer of samples to dram
+        # determine number of samples to dram
         nbr_points = int(max_area * self._cfg.points_per_m2)
         # get raw samples origins
         points = sampler.random(nbr_points)
@@ -187,7 +187,7 @@ class CarlaExplorer:
             points = qmc.scale(points, [x_min, y_min], [x_max, y_max])
 
         if self._cfg.indoor_filter:
-            heights = np.ones((nbr_points, 1)) * (z_max + 2 * self._cfg.robot_height)  # above the map heighest point
+            heights = np.ones((nbr_points, 1)) * (z_max + 2 * self._cfg.robot_height)  # above the map highest point
         else:
             heights = np.ones((nbr_points, 1)) * (z_min + 2 * self._cfg.robot_height)  # above the map lowest point
         ray_origins = np.hstack((points, heights))
@@ -196,7 +196,7 @@ class CarlaExplorer:
         ray_directions = np.zeros((nbr_points, 3))
         ray_directions[:, 2] = -1.0
 
-        # perfrom raycast check
+        # perform raycast check
         hit_position, hit_loss, _, _ = self._raycast_check(ray_origins, ray_directions, max_distance)
 
         # filter all indexes which are not in traversable terrain
@@ -297,7 +297,7 @@ class CarlaExplorer:
         else:
             hit_idx_non_traverable = []
 
-        # update camera poisitions and nbr of points
+        # update camera positions and nbr of points
         if len(hit_idx_non_traverable) > 0:
             self.camera_positions = np.delete(camera_positions, hit_idx_non_traverable, axis=0)
         else:

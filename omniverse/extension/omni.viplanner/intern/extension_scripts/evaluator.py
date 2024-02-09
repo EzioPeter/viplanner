@@ -1,6 +1,6 @@
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      Visual Imperative Planner (VIPlanner) Orbit Evaluator
 """
@@ -117,7 +117,7 @@ class ANYmalOrbitEvaluator(BaseEvaluator):
     def create_buffers(self) -> None:
         # create standard buffers
         super().create_buffers()
-        # add addtional buffers
+        # add additional buffers
         self.goal_reached: np.ndarray = np.zeros(self._nbr_paths, dtype=bool)
         self.goal_within_fov: np.ndarray = np.ones(self._nbr_paths, dtype=bool)
         self.base_collision: np.ndarray = np.zeros(self._nbr_paths, dtype=bool)
@@ -493,7 +493,7 @@ class ANYmalOrbitEvaluator(BaseEvaluator):
         return
 
     def _get_rot_to_point(self, start: list, end: list) -> tuple:
-        # set the inital rotation to point to the first waypoint
+        # set the initial rotation to point to the first waypoint
         angle = np.arctan2(end[1] - start[1], end[0] - start[0])
         rot_quat = tf.Rotation.from_euler("z", angle, degrees=False).as_quat()
         return tuple(convert_quat(rot_quat, "wxyz").tolist())

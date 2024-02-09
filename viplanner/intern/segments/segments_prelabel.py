@@ -2,7 +2,7 @@
 Script to prelabel real-world RGB images which label can be fine-tuned in segments.ai
 
 @author: Pascal Roth
-@email:  rothpa@student.ethz.ch
+@email:  rothpa@ethz.ch
 
 @brief:  Prelabel images with a given model
 """

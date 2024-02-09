@@ -48,7 +48,7 @@ class VIPlannerAlgo:
         self.train_config: TrainCfg = None
         self.load_model(model_dir)
 
-        # get transfroms for images
+        # get transforms for images
         self.transform = transforms.Resize(self.train_config.img_input_size, antialias=None)
 
         # init trajectory optimizer

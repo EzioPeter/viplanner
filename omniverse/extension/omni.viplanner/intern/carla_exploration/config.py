@@ -73,14 +73,12 @@ class CarlaExplorerConfig:
     # ANYmal D: (0.001, 0.137, -0.000, 0.991)  <-> ANYmal C and RealSense D455: (0.0, 0.0, 0.0, 1.0)
     tf_quat_convention: str = "roll-pitch-yaw"  # or "isaac"
     # NOTE: if the quat follows the roll-pitch-yaw convention, i.e. x-forward, y-right, z-down, will be converted to the isaac convention
-    # high resolution depth for reconstruction (in cityenviroment can otherwise lead to artifcats)
+    # high resolution depth for reconstruction (in city environment can otherwise lead to artifacts)
     # will now also take the depth image of the rgb camera and use its depth images for reconstruction
     high_res_depth: bool = False
     # output_dir
-    output_root: Optional[
-        str
-    ] = "/home/pascal/viplanner/imperative_learning/data"  # if None, output dir is stored under root_dir
-    output_dir_name: str = "town01_cam_mount_train_red"  # "nomoko_zurich"
+    output_root: Optional[str] = None  # if None, output dir is stored under root_dir
+    output_dir_name: str = "town01"
     ros_p_mat: bool = True  # save intrinsic matrix in ros P-matrix format
     depth_scale: float = 1000.0  # scale depth values before saving s.t. mm resolution can be achieved
 

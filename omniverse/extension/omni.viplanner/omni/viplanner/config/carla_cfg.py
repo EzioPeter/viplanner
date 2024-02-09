@@ -33,7 +33,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        usd_path="/home/pascal/viplanner/env/carla/town01/Town01_Opt.usd",
+        usd_path="${USER_PATH_TO_USD}/Town01_Opt.usd",
         groundplane=True,
         cw_config_file=os.path.join(DATA_DIR, "town01", "cw_multiply_cfg.yml"),
         sem_mesh_to_class_map=os.path.join(DATA_DIR, "town01", "keyword_mapping.yml"),

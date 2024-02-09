@@ -1,7 +1,6 @@
-#!/usr/bin/python
 """
 @author     Pascal Roth
-@email      rothpa@student.ethz.ch
+@email      rothpa@ethz.ch
 
 @brief      Waypoint Follower using the ROS implementation of Smart Joystick of the ANYmal Software Stack
 """

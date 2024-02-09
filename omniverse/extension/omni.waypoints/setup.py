@@ -7,7 +7,7 @@ from setuptools import setup
 setup(
     name="omni-isaac-waypoints",
     author="Pascal Roth",
-    author_email="rothpa@student.ethz.ch",
+    author_email="rothpa@ethz.ch",
     version="0.0.1",
     description="Extension to extract waypoints in 3D environments.",
     keywords=["robotics"],

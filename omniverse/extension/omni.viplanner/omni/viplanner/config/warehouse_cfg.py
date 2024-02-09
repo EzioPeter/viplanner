@@ -5,12 +5,11 @@ from omni.isaac.orbit.assets import AssetBaseCfg
 from omni.isaac.orbit.scene import InteractiveSceneCfg
 from omni.isaac.orbit.sensors import CameraCfg, ContactSensorCfg, RayCasterCfg, patterns
 from omni.isaac.orbit.utils import configclass
-from omni.isaac.orbit.terrains import TerrainImporterCfg
 from omni.isaac.orbit.utils.assets import ISAAC_NUCLEUS_DIR
-
 from omni.viplanner.utils import UnRealImporterCfg
-from .base_cfg import ViPlannerBaseCfg
+
 from ..viplanner import DATA_DIR
+from .base_cfg import ViPlannerBaseCfg
 
 ##
 # Pre-defined configs
@@ -37,7 +36,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        usd_path="/home/pascal/viplanner/env/warehouse/warehouse_new.usd",
+        usd_path="${USER_PATH_TO_USD}/warehouse_new.usd",
         groundplane=True,
         sem_mesh_to_class_map=os.path.join(DATA_DIR, "warehouse", "keyword_mapping.yml"),
         people_config_file=os.path.join(DATA_DIR, "warehouse", "people_cfg.yml"),

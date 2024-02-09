@@ -14,7 +14,8 @@ class VIPlannerMatterportRayCasterCamera(MatterportRayCasterCamera):
 
     def _color_mapping(self):
         viplanner_sem = VIPlannerSemMetaHandler()
-        map_mpcat40_to_vip_sem = yaml.safe_load(open(DATA_DIR + "/mpcat40_to_vip_sem.yml"))
+        with open(DATA_DIR + "/mpcat40_to_vip_sem.yml") as file:
+            map_mpcat40_to_vip_sem = yaml.safe_load(file)
         color = viplanner_sem.get_colors_for_names(list(map_mpcat40_to_vip_sem.values()))
         self.color = torch.tensor(color, device=self._device, dtype=torch.uint8)
 

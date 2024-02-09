@@ -84,7 +84,7 @@ class SamplerCfg:
     """Maximum number of images recorded"""
     save_path: str = "/home/pascal/viplanner/imperative_learning/data"
     suffix: Optional[str] = "cam_mount"
-    """Path to save the data to (directy with env name will be created)"""
+    """Path to save the data to (directly with env name will be created)"""
 
 
 # EoF

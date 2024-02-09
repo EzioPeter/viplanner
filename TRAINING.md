@@ -42,16 +42,6 @@ If depth and semantic images of the simulation are available, then first 3D reco
         ├── xxxx{sem_suffix}.png                # images saved with 4 digits, e.g. 0000.png
     ```
 
-    The [Orbit](https://github.com/leggedrobotics/orbit/tree/dev/pascal/anymal-vip) extensions for Matterport and Carla datasets allow for "high resolution depth images".
-    These are recorded in the same frame as the semantic images to maximize overlay.
-    To use these images for reconstruction, the following additional directory is expected and the config parameter `high_res` has to be `True`:
-
-    ``` graphql
-        - depth_high_res                        # either png and/ or npy, if both npy is used
-            - xxxx{depth_suffix}.png            # images saved with 4 digits, e.g. 0000.png
-            - xxxx{depth_suffix}.npy            # arrays saved with 4 digits, e.g. 0000.npy
-    ```
-
 2. **Real-World: Open3D-Slam**
 
     To create an annotated 3D Point-Cloud from real-world data, i.e., LiDAR scans and semantics generated from the RGB camera stream, use tools such as [Open3D Slam](https://github.com/leggedrobotics/open3d_slam).
@@ -65,7 +55,7 @@ If depth and semantic images of the simulation are available, then first 3D reco
     python viplanner/cost_builder.py
     ```
 
-    With configs set in [CostMapConfig](viplanner/config/costmap_cfg.py).
+    With configs set in [CostMapConfig](viplanner/config/costmap_cfg.py). We provided some standard values, however, before running the script, please adjust the config to your needs and local environment paths. 
 
     Cost-Maps will be saved within the environment folder, with the following structure:
 
@@ -107,17 +97,3 @@ file_path                                       # TrainCfg.file_path or env vari
 
 It is important that the model name is unique, otherwise the previous training will be overwritten.
 Also always copy the `model.pt` and `model.yaml` because the configs are necessary to reload the model.
-
-## Evaluation
-
-Evaluation of the trained model can be performed in two manners:
-1. one-shot evaluation <br>
-   In this evaluation, the model predicts paths based on a single depth and semantic measurement. Then quality of the paths are evaluated. Paths are classified as successful if the obstalce loss along the never exceeds a threshold (currently 0.3). Script are provided for:
-   - [real-world data](viplanner/eval/eval_real_static.py)
-   - [simulation data](viplanner/eval/eval_sim_static.py)
-2. sequential evaluation <br>
-   In this evaluation, whole paths are executed with the robot. In comparison to the one-shot evaluation, the robot dimensions are therefore taken into account. Paths are considered successful if the goal is reached within a threshold. In addition, base and knee collision rates are recoded. Script are provided for:
-   - [real-world data](viplanner/eval/eval_real_dynamic.py)
-   - [simulation within Nvidia Isaac Sim](https://github.com/leggedrobotics/orbit/blob/dev/pascal/anymal-vip/source/extensions/omni.isaac.anymal/omni/isaac/anymal/viplanner/evaluator.py)
-
-REMARK: for both real-world evaluation, the data has first to be extracted from the rosbag using the script `viplanner/utils/rosbag_extractor.py`

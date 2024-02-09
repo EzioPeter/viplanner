@@ -2,7 +2,7 @@
 Script to convert the segments.ai dataset to COCO panoptic format
 
 @author: Pascal Roth
-@email:  rothpa@student.ethz.ch
+@email:  rothpa@ethz.ch
 
 @brief:  Segment to COCO panoptic format conversion
 """

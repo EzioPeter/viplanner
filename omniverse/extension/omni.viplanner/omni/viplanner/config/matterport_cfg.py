@@ -1,18 +1,17 @@
 import omni.isaac.orbit.sim as sim_utils
+import omni.viplanner.viplanner.mdp as mdp
+from omni.isaac.matterport.config import MatterportImporterCfg
+from omni.isaac.matterport.domains import MatterportRayCasterCfg
+from omni.isaac.orbit.assets import AssetBaseCfg
 from omni.isaac.orbit.managers import ObservationGroupCfg as ObsGroup
 from omni.isaac.orbit.managers import ObservationTermCfg as ObsTerm
 from omni.isaac.orbit.managers import SceneEntityCfg
-from omni.isaac.orbit.assets import AssetBaseCfg
 from omni.isaac.orbit.scene import InteractiveSceneCfg
 from omni.isaac.orbit.sensors import ContactSensorCfg, patterns
 from omni.isaac.orbit.utils import configclass
-
-from omni.isaac.matterport.config import MatterportImporterCfg
-from omni.isaac.matterport.domains import MatterportRayCasterCfg
-
 from omni.viplanner.utils import VIPlannerMatterportRayCasterCameraCfg
-import omni.viplanner.viplanner.mdp as mdp
-from .base_cfg import ViPlannerBaseCfg, ObservationsCfg
+
+from .base_cfg import ObservationsCfg, ViPlannerBaseCfg
 
 ##
 # Pre-defined configs
@@ -39,7 +38,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
             static_friction=1.0,
             dynamic_friction=1.0,
         ),
-        obj_filepath="/home/pascal/viplanner/env/matterport/v1/scans/2n8kARJN3HM/2n8kARJN3HM/matterport_mesh/0c334eaabb844eaaad049cbbb2e0a4f2/0c334eaabb844eaaad049cbbb2e0a4f2.obj",
+        obj_filepath="${USER_PATH_TO_USD}/matterport.usd",
         groundplane=True,
     )
     # robots
@@ -54,9 +53,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
         attach_yaw_only=True,
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=True,
-        mesh_prim_paths=[
-            "/home/pascal/viplanner/env/matterport/v1/scans/2n8kARJN3HM/2n8kARJN3HM/house_segmentations/2n8kARJN3HM.ply"
-        ],
+        mesh_prim_paths=["${USER_PATH_TO_USD}/2n8kARJN3HM.ply"],
     )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, debug_vis=False)
     # lights
@@ -112,9 +109,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
         ),
         debug_vis=False,
         max_distance=10,
-        mesh_prim_paths=[
-            "/home/pascal/viplanner/env/matterport/v1/scans/2n8kARJN3HM/2n8kARJN3HM/house_segmentations/2n8kARJN3HM.ply"
-        ],
+        mesh_prim_paths=["${USER_PATH_TO_USD}/2n8kARJN3HM.ply"],
         data_types=["distance_to_image_plane"],
     )
     semantic_camera = VIPlannerMatterportRayCasterCameraCfg(
@@ -129,9 +124,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
         ),
         data_types=["semantic_segmentation"],
         debug_vis=False,
-        mesh_prim_paths=[
-            "/home/pascal/viplanner/env/matterport/v1/scans/2n8kARJN3HM/2n8kARJN3HM/house_segmentations/2n8kARJN3HM.ply"
-        ],
+        mesh_prim_paths=["${USER_PATH_TO_USD}/2n8kARJN3HM.ply"],
     )
 
 
@@ -154,7 +147,7 @@ class MatterportObservationsCfg(ObservationsCfg):
             self.concatenate_terms = False
             self.enable_corruption = False
 
-    planner_image: MatterportPlannerImageCfg = MatterportPlannerImageCfg()      
+    planner_image: MatterportPlannerImageCfg = MatterportPlannerImageCfg()
 
 
 ##

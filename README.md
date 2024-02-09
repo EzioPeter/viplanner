@@ -12,7 +12,7 @@
 
 ViPlanner is a robust learning-based local path planner based on semantic and depth images.
 Fully trained in simulation, the planner can be applied in dynamic indoor as well outdoor environments.
-We provide it as an extension for [NVIDIA Isaac-Sim](https://developer.nvidia.com/isaac-sim) within the [Orbit](https://isaac-orbit.github.io/) project, the extension can be found [here] (LINK coming soon, updating to new Orbit Version).
+We provide it as an extension for [NVIDIA Isaac-Sim](https://developer.nvidia.com/isaac-sim) within the [Orbit](https://isaac-orbit.github.io/) project (details [here](./omniverse/README.md)).
 Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is available within this repo for direct integration on any robot (tested and developed on ANYmal C and D).
 
 **Keywords:** Visual Navigation, Local Planning, Imperative Learning
@@ -40,7 +40,7 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   ```bash
   pip install -e .[inference,jetson]
   ```
-  as `mmdet` requires torch.distrubted which is only build until version 1.11 which is not compatible with pypose. See the `Dockerfile` for a workaround.
+  as `mmdet` requires torch.distributed which is only build until version 1.11 and not compatible with pypose. See the [Dockerfile](./Dockerfile) for a workaround.
 
 **Known Issue**
 - mmcv build wheel does not finish:
@@ -49,7 +49,9 @@ Furthermore, a ready to use [ROS Noetic](http://wiki.ros.org/noetic) package is 
   pip install mmcv==2.0.0 -f https://download.openmmlab.com/mmcv/dist/cu117/torch2.0/index.html
   ```
 
-**Extension** This work includes the switch from semantic to direct RGB input for the training pipeline, to facilitate further research. For RGB input, an option exist to employ a backbone with mask2former pre-trained weights. For this option, include the github submodule, install the requirements included there and build the necessary cuda operators. All of that is not necessary for publish planner!
+**Extension**
+
+This work includes the switch from semantic to direct RGB input for the training pipeline, to facilitate further research. For RGB input, an option exist to employ a backbone with mask2former pre-trained weights. For this option, include the github submodule, install the requirements included there and build the necessary cuda operators. These steps are not necessary for the published planner!
 
 ```bash
 pip install git+https://github.com/facebookresearch/detectron2.git
@@ -60,6 +62,7 @@ sh make.sh
 ```
 
 **Remark**
+
 Note that for an editable install for packages without setup.py, PEP660 has to be fulfilled. This requires the following versions (as described [here](https://stackoverflow.com/questions/69711606/how-to-install-a-package-using-pip-in-editable-mode-with-pyproject-toml) in detail)
 - [pip >= 21.3](https://pip.pypa.io/en/stable/news/#v21-3)
 	```
@@ -72,11 +75,11 @@ Note that for an editable install for packages without setup.py, PEP660 has to b
 
 ## Training
 
-Here an overview provides an overview of the steps involved in training the policy.
+Here an overview of the steps involved in training the policy.
 For more detailed instructions, please refer to [TRAINING.md](TRAINING.md).
 
 0. Training Data Generation <br>
-Training data is generated from the [Matterport 3D](https://github.com/niessner/Matterport), [Carla](https://carla.org/) and [NVIDIA Warehouse](https://docs.omniverse.nvidia.com/isaacsim/latest/tutorial_static_assets.html) using developed Isaac Sim Extension, that are open-sourced [TODO ADD LINK]. For further information, please check this repo.
+Training data is generated from the [Matterport 3D](https://github.com/niessner/Matterport), [Carla](https://carla.org/) and [NVIDIA Warehouse](https://docs.omniverse.nvidia.com/isaacsim/latest/tutorial_static_assets.html) using developed Isaac Sim Extension, that are open-sourced. Currently, the extensions are updated to the latest `Orbit` version and will be available soon, an intermediate solution is given [here](https://github.com/pascal-roth/orbit_envs). 
 
 1. Build Cost-Map <br>
 The first step in training the policy is to build a cost-map from the available depth and semantic data. A cost-map is a representation of the environment where each cell is assigned a cost value indicating its traversability. The cost-map guides the optimization, therefore, is required to be differentiable. Cost-maps are built using the [cost-builder](viplanner/cost_builder.py) with configs [here](viplanner/config/costmap_cfg.py), given a pointcloud of the environment with semantic information (either from simultion or real-world information).
@@ -85,7 +88,7 @@ The first step in training the policy is to build a cost-map from the available 
 Once the cost-map is constructed, the next step is to train the policy. The policy is a machine learning model that learns to make decisions based on the depth and semantic measurements. An example training script can be found [here](viplanner/train.py) with configs [here](viplanner/config/learning_cfg.py)
 
 3. Evaluation <br>
-Performance assessment can be performed on simulation and real-world data. The policy will be evaluated regarding multiple metrics such as distance to goal, average and maximum cost, path length. In order to let the policy be executed on anymal in simulation, please refer to the implementation as part of the Orbit Framework [here] (LINK coming soon, updating to new Orbit Version)
+Performance assessment can be performed on simulation and real-world data. The policy will be evaluated regarding multiple metrics such as distance to goal, average and maximum cost, path length. In order to let the policy be executed on anymal in simulation, please refer to [Omniverse Extension](./omniverse/README.md)
 
 
 ## Inference
@@ -96,7 +99,7 @@ Performance assessment can be performed on simulation and real-world data. The p
 
 2. NVIDIA Isaac-Sim <br>
 
-	The planner can be executed within Nvidia Isaac Sim. It is implemented as part of the [Orbit Framework](https://isaac-orbit.github.io/). For details on how to employ it, please refer to [ViPlanner Omniverse Extension](omniverse/README.md).
+	The planner can be executed within Nvidia Isaac Sim. It is implemented as part of the [Orbit Framework](https://isaac-orbit.github.io/) with an own extension. For details, please see [Omniverse Extension](./omniverse/README.md).
 
 ### Model Download
 The latest model is available to download: [[checkpoint](https://drive.google.com/file/d/1PY7XBkyIGESjdh1cMSiJgwwaIT0WaxIc/view?usp=sharing)] [[config](https://drive.google.com/file/d/1r1yhNQAJnjpn9-xpAQWGaQedwma5zokr/view?usp=sharing)]

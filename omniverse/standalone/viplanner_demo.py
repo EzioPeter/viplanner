@@ -18,7 +18,10 @@ from omni.isaac.orbit.app import AppLauncher
 parser = argparse.ArgumentParser(description="This script demonstrates how to use the camera sensor.")
 parser.add_argument("--headless", action="store_true", default=False, help="Force display off at all times.")
 parser.add_argument("--conv_distance", default=0.2, type=float, help="Distance for a goal considered to be reached.")
-parser.add_argument("--scene", default="matterport", choices=["matterport", "carla", "warehouse"], type=str, help="Scene to load.")
+parser.add_argument(
+    "--scene", default="matterport", choices=["matterport", "carla", "warehouse"], type=str, help="Scene to load."
+)
+parser.add_argument("--model_dir", default=None, type=str, help="Path to model directory.")
 args_cli = parser.parse_args()
 
 # launch omniverse app
@@ -27,11 +30,15 @@ simulation_app = app_launcher.app
 
 """Rest everything follows."""
 
+import omni.isaac.core.utils.prims as prim_utils
 import torch
-from omni.isaac.orbit.envs import NavigationEnv
-from omni.viplanner.config import ViPlannerMatterportCfg
-
-# viplanner
+from omni.isaac.core.objects import VisualCuboid
+from omni.isaac.orbit.envs import RLTaskEnv
+from omni.viplanner.config import (
+    ViPlannerCarlaCfg,
+    ViPlannerMatterportCfg,
+    ViPlannerWarehouseCfg,
+)
 from omni.viplanner.viplanner import VIPlannerAlgo
 
 """
@@ -42,42 +49,79 @@ Main
 def main():
     """Imports all legged robots supported in Orbit and applies zero actions."""
 
-    # create environment
-    env_cfg = ViPlannerMatterportCfg()
-    env = NavigationEnv(env_cfg)
+    # create environment cfg
+    if args_cli.scene == "matterport":
+        env_cfg = ViPlannerMatterportCfg()
+        goal_pos = torch.tensor([7.5, -12.5, 1.0])
+    elif args_cli.scene == "carla":
+        env_cfg = ViPlannerCarlaCfg()
+        goal_pos = torch.tensor([137, 110.0, 1.0])
+    elif args_cli.scene == "warehouse":
+        env_cfg = ViPlannerWarehouseCfg()
+        goal_pos = torch.tensor([3, -4.5, 1.0])
+    else:
+        raise NotImplementedError(f"Scene {args_cli.scene} not yet supported!")
+
+    env = RLTaskEnv(env_cfg)
+    obs = env.reset()[0]
+
+    # set goal cube
+    VisualCuboid(
+        prim_path="/World/goal",  # The prim path of the cube in the USD stage
+        name="waypoint",  # The unique name used to retrieve the object from the scene later on
+        position=goal_pos,  # Using the current stage units which is in meters by default.
+        scale=torch.tensor([0.15, 0.15, 0.15]),  # most arguments accept mainly numpy arrays.
+        size=1.0,
+        color=torch.tensor([1, 0, 0]),  # RGB channels, going from 0-1
+    )
+    goal_pos = prim_utils.get_prim_at_path("/World/goal").GetAttribute("xformOp:translate")
+
+    # pause the simulator
+    env.sim.pause()
 
     # load viplanner
-    viplanner = VIPlannerAlgo(
-        model_dir="/home/pascal/viplanner/imperative_learning/models/plannernet_env2azQ1b91cZZ_cam_mount_ep100_inputDepSem_costSem_optimSGD_new_cam_mount_combi_lossWidthMod_wgoal4.0_warehouse"
-    )
+    viplanner = VIPlannerAlgo(model_dir=args_cli.model_dir)
 
-    goals = torch.tensor([[5.0, 0.0, 0.0]], device=env.device).repeat(env.num_envs, 1)
+    goals = torch.tensor(goal_pos.Get(), device=env.device).repeat(env.num_envs, 1)
 
     # initial paths
-    paths = torch.zeros((env.num_envs, 50, 3), device=env.device)
+    _, paths, fear = viplanner.plan_dual(
+        obs["planner_image"]["depth_measurement"], obs["planner_image"]["semantic_measurement"], goals
+    )
 
     # Simulate physics
     while simulation_app.is_running():
-        # If simulation is stopped, then exit.
-        if env.sim.is_stopped():
-            break
         # If simulation is paused, then skip.
         if not env.sim.is_playing():
-            env.sim.step(render=app_launcher.RENDER)
+            env.sim.step(render=~args_cli.headless)
             continue
 
-        planner_obs, _ = env.step(paths=paths)
-        env.render()
+        obs = env.step(action=paths.view(paths.shape[0], -1))[0]
 
         # apply planner
-        goal_cam_frame = viplanner.goal_transformer(goals, planner_obs["cam_position"], planner_obs["cam_orientation"])
-        _, paths, fear = viplanner.plan_dual(
-            planner_obs["depth_measurement"], planner_obs["semantic_measurement"], goal_cam_frame
+        goals = torch.tensor(goal_pos.Get(), device=env.device).repeat(env.num_envs, 1)
+        if torch.any(
+            torch.norm(obs["planner_transform"]["cam_position"] - goals)
+            > viplanner.train_config.data_cfg[0].max_goal_distance
+        ):
+            print(
+                f"[WARNING]: Max goal distance is {viplanner.train_config.data_cfg[0].max_goal_distance} but goal is {torch.norm(obs['planner_transform']['cam_position'] - goals)} away from camera position! Please select new goal!"
+            )
+            env.sim.pause()
+            continue
+
+        goal_cam_frame = viplanner.goal_transformer(
+            goals, obs["planner_transform"]["cam_position"], obs["planner_transform"]["cam_orientation"]
         )
-        paths = viplanner.path_transformer(paths, planner_obs["cam_position"], planner_obs["cam_orientation"])
+        _, paths, fear = viplanner.plan_dual(
+            obs["planner_image"]["depth_measurement"], obs["planner_image"]["semantic_measurement"], goal_cam_frame
+        )
+        paths = viplanner.path_transformer(
+            paths, obs["planner_transform"]["cam_position"], obs["planner_transform"]["cam_orientation"]
+        )
 
         # draw path
-        viplanner.debug_draw(paths, fear, goals, planner_obs["cam_position"])
+        viplanner.debug_draw(paths, fear, goals)
 
 
 if __name__ == "__main__":

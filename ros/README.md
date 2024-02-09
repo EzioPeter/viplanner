@@ -16,7 +16,9 @@ Please refer to [Installation Instructions](./INSTALL.md) where details about th
 
 ## Usage
 
-Run the VIPlanner with visualization:
+For the legged platform ANYmal, we provide configuration files for the C and D version as well as a more robot independent configuration based on a mounted RGB-D camera. The configuration files are located in the [config](./planner/config/) folder. Before running the planner, make sure to adjust the configuration file to your needs and select the correct one in the `viplanner.launch` file.
+
+Run the VIPlanner without visualization:
 
 ```bash
 roslaunch viplanner_node viplanner.launch

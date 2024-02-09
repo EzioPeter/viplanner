@@ -53,7 +53,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
         attach_yaw_only=True,
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]),
         debug_vis=True,
-        mesh_prim_paths=["${USER_PATH_TO_USD}/2n8kARJN3HM.ply"],
+        mesh_prim_paths=["${USER_PATH_TO_USD}/matterport.ply"],
     )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, debug_vis=False)
     # lights
@@ -109,7 +109,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
         ),
         debug_vis=False,
         max_distance=10,
-        mesh_prim_paths=["${USER_PATH_TO_USD}/2n8kARJN3HM.ply"],
+        mesh_prim_paths=["${USER_PATH_TO_USD}/matterport.ply"],
         data_types=["distance_to_image_plane"],
     )
     semantic_camera = VIPlannerMatterportRayCasterCameraCfg(
@@ -124,7 +124,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
         ),
         data_types=["semantic_segmentation"],
         debug_vis=False,
-        mesh_prim_paths=["${USER_PATH_TO_USD}/2n8kARJN3HM.ply"],
+        mesh_prim_paths=["${USER_PATH_TO_USD}/matterport.ply"],
     )
 
 

@@ -7,7 +7,7 @@
 
 # python
 import os
-from dataclasses import MISSING, dataclass
+from dataclasses import dataclass
 from typing import Optional
 
 import yaml
@@ -64,9 +64,9 @@ class ReconstructionCfg:
     """
 
     # directory where the environment with the depth (and semantic) images is located
-    data_dir: str = MISSING
+    data_dir: str = "${USER_PATH_TO_DATA}"
     # environment name
-    env: str = "town01"  # ur6pFq6Qu1A B6ByNegPMKs 2azQ1b91cZZ 2n8kARJN3HM JeFG25nYj2p town01 Vvot9Ly1tCj
+    env: str = "town01"
     # image suffix
     depth_suffix = "_cam0"
     sem_suffix = "_cam1"

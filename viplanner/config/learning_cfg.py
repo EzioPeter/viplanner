@@ -8,7 +8,7 @@
 import os
 
 # python
-from dataclasses import MISSING, dataclass, field
+from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Union
 
 import yaml
@@ -109,7 +109,7 @@ class TrainCfg:
     "random seed"
     gpu_id: int = 0
     "GPU id"
-    file_path: str = MISSING
+    file_path: str = "${USER_PATH_TO_MODEL_DATA}"
     "file path to models and data directory, can be overwritten by environment variable EXPERIMENT_DIRECTORY (e.g. for cluster)"
     # NOTE: since the environment variable is intended for cluster usage, some visualizations will be automatically switched off
 

@@ -56,7 +56,13 @@ In each scenario, the goal is represented as a movable cube within the environme
 To run the demo, download the model: [[checkpoint](https://drive.google.com/file/d/1PY7XBkyIGESjdh1cMSiJgwwaIT0WaxIc/view?usp=sharing)] [[config](https://drive.google.com/file/d/1r1yhNQAJnjpn9-xpAQWGaQedwma5zokr/view?usp=sharing)] and the environment files. Then adjust the paths (marked as `${USER_PATH_TO_USD}`) in the corresponding config files.
 
 ### Matterport
-[Download USD and PLY Link](https://drive.google.com/file/d/1N5xcIY7HTBoMgk_ULxie6UW-8PsgNxLp/view?usp=sharing) [Config](./extension/omni.viplanner/omni/viplanner/config/matterport_cfg.py)
+[Config](./extension/omni.viplanner/omni/viplanner/config/matterport_cfg.py)
+
+To download Matterport datasets, please refer to the [Matterport3D](https://niessner.github.io/Matterport/) website. The dataset should be converted to USD format using Isaac Sim by executing the following steps:
+1. Import the `.obj` file (located under `matterport_mesh`) into Isaac Sim by going to `File -> Import`.
+2. Fix potential import setting such as Rotation and Scale. (`Property Panel -> Transform -> Rotate:unitsResolve = 0.0; Scale:unitsResolve = [1.0, 1.0, 1.0]`)
+3. Export the scene as USD (`File -> Save as`).
+
 ```
 ./orbit.sh -p {VIPLANNER_DIR}/omniverse/standalone/viplanner_demo.py --scene matterport --model_dir {MODEL_DIR}
 ```

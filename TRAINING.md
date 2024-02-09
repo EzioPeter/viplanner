@@ -55,7 +55,7 @@ If depth and semantic images of the simulation are available, then first 3D reco
     python viplanner/cost_builder.py
     ```
 
-    With configs set in [CostMapConfig](viplanner/config/costmap_cfg.py). We provided some standard values, however, before running the script, please adjust the config to your needs and local environment paths. 
+    With configs set in [CostMapConfig](viplanner/config/costmap_cfg.py). We provided some standard values, however, before running the script, please adjust the config to your needs and local environment paths.
 
     Cost-Maps will be saved within the environment folder, with the following structure:
 

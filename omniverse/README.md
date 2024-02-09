@@ -17,7 +17,7 @@ To install the ViPlanner extension for Isaac Sim, follow these steps:
 
 ```
 git clone git@github.com:NVIDIA-Omniverse/orbit.git
-cd orbit/source/extension
+cd orbit/source/extensions
 ln -s {VIPLANNER_DIR}/omniverse/extension/omni.viplanner .
 ```
 
@@ -60,12 +60,13 @@ In each scenario, the goal is represented as a movable cube within the environme
 ```
 
 ### Carla
-[Download Mesh Link](https://drive.google.com/file/d/1_jgpM-xRvFOMH1C78IgDDiyEtt9hKauz/view?usp=sharing)  [Download Texture Link](https://drive.google.com/file/d/1jsvkObiLOwg_zoVTC4vO7JprETSHdb7N/view?usp=sharing)
+[Download USD Link](https://drive.google.com/file/d/16OHwmEtSKBf36mh8VUpRFeHSqhbHzQgP/view?usp=sharing)  [Download Texture Link](https://drive.google.com/file/d/1jsvkObiLOwg_zoVTC4vO7JprETSHdb7N/view?usp=sharing)
 ```
 ./orbit.sh -p {VIPLANNER_DIR}/omniverse/standalone/viplanner_demo.py --scene matterport
 ```
 
 ### NVIDIA Warehouse
+[Download USD Link](https://drive.google.com/file/d/1QXxuak-1ZmgKkxhE0EGfDydApVr6LrsF/view?usp=sharing)
 ```
 ./orbit.sh -p {VIPLANNER_DIR}/omniverse/standalone/viplanner_demo.py --scene matterport
 ```

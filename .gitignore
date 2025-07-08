@@ -2,8 +2,6 @@
 ros/planner/models/*
 #internal files
 */intern/*
-# beat the planner files
-*beat_the_planner*
 
 # nvidia jetson apt list files
 bin/packages/nvidia*

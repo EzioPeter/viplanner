@@ -39,7 +39,7 @@ simulation_app = app_launcher.app
 
 """Rest everything follows."""
 import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.orbit.utils.math as math_utils
+import omni.isaac.lab.utils.math as math_utils
 import torch
 from omni.isaac.core.objects import VisualCuboid
 from omni.isaac.lab.envs import ManagerBasedRLEnv
@@ -119,7 +119,7 @@ def main():
     env.sim.pause()
 
     # load viplanner
-    viplanner = VIPlannerAlgo(model_dir=args_cli.model_dir, device=env.device)
+    viplanner = VIPlannerAlgo(model_dir=args_cli.model_dir, device="cuda" if args_cli.beat_the_planner else env.device)
 
     goals = torch.tensor(goal_pos.Get(), device=env.device).repeat(env.num_envs, 1)
 
@@ -150,23 +150,23 @@ def main():
 
             obs = env.step(action=paths.view(paths.shape[0], -1))[0]
 
-        if args_cli.beat_the_planner:
-            # check if goal is reached
-            env_idx = torch.ones(env.num_envs, device=env.device, dtype=torch.bool)
-            env_idx[env_cfg.actions.paths.gamepad_controlled_robot_id] = False
-            distance = torch.norm((obs["planner_transform"]["cam_position"] - goals)[:, :2], dim=1)
-            if distance[env_idx] < args_cli.conv_distance:
-                print(f.renderText("PLANNER WON"))
-                print("PLANNER has reached the Goal before you! Try AGAIN!")
-                env.reset()
-                env.sim.pause()
-                continue
-            if distance[~env_idx] < args_cli.conv_distance:
-                print(f.renderText("YOU WON"))
-                print("YOU have reached the Goal before the planner! Lets try with a more difficult goal!")
-                env.reset()
-                env.sim.pause()
-                continue
+            if args_cli.beat_the_planner:
+                # check if goal is reached
+                env_idx = torch.ones(env.num_envs, device=env.device, dtype=torch.bool)
+                env_idx[env_cfg.actions.paths.gamepad_controlled_robot_id] = False
+                distance = torch.norm((obs["planner_transform"]["cam_position"] - goals)[:, :2], dim=1)
+                if distance[env_idx] < args_cli.conv_distance:
+                    print(f.renderText("PLANNER WON"))
+                    print("PLANNER has reached the Goal before you! Try AGAIN!")
+                    env.reset()
+                    env.sim.pause()
+                    continue
+                if distance[~env_idx] < args_cli.conv_distance:
+                    print(f.renderText("YOU WON"))
+                    print("YOU have reached the Goal before the planner! Lets try with a more difficult goal!")
+                    env.reset()
+                    env.sim.pause()
+                    continue
 
         # apply planner
         goals = torch.tensor(goal_pos.Get(), device=env.device).repeat(env.num_envs, 1)
@@ -186,6 +186,10 @@ def main():
         _, paths, fear = viplanner.plan_dual(
             obs["planner_image"]["depth_measurement"], obs["planner_image"]["semantic_measurement"], goal_cam_frame
         )
+        # NOTE: make sure that predicted path is on the device of the env
+        paths = paths.to(env.device)
+        fear = fear.to(env.device)
+        # transform path to world frame
         paths = viplanner.path_transformer(
             paths, obs["planner_transform"]["cam_position"], obs["planner_transform"]["cam_orientation"]
         )
@@ -198,6 +202,19 @@ def main():
         viplanner.debug_draw(paths, fear, goals)
 
         if args_cli.beat_the_planner:
+            # get images
+            sem_image = (
+                obs["planner_image"]["semantic_measurement"][env_cfg.actions.paths.gamepad_controlled_robot_id]
+                .permute(1, 2, 0)
+                .cpu()
+                .numpy()
+            )
+            depth_image = (
+                obs["planner_image"]["depth_measurement"][env_cfg.actions.paths.gamepad_controlled_robot_id, 0]
+                .cpu()
+                .numpy()
+            )            
+            
             # overlay the goal on the image
             goal_cam_frame = (
                 goals[env_cfg.actions.paths.gamepad_controlled_robot_id]
@@ -206,77 +223,67 @@ def main():
                 obs["planner_transform"]["cam_orientation"][env_cfg.actions.paths.gamepad_controlled_robot_id]
             )
 
-            mat = torch.tensor([[1.0, 0, 0], [0, -1, 0], [0, 0, -1]])
-            rotm = mat @ math_utils.matrix_from_euler(torch.tensor([torch.pi / 2, -torch.pi / 2, 0]), "XYZ").T
-            goal_cam_frame_conv = goal_cam_frame @ rotm.to(goal_cam_frame.device).T
+            if goal_cam_frame[0] > 0:
+                mat = torch.tensor([[1.0, 0, 0], [0, -1, 0], [0, 0, -1]])
+                rotm = mat @ math_utils.matrix_from_euler(torch.tensor([torch.pi / 2, -torch.pi / 2, 0]), "XYZ").T
+                goal_cam_frame_conv = goal_cam_frame @ rotm.to(goal_cam_frame.device).T
 
-            goal_depth_pixel_frame = depth_intrinsic.to(goal_cam_frame.device) @ goal_cam_frame_conv.T
-            goal_depth_pixel_frame = goal_depth_pixel_frame / goal_depth_pixel_frame[2]
-            goal_sem_pixel_frame = semantic_intrinsic.to(goal_cam_frame.device) @ goal_cam_frame_conv.T
-            goal_sem_pixel_frame = goal_sem_pixel_frame / goal_sem_pixel_frame[2]
+                goal_depth_pixel_frame = depth_intrinsic.to(goal_cam_frame.device) @ goal_cam_frame_conv.T
+                goal_depth_pixel_frame = goal_depth_pixel_frame / goal_depth_pixel_frame[2]
+                goal_sem_pixel_frame = semantic_intrinsic.to(goal_cam_frame.device) @ goal_cam_frame_conv.T
+                goal_sem_pixel_frame = goal_sem_pixel_frame / goal_sem_pixel_frame[2]
 
-            # mark the goal pixel
-            depth_mark_pixel_range: int = 10
-            sem_mark_pixel_range: int = 15
+                # mark the goal pixel
+                depth_mark_pixel_range: int = 10
+                sem_mark_pixel_range: int = 15
 
-            sem_image = (
-                obs["planner_image"]["semantic_measurement"][env_cfg.actions.paths.gamepad_controlled_robot_id]
-                .permute(1, 2, 0)
-                .cpu()
-                .numpy()
-            )
-            range_mask_height = torch.clip(
-                torch.stack(
-                    [
-                        goal_sem_pixel_frame[1].long() - sem_mark_pixel_range,
-                        goal_sem_pixel_frame[1].long() + sem_mark_pixel_range,
-                    ]
-                ),
-                0,
-                sem_image.shape[0],
-            )
-            range_mask_width = torch.clip(
-                torch.stack(
-                    [
-                        goal_sem_pixel_frame[0].long() - sem_mark_pixel_range,
-                        goal_sem_pixel_frame[0].long() + sem_mark_pixel_range,
-                    ]
-                ),
-                0,
-                sem_image.shape[1],
-            )
-            sem_image[range_mask_height[0] : range_mask_height[1], range_mask_width[0] : range_mask_width[1]] = [
-                255,
-                0,
-                0,
-            ]
+                range_mask_height = torch.clip(
+                    torch.stack(
+                        [
+                            goal_sem_pixel_frame[1].long() - sem_mark_pixel_range,
+                            goal_sem_pixel_frame[1].long() + sem_mark_pixel_range,
+                        ]
+                    ),
+                    0,
+                    sem_image.shape[0],
+                )
+                range_mask_width = torch.clip(
+                    torch.stack(
+                        [
+                            goal_sem_pixel_frame[0].long() - sem_mark_pixel_range,
+                            goal_sem_pixel_frame[0].long() + sem_mark_pixel_range,
+                        ]
+                    ),
+                    0,
+                    sem_image.shape[1],
+                )
+                sem_image[range_mask_height[0] : range_mask_height[1], range_mask_width[0] : range_mask_width[1]] = [
+                    255,
+                    0,
+                    0,
+                ]
 
-            depth_image = (
-                obs["planner_image"]["depth_measurement"][env_cfg.actions.paths.gamepad_controlled_robot_id, 0]
-                .cpu()
-                .numpy()
-            )
-            range_mask_height = torch.clip(
-                torch.stack(
-                    [
-                        goal_depth_pixel_frame[1].long() - depth_mark_pixel_range,
-                        goal_depth_pixel_frame[1].long() + depth_mark_pixel_range,
-                    ]
-                ),
-                0,
-                depth_image.shape[0],
-            )
-            range_mask_width = torch.clip(
-                torch.stack(
-                    [
-                        goal_depth_pixel_frame[0].long() - depth_mark_pixel_range,
-                        goal_depth_pixel_frame[0].long() + depth_mark_pixel_range,
-                    ]
-                ),
-                0,
-                depth_image.shape[1],
-            )
-            depth_image[range_mask_height[0] : range_mask_height[1], range_mask_width[0] : range_mask_width[1]] = 0
+                range_mask_height = torch.clip(
+                    torch.stack(
+                        [
+                            goal_depth_pixel_frame[1].long() - depth_mark_pixel_range,
+                            goal_depth_pixel_frame[1].long() + depth_mark_pixel_range,
+                        ]
+                    ),
+                    0,
+                    depth_image.shape[0],
+                )
+                range_mask_width = torch.clip(
+                    torch.stack(
+                        [
+                            goal_depth_pixel_frame[0].long() - depth_mark_pixel_range,
+                            goal_depth_pixel_frame[0].long() + depth_mark_pixel_range,
+                        ]
+                    ),
+                    0,
+                    depth_image.shape[1],
+                )
+                depth_image[range_mask_height[0] : range_mask_height[1], range_mask_width[0] : range_mask_width[1]] = 0
 
             # resize the images
             sem_image = cv2.resize(sem_image, (480, 360))

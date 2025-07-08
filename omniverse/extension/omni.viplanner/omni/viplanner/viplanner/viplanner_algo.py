@@ -137,6 +137,10 @@ class VIPlannerAlgo:
         return keypoints, traj, fear
 
     def plan_dual(self, dep_image: torch.Tensor, sem_image: torch.Tensor, goal_robot_frame: torch.Tensor) -> tuple:
+        # make sure that tensors are on the correct device
+        dep_image = dep_image.to(self.device)
+        sem_image = sem_image.to(self.device)
+        goal_robot_frame = goal_robot_frame.to(self.device)
         # transform input
         sem_image = self.transform(sem_image) / 255
         with torch.no_grad():

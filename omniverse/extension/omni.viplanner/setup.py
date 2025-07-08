@@ -16,6 +16,9 @@ INSTALL_REQUIRES = [
     "scipy>=1.7.1",
     # RL
     "torch>=1.9.0",
+    # Beat the planner
+    "rospkg",
+    "pyfiglet",
 ]
 
 # Installation operation

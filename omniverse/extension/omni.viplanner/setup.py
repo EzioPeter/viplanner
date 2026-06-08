@@ -7,7 +7,7 @@
 """Installation script for the 'omni.viplanner' python package."""
 
 
-from setuptools import setup
+from setuptools import find_namespace_packages, setup
 
 # Minimum dependencies required prior to installation
 INSTALL_REQUIRES = [
@@ -27,10 +27,14 @@ setup(
     description="Extension to include ViPlanner: Visual Semantic Imperative Learning for Local Navigation",
     keywords=["robotics", "rl"],
     include_package_data=True,
-    python_requires=">=3.7",
+    python_requires=">=3.11,<3.12",
     install_requires=INSTALL_REQUIRES,
-    packages=["omni.viplanner"],
-    classifiers=["Natural Language :: English", "Programming Language :: Python :: 3.7"],
+    packages=find_namespace_packages(include=["omni.*"]),
+    classifiers=[
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.11",
+        "Isaac Sim :: 5.1.0",
+    ],
     zip_safe=False,
 )
 

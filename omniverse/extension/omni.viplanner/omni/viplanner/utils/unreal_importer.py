@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING
 import carb
 import numpy as np
 import omni
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.lab.sim as sim_utils
+import isaacsim.core.utils.prims as prim_utils
+import isaaclab.sim as sim_utils
 import trimesh
 import yaml
-from omni.isaac.core.utils.semantics import add_update_semantics, remove_all_semantics
-from omni.isaac.lab.terrains import TerrainImporter
-from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
-from omni.isaac.lab.utils.warp import convert_to_warp_mesh
+from isaacsim.core.utils.semantics import add_update_semantics, remove_all_semantics
+from isaaclab.terrains import TerrainImporter
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+from isaaclab.utils.warp import convert_to_warp_mesh
 from pxr import Gf, Usd, UsdGeom
 
 if TYPE_CHECKING:
@@ -124,7 +124,7 @@ class UnRealImporter(TerrainImporter):
             ground_plane_cfg = sim_utils.GroundPlaneCfg(
                 physics_material=self.cfg.physics_material, size=(500, 500), visible=False
             )
-            ground_plane = ground_plane_cfg.func("/World/GroundPlane", ground_plane_cfg, translation=(0, 0, -0.1))
+            ground_plane = ground_plane_cfg.func("/World/GroundPlane", ground_plane_cfg, translation=(0, 0, 0.0))
             ground_plane.visible = False
 
     """ Assign Semantic Labels """

@@ -6,7 +6,7 @@
 
 """This sub-module contains observation terms specific for viplanner.
 
-The functions can be passed to the :class:`omni.isaac.lab.managers.ObservationTermCfg` object to enable
+The functions can be passed to the :class:`isaaclab.managers.ObservationTermCfg` object to enable
 the observation introduced by the function.
 """
 
@@ -15,15 +15,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import torch
-from omni.isaac.lab.managers import SceneEntityCfg
-from omni.isaac.lab.sensors.camera import CameraData
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors.camera import CameraData
 
 from viplanner.config import VIPlannerSemMetaHandler
 
 from .actions import NavigationAction
 
 if TYPE_CHECKING:
-    from omni.isaac.lab.envs.base_env import ManagerBasedEnv
+    from isaaclab.envs.base_env import ManagerBasedEnv
 
 
 # initialize viplanner config

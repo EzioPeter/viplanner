@@ -16,11 +16,11 @@ import numpy as np
 import omni
 
 # isaac-debug
-import omni.isaac.debug_draw._debug_draw as omni_debug_draw
+import isaacsim.util.debug_draw._debug_draw as omni_debug_draw
 import scipy.spatial.transform as tf
 
 # isaac-core
-from omni.isaac.core.objects import VisualCuboid
+from isaacsim.core.api.objects import VisualCuboid
 from pxr import UsdGeom
 
 

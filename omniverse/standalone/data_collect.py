@@ -12,7 +12,11 @@ Collect Training Data for ViPlanner
 
 import argparse
 
-from omni.isaac.lab.app import AppLauncher
+from _bootstrap import add_local_extensions_to_pythonpath, append_local_extensions_to_kit_args, close_simulation_app
+
+add_local_extensions_to_pythonpath()
+
+from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Data collection for ViPlanner.")
@@ -27,15 +31,16 @@ AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli = parser.parse_args()
 args_cli.enable_cameras = True
+args_cli.kit_args = append_local_extensions_to_kit_args(args_cli.kit_args)
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
 """Rest everything follows."""
-import omni.isaac.lab.sim as sim_utils
-from omni.isaac.lab.scene import InteractiveScene
-from omni.isaac.lab.sim import SimulationContext
-from omni.isaac.lab.utils.timer import Timer
+import isaaclab.sim as sim_utils
+from isaaclab.scene import InteractiveScene
+from isaaclab.sim import SimulationContext
+from isaaclab.utils.timer import Timer
 from omni.viplanner.collectors import ViewpointSampling, ViewpointSamplingCfg
 from omni.viplanner.config import (
     CarlaSemanticCostMapping,
@@ -137,7 +142,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # Run the main function
-    main()
-    # Close the simulator
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        close_simulation_app(simulation_app)

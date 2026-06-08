@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel", "toml"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,47 +7,70 @@ name = "viplanner"
 version = "0.1.0"
 description = "Visual Imperative Planner for Legged Robots"
 authors = [{name = "Pascal Roth", email = "rothpa@ethz.ch"}]
-license = {file = "LICENSE.txt"}
+license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.11,<3.12"
 keywords = ["robotics", "planning", "legged-robots"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "torch",
-    "torchvision",
-    "PyYAML==6.0",
+    "isaaclab[isaacsim]==2.3.0",
+    "isaacsim[all,extscache]==5.1.0",
+    "torch==2.7.0+cu128",
+    "torchvision==0.22.0+cu128",
+    "torchaudio==2.7.0+cu128",
+    "tensordict==0.11.0",
+    "numpy<2",
+    "PyYAML>=6.0.2",
     "tqdm",
     "matplotlib",
     "networkx",
     "scipy",
-    "open3d==0.17.0",
-    "wandb==0.14.0",
+    "scikit-image",
+    "open3d>=0.19.0",
+    "wandb==0.25.0",
     "opencv-python-headless",
+    "pandas",
+    "trimesh",
+    "setuptools<81",
 ]
 
 [project.optional-dependencies]
-inference = [
-    "mmcv==2.0.0",
-    "mmengine",
-    "mmdet",
-]
 standard = [
     "pypose",
-]
-jetson = [
-    "torch==1.11",
 ]
 
 [project.urls]
 homepage = "https://github.com/pascal-roth/viplanner"
 repository = "https://github.com/pascal-roth/viplanner.git"
 
-[tool.setuptools.packages]
-find = {}
+[tool.uv]
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.uv.extra-build-dependencies]
+flatdict = ["setuptools<81"]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+
+[tool.uv.sources]
+isaacsim = { index = "nvidia" }
+isaaclab = { index = "nvidia" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
+
+[tool.setuptools.packages.find]
+include = ["viplanner*"]

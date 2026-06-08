@@ -6,7 +6,7 @@
 
 # python
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import yaml
@@ -180,11 +180,11 @@ class CostMapConfig:
     map_name: str = "cost_map_sem"
 
     # general cost map configuration
-    general: GeneralCostMapConfig = GeneralCostMapConfig()
+    general: GeneralCostMapConfig = field(default_factory=GeneralCostMapConfig)
 
     # individual cost map configurations
-    sem_cost_map: SemCostMapConfig = SemCostMapConfig()
-    tsdf_cost_map: TsdfCostMapConfig = TsdfCostMapConfig()
+    sem_cost_map: SemCostMapConfig = field(default_factory=SemCostMapConfig)
+    tsdf_cost_map: TsdfCostMapConfig = field(default_factory=TsdfCostMapConfig)
 
     # visualize cost map
     visualize: bool = True

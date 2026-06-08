@@ -17,17 +17,17 @@ import carb
 import omni
 import omni.client
 import omni.ext
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.utils.stage as stage_utils
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.utils.stage as stage_utils
 
 # isaac-core
 import omni.ui as ui
-from omni.isaac.lab.sensors.ray_caster import RayCasterCameraCfg, patterns
-from omni.isaac.lab.sim import SimulationCfg, SimulationContext
+from isaaclab.sensors.ray_caster import RayCasterCameraCfg, patterns
+from isaaclab.sim import SimulationCfg, SimulationContext
 from omni.isaac.matterport.domains import MatterportImporter
 
 # omni-isaac-ui
-from omni.isaac.ui.ui_utils import (
+from isaacsim.gui.components.ui_utils import (
     btn_builder,
     cb_builder,
     dropdown_builder,

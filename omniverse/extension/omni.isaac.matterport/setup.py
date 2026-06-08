@@ -8,7 +8,7 @@
 """Installation script for the 'omni.isaac.matterport' python package."""
 
 
-from setuptools import setup
+from setuptools import find_namespace_packages, setup
 
 # Minimum dependencies required prior to installation
 INSTALL_REQUIRES = [
@@ -28,10 +28,14 @@ setup(
     description="Extension to include Matterport 3D Datasets into Isaac (taken from https://niessner.github.io/Matterport/).",
     keywords=["robotics"],
     include_package_data=True,
-    python_requires=">=3.7",
+    python_requires=">=3.11,<3.12",
     install_requires=INSTALL_REQUIRES,
-    packages=["omni.isaac.matterport"],
-    classifiers=["Natural Language :: English", "Programming Language :: Python :: 3.7"],
+    packages=find_namespace_packages(include=["omni.*"]),
+    classifiers=[
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.11",
+        "Isaac Sim :: 5.1.0",
+    ],
     zip_safe=False,
 )
 

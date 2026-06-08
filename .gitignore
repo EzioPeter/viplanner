@@ -160,3 +160,6 @@ logs/
 *~
 *.bag
 .DS_Store
+
+assets/
+!assets/crosswalk.jpg

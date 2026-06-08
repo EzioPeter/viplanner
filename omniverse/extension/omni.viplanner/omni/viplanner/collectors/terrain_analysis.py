@@ -11,14 +11,14 @@ import builtins
 import carb
 import networkx as nx
 import numpy as np
-import omni.isaac.core.utils.prims as prims_utils
+import isaacsim.core.utils.prims as prims_utils
 import scipy.spatial.transform as tf
 import torch
-from omni.isaac.core.utils.semantics import get_semantics
-from omni.isaac.lab.scene import InteractiveScene
-from omni.isaac.lab.sensors import RayCaster, RayCasterCamera
-from omni.isaac.lab.sim import SimulationContext
-from omni.isaac.lab.utils.warp import raycast_mesh
+from isaacsim.core.utils.semantics import get_semantics
+from isaaclab.scene import InteractiveScene
+from isaaclab.sensors import RayCaster, RayCasterCamera
+from isaaclab.sim import SimulationContext
+from isaaclab.utils.warp import raycast_mesh
 from omni.isaac.matterport.domains import MatterportRayCaster, MatterportRayCasterCamera
 from omni.physx import get_physx_scene_query_interface
 from pxr import Gf, Usd, UsdGeom
@@ -215,7 +215,7 @@ class TerrainAnalysis:
 
             # in headless mode, we cannot visualize the graph and omni.debug.draw is not available
             try:
-                import omni.isaac.debug_draw._debug_draw as omni_debug_draw
+                import isaacsim.util.debug_draw._debug_draw as omni_debug_draw
 
                 draw_interface = omni_debug_draw.acquire_debug_draw_interface()
                 draw_interface.draw_points(
@@ -839,7 +839,7 @@ class TerrainAnalysis:
 
             # in headless mode, we cannot visualize the graph and omni.debug.draw is not available
             try:
-                import omni.isaac.debug_draw._debug_draw as omni_debug_draw
+                import isaacsim.util.debug_draw._debug_draw as omni_debug_draw
 
                 # add small offset to height grid to visualize it
                 hit_point[:, 2] += 0.1

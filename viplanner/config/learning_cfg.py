@@ -131,7 +131,7 @@ class TrainCfg:
     )
     test_env_id: int = 9
     "the test env id in the id list"
-    data_cfg: Union[DataCfg, List[DataCfg]] = DataCfg()
+    data_cfg: Union[DataCfg, List[DataCfg]] = field(default_factory=DataCfg)
     "further data configuration (can be individualized for every environment)"
     multi_epoch_dataloader: bool = False
     "load all samples into RAM s.t. do not have to be reloaded for each epoch"

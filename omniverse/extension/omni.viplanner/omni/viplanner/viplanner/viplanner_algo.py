@@ -7,7 +7,7 @@
 import os
 
 import carb
-import omni.isaac.lab.utils.math as math_utils
+import isaaclab.utils.math as math_utils
 import torch
 import torchvision.transforms as transforms
 
@@ -51,11 +51,15 @@ class VIPlannerAlgo:
 
         # setup waypoint display in Isaac
         # in headless mode, we cannot visualize the graph and omni.debug.draw is not available
+        self.draw = None
         try:
-            import omni.isaac.debug_draw._debug_draw as omni_debug_draw
+            from isaacsim.core.utils.extensions import enable_extension
+
+            enable_extension("isaacsim.util.debug_draw")
+            import isaacsim.util.debug_draw._debug_draw as omni_debug_draw
 
             self.draw = omni_debug_draw.acquire_debug_draw_interface()
-        except ImportError:
+        except Exception:
             print("[WARNING] Graph Visualization is not available in headless mode.")
         self.color_fear = [(1.0, 0.4, 0.1, 1.0)]  # red
         self.color_path = [(0.4, 1.0, 0.1, 1.0)]  # green
@@ -150,6 +154,9 @@ class VIPlannerAlgo:
     ###
 
     def debug_draw(self, paths: torch.Tensor, fear: torch.Tensor, goal: torch.Tensor):
+        if self.draw is None:
+            return
+
         self.draw.clear_lines()
         self.draw.clear_points()
 

@@ -10,9 +10,12 @@ readme  = "docs/README.md"
 
 [dependencies]
 "omni.kit.uiapp" = {}
-"omni.isaac.ui" = {}
-"omni.isaac.core" = {}
-"omni.isaac.lab" = {}
+"isaacsim.gui.components" = {}
+"isaacsim.core.api" = {}
+"isaacsim.core.utils" = {}
+"isaacsim.util.debug_draw" = {}
+"isaaclab" = {}
+"isaaclab_assets" = {}
 
 # Main python module this extension provides.
 [[python.module]]

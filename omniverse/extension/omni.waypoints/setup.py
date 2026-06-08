@@ -7,7 +7,7 @@
 """Installation script for the 'omni.isaac.waypoints' python package."""
 
 
-from setuptools import setup
+from setuptools import find_namespace_packages, setup
 
 # Installation operation
 setup(
@@ -18,9 +18,13 @@ setup(
     description="Extension to extract waypoints in 3D environments.",
     keywords=["robotics"],
     include_package_data=True,
-    python_requires="==3.7.*",
-    packages=["omni.isaac.waypoints"],
-    classifiers=["Natural Language :: English", "Programming Language :: Python :: 3.7"],
+    python_requires=">=3.11,<3.12",
+    packages=find_namespace_packages(include=["omni.*"]),
+    classifiers=[
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.11",
+        "Isaac Sim :: 5.1.0",
+    ],
     zip_safe=False,
 )
 

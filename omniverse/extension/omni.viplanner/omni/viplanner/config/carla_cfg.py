@@ -6,20 +6,23 @@
 
 import os
 
-import omni.isaac.lab.sim as sim_utils
-from omni.isaac.lab.assets import AssetBaseCfg
-from omni.isaac.lab.scene import InteractiveSceneCfg
-from omni.isaac.lab.sensors import CameraCfg, ContactSensorCfg, RayCasterCfg, patterns
-from omni.isaac.lab.utils import configclass
+import isaaclab.sim as sim_utils
+from isaaclab.assets import AssetBaseCfg
+from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import CameraCfg, ContactSensorCfg, RayCasterCfg, patterns
+from isaaclab.utils import configclass
 from omni.viplanner.utils import UnRealImporterCfg
 
 ##
 # Pre-defined configs
 ##
 # isort: off
-from omni.isaac.lab_assets.anymal import ANYMAL_C_CFG
+from isaaclab_assets.robots.anymal import ANYMAL_C_CFG
 from .base_cfg import ViPlannerBaseCfg
 from ..viplanner import DATA_DIR
+
+REPO_ROOT = os.path.abspath(os.path.join(DATA_DIR, "../../../.."))
+CARLA_ASSET_DIR = os.environ.get("VIPLANNER_CARLA_ASSET_DIR", os.path.join(REPO_ROOT, "assets", "new_carla_export"))
 
 ##
 # Scene definition
@@ -40,7 +43,7 @@ class TerrainSceneCfg(InteractiveSceneCfg):
             dynamic_friction=1.0,
         ),
         # NOTE: this path should be absolute to load the textures correctly
-        usd_path="${USER_PATH_TO_USD}/carla.usd",
+        usd_path=os.path.join(CARLA_ASSET_DIR, "carla.usd"),
         groundplane=True,
         cw_config_file=os.path.join(DATA_DIR, "town01", "cw_multiply_cfg.yml"),
         sem_mesh_to_class_map=os.path.join(DATA_DIR, "town01", "keyword_mapping.yml"),

@@ -8,4 +8,5 @@ from .carla_cfg import ViPlannerCarlaCfg
 from .carla_class_cost import CarlaSemanticCostMapping
 from .matterport_cfg import ViPlannerMatterportCfg
 from .matterport_class_cost import MatterportSemanticCostMapping
+from .obstacles_cfg import ViPlannerObstaclesCfg
 from .warehouse_cfg import ViPlannerWarehouseCfg

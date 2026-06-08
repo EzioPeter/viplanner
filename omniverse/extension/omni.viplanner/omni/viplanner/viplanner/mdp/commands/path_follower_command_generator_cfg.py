@@ -9,8 +9,8 @@
 import math
 from dataclasses import MISSING
 
-from omni.isaac.lab.managers import CommandTermCfg
-from omni.isaac.lab.utils.configclass import configclass
+from isaaclab.managers import CommandTermCfg
+from isaaclab.utils.configclass import configclass
 from typing_extensions import Literal
 
 from .path_follower_command_generator import PathFollowerCommandGenerator
@@ -20,6 +20,9 @@ from .path_follower_command_generator import PathFollowerCommandGenerator
 class PathFollowerCommandGeneratorCfg(CommandTermCfg):
     class_type: PathFollowerCommandGenerator = PathFollowerCommandGenerator
     """Name of the command generator class."""
+
+    resampling_time_range: tuple[float, float] = (1.0e9, 1.0e9)
+    """Unused by this command generator, but required by IsaacLab command term validation."""
 
     robot_attr: str = MISSING
     """Name of the robot attribute from the environment."""

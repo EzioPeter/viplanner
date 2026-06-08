@@ -21,7 +21,7 @@ import omni.ext
 import omni.ui as ui
 
 # omni-isaac-ui
-from omni.isaac.ui.ui_utils import btn_builder, get_style, setup_ui_headers, str_builder
+from isaacsim.gui.components.ui_utils import btn_builder, get_style, setup_ui_headers, str_builder
 
 # isaac-waypoints
 from omni.isaac.waypoints.recorder import Recorder

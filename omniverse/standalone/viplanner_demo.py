@@ -11,15 +11,24 @@ This script demonstrates how to use the rigid objects class.
 """Launch Isaac Sim Simulator first."""
 
 import argparse
+import math
+
+from _bootstrap import add_local_extensions_to_pythonpath, append_local_extensions_to_kit_args, close_simulation_app
+
+add_local_extensions_to_pythonpath()
 
 # omni-isaac-lab
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates how to use the camera sensor.")
 parser.add_argument("--conv_distance", default=0.2, type=float, help="Distance for a goal considered to be reached.")
 parser.add_argument(
-    "--scene", default="warehouse", choices=["matterport", "carla", "warehouse"], type=str, help="Scene to load."
+    "--scene",
+    default="warehouse",
+    choices=["matterport", "carla", "warehouse", "obstacles"],
+    type=str,
+    help="Scene to load.",
 )
 parser.add_argument("--model_dir", default=None, type=str, help="Path to model directory.")
 
@@ -28,19 +37,21 @@ AppLauncher.add_app_launcher_args(parser)
 
 args_cli = parser.parse_args()
 args_cli.enable_cameras = True
+args_cli.kit_args = append_local_extensions_to_kit_args(args_cli.kit_args)
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
 """Rest everything follows."""
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 import torch
-from omni.isaac.core.objects import VisualCuboid
-from omni.isaac.lab.envs import ManagerBasedRLEnv
+from isaacsim.core.api.objects import VisualCuboid
+from isaaclab.envs import ManagerBasedRLEnv
 from omni.viplanner.config import (
     ViPlannerCarlaCfg,
     ViPlannerMatterportCfg,
+    ViPlannerObstaclesCfg,
     ViPlannerWarehouseCfg,
 )
 from omni.viplanner.viplanner import VIPlannerAlgo
@@ -49,6 +60,12 @@ from pxr import UsdGeom
 """
 Main
 """
+
+
+def face_goal(env_cfg, goal_pos: torch.Tensor) -> None:
+    robot_pos = env_cfg.scene.robot.init_state.pos
+    yaw = math.atan2(float(goal_pos[1]) - robot_pos[1], float(goal_pos[0]) - robot_pos[0])
+    env_cfg.scene.robot.init_state.rot = (math.cos(yaw / 2.0), 0.0, 0.0, math.sin(yaw / 2.0))
 
 
 def main():
@@ -61,9 +78,15 @@ def main():
     elif args_cli.scene == "carla":
         env_cfg = ViPlannerCarlaCfg(seed=1234)
         goal_pos = torch.tensor([137, 111.0, 1.0])
+        face_goal(env_cfg, goal_pos)
     elif args_cli.scene == "warehouse":
         env_cfg = ViPlannerWarehouseCfg(seed=1234)
         goal_pos = torch.tensor([3, -4.5, 1.0])
+        face_goal(env_cfg, goal_pos)
+    elif args_cli.scene == "obstacles":
+        env_cfg = ViPlannerObstaclesCfg(seed=1234)
+        goal_pos = torch.tensor([0.0, -7.0, 1.0])
+        face_goal(env_cfg, goal_pos)
     else:
         raise NotImplementedError(f"Scene {args_cli.scene} not yet supported!")
 
@@ -106,8 +129,14 @@ def main():
     goals = torch.tensor(goal_pos.Get(), device=env.device).repeat(env.num_envs, 1)
 
     # initial paths
+    goal_cam_frame = viplanner.goal_transformer(
+        goals, obs["planner_transform"]["cam_position"], obs["planner_transform"]["cam_orientation"]
+    )
     _, paths, fear = viplanner.plan_dual(
-        obs["planner_image"]["depth_measurement"], obs["planner_image"]["semantic_measurement"], goals
+        obs["planner_image"]["depth_measurement"], obs["planner_image"]["semantic_measurement"], goal_cam_frame
+    )
+    paths = viplanner.path_transformer(
+        paths, obs["planner_transform"]["cam_position"], obs["planner_transform"]["cam_orientation"]
     )
 
     # Simulate physics
@@ -147,7 +176,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # Run the main function
-    main()
-    # Close the simulator
-    simulation_app.close()
+    try:
+        main()
+    finally:
+        close_simulation_app(simulation_app)

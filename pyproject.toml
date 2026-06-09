@@ -20,6 +20,7 @@ classifiers = [
 dependencies = [
     "isaaclab[isaacsim]==2.3.0",
     "isaacsim[all,extscache]==5.1.0",
+    "rsl-rl-lib==3.0.1",
     "torch==2.7.0+cu128",
     "torchvision==0.22.0+cu128",
     "torchaudio==2.7.0+cu128",
